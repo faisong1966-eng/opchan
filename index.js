@@ -7,7 +7,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const db = new sqlite3.Database("./database.db", (err) => {
+// ปรับให้รองรับ path บน Render หรือสร้างไฟล์ฐานข้อมูลสำรอง
+const dbPath = process.env.NODE_ENV === "production" ? "./database.db" : "./database.db";
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error("เชื่อมต่อฐานข้อมูล failed:", err.message);
   } else {
@@ -244,7 +246,7 @@ app.post("/topup", async (req, res) => {
     }
     let voucherCode = match[1];
 
-    let myWalletPhone = "0812345678"; // อย่าลืมเปลี่ยนเป็นเบอร์วอเลทจริงของคุณ
+    let myWalletPhone = "0812345678"; 
 
     let apiResponse = await axios.post(`https://gift.truemoney.com/campaign/vouchers/${voucherCode}/redeem`, {
       mobile: myWalletPhone,
