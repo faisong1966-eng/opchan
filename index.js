@@ -1,14 +1,23 @@
 const express = require("express");
+const session = require("express-session"); // เพิ่มไลบรารีจัดการ Session
 const sqlite3 = require("sqlite3").verbose();
 const axios = require("axios");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// กำหนดรหัสผ่านสำหรับเข้าหน้าแอดมินตรงนี้ (สามารถเปลี่ยนได้ตามต้องการ)
+// กำหนดรหัสผ่านสำหรับเข้าหน้าแอดมิน
 const ADMIN_PASSWORD = "3579"; 
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// ตั้งค่า Session สำหรับความปลอดภัยในระดับโปรดักชัน
+app.use(session({
+  secret: 'lootbox_super_secret_key_2026',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 600000 } // กำหนดให้ Session หมดอายุใน 10 นาที (เพื่อความปลอดภัย)
+}));
 
 // ปรับให้รองรับ path บน Render หรือสร้างไฟล์ฐานข้อมูลสำรอง
 const dbPath = process.env.NODE_ENV === "production" ? "./database.db" : "./database.db";
@@ -276,24 +285,48 @@ app.post("/topup", async (req, res) => {
   }
 });
 
-// หน้าแอดมิน (ป้องกันด้วยรหัสผ่าน)
+// --- ระบบจัดการหน้าแอดมินแบบปลอดภัย (ใช้ Session และฟอร์ม POST) ---
+
+// ตรวจสอบสิทธิ์และแสดงหน้าล็อกอินแอดมิน (ถ้ายังไม่เข้าสู่ระบบ)
 app.get("/admin", (req, res) => {
-  const pass = req.query.pass;
-  if (pass !== ADMIN_PASSWORD) {
-    return res.send(`
-      <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:80px; font-family:Arial;">
-        <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px;">
-          <h2>🛠️ เข้าสู่ระบบแอดมิน</h2>
-          <form action="/admin" method="GET">
-            <input type="password" name="pass" placeholder="กรอกรหัสผ่านแอดมิน" style="padding:8px; width:220px; border-radius:4px; border:none;" required>
-            <button type="submit" style="padding:8px 15px; background:#ff4757; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">เข้าสู่ระบบ</button>
-          </form>
-          <br><a href="/" style="color:#70a1ff; text-decoration:none;">กลับหน้าแรก</a>
-        </div>
-      </body>
-    `);
+  if (req.session.isAdmin) {
+    return renderAdminDashboard(res);
   }
 
+  res.send(`
+    <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:80px; font-family:Arial;">
+      <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+        <h2>🛠️ เข้าสู่ระบบผู้ดูแลระบบ</h2>
+        <form action="/admin/login" method="POST">
+          <input type="password" name="password" placeholder="กรอกรหัสผ่านแอดมิน" style="padding:10px; width:240px; border-radius:4px; border:none; box-sizing:border-box;" required>
+          <button type="submit" style="padding:10px 15px; background:#ff4757; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; margin-top:10px; width:100%;">เข้าสู่ระบบ</button>
+        </form>
+        <br><a href="/" style="color:#70a1ff; text-decoration:none; margin-top:15px; display:inline-block;">กลับหน้าแรก</a>
+      </div>
+    </body>
+  `);
+});
+
+// รับรหัสผ่านผ่าน POST (ซ่อนรหัสผ่าน ไม่ให้โชว์บน URL)
+app.post("/admin/login", (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    req.session.isAdmin = true; // บันทึกสถานะแอดมินลงใน Session
+    res.redirect("/admin");
+  } else {
+    res.send(`<script>alert("รหัสผ่านแอดมินไม่ถูกต้อง!"); window.location.href="/admin";</script>`);
+  }
+});
+
+// ออกจากระบบแอดมิน (ทำลาย Session)
+app.get("/admin/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.redirect("/admin");
+  });
+});
+
+// ฟังก์ชันแสดงตารางจัดการข้อมูลสมาชิก
+function renderAdminDashboard(res) {
   db.all(`SELECT * FROM users`, [], (err, rows) => {
     let htmlRows = "";
     if (rows) {
@@ -308,11 +341,13 @@ app.get("/admin", (req, res) => {
           <tr><th>ID</th><th>Username</th><th>Points</th></tr>
           ${htmlRows}
         </table>
-        <br><a href="/" style="color:#70a1ff;">กลับหน้าแรก</a>
+        <br>
+        <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; margin-right:15px;">🔒 ออกจากระบบแอดมิน</a>
+        <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
       </body>
     `);
   });
-});
+}
 
 app.listen(PORT, () => {
   console.log("Server running smoothly at port " + PORT);
