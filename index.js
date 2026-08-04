@@ -432,21 +432,38 @@ app.post("/topup", async (req, res) => {
   const { username, giftUrl } = req.body;
 
   try {
-    let match = giftUrl.match(/v=([a-zA-Z0-9]+)/);
-    if (!match) {
+    let voucherCode = giftUrl.trim();
+    if (giftUrl.includes("gift.truemoney.com")) {
+      let match = giftUrl.match(/(?:v=|voucher_hash=)([a-zA-Z0-9]+)/) || giftUrl.match(/\/([a-zA-Z0-9]{15,})/);
+      if (match) {
+        voucherCode = match[1];
+      } else {
+        let parts = giftUrl.split('?v=');
+        if (parts.length > 1) {
+          voucherCode = parts[1].split('&')[0];
+        }
+      }
+    }
+
+    if (!voucherCode || voucherCode.length < 10) {
       return res.json({ success: false, message: "รูปแบบลิงก์ซองของขวัญไม่ถูกต้อง!" });
     }
-    let voucherCode = match[1];
-    let myWalletPhone = "0812345678"; 
+
+    let myWalletPhone = "0643399170"; // ใส่เบอร์ TrueMoney Wallet ของคุณตรงนี้
 
     let apiResponse = await axios.post(`https://gift.truemoney.com/campaign/vouchers/${voucherCode}/redeem`, {
       mobile: myWalletPhone,
       voucher_hash: voucherCode
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
     });
 
     let data = apiResponse.data;
 
-    if (data.status.code === "SUCCESS") {
+    if (data.status && data.status.code === "SUCCESS") {
       let amount = parseFloat(data.data.my_ticket.amount_baht);
 
       db.run(`UPDATE users SET points = points + ? WHERE username = ?`, [amount, username], (err) => {
@@ -457,11 +474,13 @@ app.post("/topup", async (req, res) => {
         }
       });
     } else {
-      res.json({ success: false, message: "ซองของขวัญไม่ถูกต้อง, ถูกใช้งานไปแล้ว, หรือหมดอายุแล้ว!" });
+      let errMessage = data.status && data.status.message ? data.status.message : "ซองของขวัญไม่ถูกต้องหรือถูกใช้งานไปแล้ว";
+      res.json({ success: false, message: `ไม่สามารถเติมเงินได้: ${errMessage}` });
     }
 
   } catch (error) {
-    res.json({ success: false, message: "ไม่สามารถตรวจสอบซองได้ (ซองอาจถูกใช้ไปแล้ว หรือลิงก์ไม่ถูกต้อง)" });
+    console.error("Topup Error:", error.response ? error.response.data : error.message);
+    res.json({ success: false, message: "ไม่สามารถตรวจสอบซองได้ (ซองอาจถูกใช้ไปแล้ว หรือหมดอายุ หรือลิงก์ไม่ถูกต้อง)" });
   }
 });
 
