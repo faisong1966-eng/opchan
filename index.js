@@ -1,7 +1,6 @@
 const express = require("express");
 const session = require("express-session");
 const sqlite3 = require("sqlite3").verbose();
-const axios = require("axios");
 const multer = require("multer");
 const path = require("path");
 const fs = require('fs');
@@ -11,12 +10,19 @@ const PORT = process.env.PORT || 3000;
 // กำหนดรหัสผ่านสำหรับเข้าหน้าแอดมิน
 const ADMIN_PASSWORD = "3579"; 
 
+// ข้อมูลพร้อมเพย์ของคุณ (MyMo ธนาคารออมสิน)
+const MY_PROMPTPAY_NUMBER = "0643399170";
+const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงคุณ";
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// เช็คและสร้างโฟลเดอร์สำหรับเก็บรูป (รองรับ Render Disk หรือ Local)
+const uploadDir = fs.existsSync('/data') ? '/data/uploads' : './public/uploads';
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, './public/uploads');
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
@@ -24,7 +30,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-app.use('/uploads', express.static('public/uploads'));
+app.use('/uploads', express.static(uploadDir));
 
 app.use(session({
   secret: 'lootbox_super_secret_key_2026',
@@ -33,35 +39,44 @@ app.use(session({
   cookie: { maxAge: 600000 }
 }));
 
-if (!fs.existsSync('./public/uploads')) {
-  fs.mkdirSync('./public/uploads', { recursive: true });
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const dbPath = process.env.NODE_ENV === "production" ? "./database.db" : "./database.db";
+const dbPath = fs.existsSync('/data') ? "/data/database.db" : "./database.db";
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error("เชื่อมต่อฐานข้อมูล failed:", err.message);
   } else {
-    console.log("Connected to SQLite database.");
+    console.log("Connected to SQLite database at: " + dbPath);
   }
 });
 
-db.run(`CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE,
-  password TEXT,
-  roblox_img TEXT,
-  points INTEGER DEFAULT 0,
-  total_spent INTEGER DEFAULT 0
-)`);
-
-db.run(`CREATE TABLE IF NOT EXISTS history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT,
-  roblox_img TEXT,
-  reward TEXT,
-  time DATETIME DEFAULT CURRENT_TIMESTAMP
-)`);
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    roblox_img TEXT,
+    points INTEGER DEFAULT 0,
+    total_spent INTEGER DEFAULT 0
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    roblox_img TEXT,
+    reward TEXT,
+    time DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS pending_topup (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    exact_amount REAL,
+    slip_img TEXT,
+    status TEXT DEFAULT 'pending',
+    time DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+});
 
 app.get("/", (req, res) => {
   res.send(`
@@ -81,7 +96,7 @@ app.get("/", (req, res) => {
     <body>
         <div class="container">
             <h1>🎁 Roblox Robux Box</h1>
-            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์ พร้อมระบบการันตี!</p>
+            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์ พร้อมระบบการันตี</p>
             <a href="/login">เข้าสู่ระบบ</a>
             <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
         </div>
@@ -135,7 +150,7 @@ app.post("/register", upload.single('roblox_img'), (req, res) => {
     if (err) {
       res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
     } else {
-      res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (เริ่มต้น 0 แต้ม กรุณาเติมเงินก่อนใช้งาน)"); window.location.href="/login";</script>`);
+      res.send(`<script>alert("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
     }
   });
 });
@@ -196,222 +211,267 @@ app.get("/lootbox", (req, res) => {
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
 
-    res.send(`
-      <!DOCTYPE html>
-      <html lang="th">
-      <head>
-          <meta charset="UTF-8">
-          <title>สุ่มกล่อง Robux พร้อมระบบการันตี</title>
-          <style>
-              body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 20px; }
-              .container { background: #2b2b40; padding: 25px; border-radius: 10px; display: inline-block; width: 460px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-              h1 { color: #ffd700; font-size: 24px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
-              .wallet { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 16px; display: flex; justify-content: space-around; }
-              
-              .box-btn { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; padding: 14px 25px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.2s; }
-              .box-btn:hover { transform: scale(1.02); background: linear-gradient(45deg, #ff6b81, #ff4757); }
-              
-              input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; box-sizing: border-box; }
-              .topup-btn { background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; }
-              .topup-btn:hover { background-color: #26af5f; }
-              .profile-img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; vertical-align: middle; margin-right: 10px; }
-              
-              .reward-showcase { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left; max-height: 100px; overflow-y: auto; font-size: 13px; border: 1px solid #444; }
-              .reward-item { display: inline-block; background: #3d3d5c; padding: 4px 8px; margin: 3px; border-radius: 4px; color: #ffd700; font-weight: bold; }
-              .reward-epic { background: #8e44ad; color: #fff; }
-              .reward-legend { background: #e74c3c; color: #fff; }
+    db.all(`SELECT * FROM pending_topup WHERE username = ? AND status = 'pending'`, [username], (err, pendingRows) => {
+      let pendingHtml = "";
+      if (pendingRows && pendingRows.length > 0) {
+        pendingRows.forEach(p => {
+          pendingHtml += `<li style="color:#ffa502;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
+        });
+      } else {
+        pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
+      }
 
-              .guarantee-box { background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: left; font-size: 13px; }
-              .guarantee-box b { color: #ffa502; }
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="th">
+        <head>
+            <meta charset="UTF-8">
+            <title>สุ่มกล่อง Roblox Robux</title>
+            <style>
+                body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 20px; }
+                .container { background: #2b2b40; padding: 25px; border-radius: 10px; display: inline-block; width: 460px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+                h1 { color: #ffd700; font-size: 24px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+                .wallet { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 16px; display: flex; justify-content: space-around; }
+                
+                .box-btn { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; padding: 14px 25px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.2s; }
+                .box-btn:hover { transform: scale(1.02); background: linear-gradient(45deg, #ff6b81, #ff4757); }
+                
+                input[type="number"] { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; box-sizing: border-box; }
+                .topup-btn { background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; }
+                .topup-btn:hover { background-color: #26af5f; }
+                .profile-img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; vertical-align: middle; margin-right: 10px; }
+                
+                .reward-showcase { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left; max-height: 100px; overflow-y: auto; font-size: 13px; border: 1px solid #444; }
+                .reward-item { display: inline-block; background: #3d3d5c; padding: 4px 8px; margin: 3px; border-radius: 4px; color: #ffd700; font-weight: bold; }
+                .reward-epic { background: #8e44ad; color: #fff; }
+                .reward-legend { background: #e74c3c; color: #fff; }
 
-              #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; }
-              
-              .epic-glow {
-                  animation: epicFlash 0.5s infinite alternate;
-                  box-shadow: 0 0 25px #ffd700, inset 0 0 15px #ff4757;
-                  border: 2px solid #ffd700;
-              }
+                .guarantee-box { background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: left; font-size: 13px; }
+                .guarantee-box b { color: #ffa502; }
 
-              @keyframes epicFlash {
-                  0% { background-color: rgba(255, 215, 0, 0.2); }
-                  100% { background-color: rgba(255, 71, 87, 0.4); }
-              }
+                #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; }
+                
+                .epic-glow {
+                    animation: epicFlash 0.5s infinite alternate;
+                    box-shadow: 0 0 25px #ffd700, inset 0 0 15px #ff4757;
+                    border: 2px solid #ffd700;
+                }
 
-              hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
-              a { display: block; margin-top: 15px; color: #ff4757; text-decoration: none; }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <h1>🎁 สุ่มกล่อง Roblox Robux</h1>
-              
-              <div style="margin-bottom: 15px; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                  <img src="${robloxImg}" class="profile-img">
-                  <span>ผู้ใช้งาน: <b>${username}</b></span>
-              </div>
-              
-              <div class="wallet">
-                  <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
-                  <div>🎯 ยอดสุ่มสะสม: <span id="spent">${totalSpent}</span> บาท</div>
-              </div>
+                @keyframes epicFlash {
+                    0% { background-color: rgba(255, 215, 0, 0.2); }
+                    100% { background-color: rgba(255, 71, 87, 0.4); }
+                }
 
-              <!-- ระบบการันตี (แสดงเงื่อนไขให้ผู้เล่นเห็นชัดเจน) -->
-              <div class="guarantee-box">
-                  <b>🛡️ ระบบการันตีสุดคุ้ม (ยอดสะสม):</b><br>
-                  • ครบ <b>100 บาท</b> การันตีรับ <b>100 Robux</b><br>
-                  • ครบ <b>300 บาท</b> การันตีรับ <b>300 Robux</b><br>
-                  • ครบ <b>500 บาท</b> การันตีรับ <b>500 Robux</b><br>
-                  • ครบ <b>1,000 บาท</b> การันตีรับ <b>1,000 Robux</b>
-              </div>
-              
-              <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
-              <div class="reward-showcase">
-                  <span class="reward-item">0 - 10 Robux</span>
-                  <span class="reward-item">15 - 20 Robux</span>
-                  <span class="reward-item reward-epic">30 - 50 Robux</span>
-                  <span class="reward-item reward-legend">100 Robux 🔥</span>
-                  <span class="reward-item reward-legend">500 Robux 💎</span>
-                  <span class="reward-item reward-legend">1,000 Robux 👑</span>
-              </div>
+                hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
+                a { display: block; margin-top: 15px; color: #ff4757; text-decoration: none; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎁 สุ่มกล่อง Roblox Robux</h1>
+                
+                <div style="margin-bottom: 15px; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                    <img src="${robloxImg}" class="profile-img">
+                    <span>ผู้ใช้งาน: <b>${username}</b></span>
+                </div>
+                
+                <div class="wallet">
+                    <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
+                    <div>🎯 ยอดสุ่มสะสม: <span id="spent">${totalSpent}</span> บาท</div>
+                </div>
 
-              <button class="box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (1 แต้ม/ครั้ง)</button>
-              
-              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
+                <div class="guarantee-box">
+                    <b>🛡️ ระบบการันตีสุดคุ้ม (ยอดสะสม):</b><br>
+                    • ครบ <b>100 บาท</b> การันตีรับ <b>100 Robux</b><br>
+                    • ครบ <b>300 บาท</b> การันตีรับ <b>300 Robux</b><br>
+                    • ครบ <b>500 บาท</b> การันตีรับ <b>500 Robux</b><br>
+                    • ครบ <b>1,000 บาท</b> การันตีรับ <b>1,000 Robux</b>
+                </div>
+                
+                <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
+                <div class="reward-showcase">
+                    <span class="reward-item">0 - 10 Robux</span>
+                    <span class="reward-item">15 - 20 Robux</span>
+                    <span class="reward-item reward-epic">30 - 50 Robux</span>
+                    <span class="reward-item reward-legend">100 Robux 🔥</span>
+                    <span class="reward-item reward-legend">500 Robux 💎</span>
+                    <span class="reward-item reward-legend">1,000 Robux 👑</span>
+                </div>
 
-              <hr>
+                <button class="box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (1 แต้ม/ครั้ง)</button>
+                
+                <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
 
-              <h3>💸 เติมเงินด้วยซองของขวัญ TrueMoney</h3>
-              <p style="font-size: 13px; color: #aaa;">นำลิงก์ซองอั่งเปามาวาง (1 บาท = 1 แต้ม)</p>
-              <input type="text" id="giftUrl" placeholder="https://gift.truemoney.com/campaign/?v=...">
-              <button class="topup-btn" onclick="topupWallet()">ยืนยันการเติมเงิน</button>
+                <hr>
 
-              <a href="/">ออกจากระบบ</a>
-          </div>
+                <h3>⚡ เติมเงินผ่าน MyMo (พร้อมเพย์)</h3>
+                <p style="font-size: 13px; color: #aaa; text-align: left;">1. ใส่จำนวนเงินเพื่อสร้าง QR<br>2. สแกนโอนผ่าน MyMo แล้วอัปโหลดสลิป</p>
+                
+                <form action="/create-topup" method="POST" style="text-align: left;">
+                    <input type="hidden" name="username" value="${username}">
+                    <label style="font-size: 13px;">จำนวนเงินที่ต้องการเติม (บาท):</label>
+                    <input type="number" name="amount" placeholder="เช่น 50" required>
+                    <button type="submit" class="topup-btn">สร้าง QR Code สแกนจ่าย</button>
+                </form>
 
-          <script>
-              let userPoints = ${currentPoints};
-              let userSpent = ${totalSpent};
-              
-              function playSound(type) {
-                  try {
-                      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                      let notes = type === 'jackpot' ? [523.25, 659.25, 783.99, 1046.50] : [300, 150];
-                      notes.forEach((freq, index) => {
-                          let o = audioCtx.createOscillator();
-                          let g = audioCtx.createGain();
-                          o.connect(g);
-                          g.connect(audioCtx.destination);
-                          o.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * 0.1));
-                          g.gain.setValueAtTime(0.15, audioCtx.currentTime + (index * 0.1));
-                          g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + (index * 0.1) + 0.3);
-                          o.start(audioCtx.currentTime + (index * 0.1));
-                          o.stop(audioCtx.currentTime + (index * 0.1) + 0.3);
-                      });
-                  } catch(e) {}
-              }
+                <div style="text-align:left; margin-top:15px; background:rgba(0,0,0,0.3); padding:10px; border-radius:5px;">
+                    <b style="font-size:13px; color:#ffd700;">📌 สถานะการเติมเงิน:</b>
+                    <ul style="padding-left:15px; margin:5px 0;">${pendingHtml}</ul>
+                </div>
 
-              function openBox() {
-                  if (userPoints < 1) {
-                      alert("แต้มของคุณไม่พอใช้งาน! กรุณาเติมเงินก่อนครับ");
-                      return;
-                  }
-                  userPoints -= 1;
-                  userSpent += 1;
-                  document.getElementById("points").innerText = userPoints;
-                  document.getElementById("spent").innerText = userSpent;
-                  
-                  const resBox = document.getElementById("result-box");
-                  resBox.className = "";
-                  resBox.innerText = "🌀 กำลังเปิดกล่องลุ้นระทึก...";
+                <a href="/">ออกจากระบบ</a>
+            </div>
 
-                  setTimeout(() => {
-                      let reward = "";
-                      let isGuarantee = false;
+            <script>
+                let userPoints = ${currentPoints};
+                let userSpent = ${totalSpent};
+                
+                function playSound(type) {
+                    try {
+                        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        let notes = type === 'jackpot' ? [523.25, 659.25, 783.99, 1046.50] : [300, 150];
+                        notes.forEach((freq, index) => {
+                            let o = audioCtx.createOscillator();
+                            let g = audioCtx.createGain();
+                            o.connect(g);
+                            g.connect(audioCtx.destination);
+                            o.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * 0.1));
+                            g.gain.setValueAtTime(0.15, audioCtx.currentTime + (index * 0.1));
+                            g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + (index * 0.1) + 0.3);
+                            o.start(audioCtx.currentTime + (index * 0.1));
+                            o.stop(audioCtx.currentTime + (index * 0.1) + 0.3);
+                        });
+                    } catch(e) {}
+                }
 
-                      // ตรวจสอบระบบการันตีตามยอดสะสมที่ตั้งไว้
-                      if (userSpent === 1000) {
-                          reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
-                          isGuarantee = true;
-                      } else if (userSpent === 500) {
-                          reward = "500 Robux (🛡️ การันตีสะสมครบ 500 บาท!)";
-                          isGuarantee = true;
-                      } else if (userSpent === 300) {
-                          reward = "300 Robux (🛡️ การันตีสะสมครบ 300 บาท!)";
-                          isGuarantee = true;
-                      } else if (userSpent === 100) {
-                          reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
-                          isGuarantee = true;
-                      } else {
-                          // สุ่มปกติถ้ายังไม่ถึงยอดการันตี
-                          const rand = Math.random() * 100;
-                          if (rand < 0.001) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
-                          else if (rand < 0.01) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
-                          else if (rand < 0.05) reward = "100 Robux (🔥 แจ็คพอตแตก!)";
-                          else if (rand < 0.15) reward = "50 Robux (✨ สุดยอดรางวัล!)";
-                          else if (rand < 0.4) reward = "30 Robux";
-                          else if (rand < 1.0) reward = "20 Robux";
-                          else if (rand < 2.2) reward = "15 Robux";
-                          else if (rand < 4.5) reward = "10 Robux";
-                          else if (rand < 8.0) reward = "9 Robux";
-                          else if (rand < 13.0) reward = "8 Robux";
-                          else if (rand < 19.0) reward = "7 Robux";
-                          else if (rand < 26.0) reward = "6 Robux";
-                          else if (rand < 35.0) reward = "5 Robux";
-                          else if (rand < 45.0) reward = "4 Robux";
-                          else if (rand < 57.0) reward = "3 Robux";
-                          else if (rand < 70.0) reward = "2 Robux";
-                          else if (rand < 90.0) reward = "1 Robux";
-                          else reward = "0 Robux (😢 เกลือสนั่น)";
-                      }
+                function openBox() {
+                    if (userPoints < 1) {
+                        alert("แต้มของคุณไม่พอใช้งาน! กรุณาเติมเงินก่อนครับ");
+                        return;
+                    }
+                    userPoints -= 1;
+                    userSpent += 1;
+                    document.getElementById("points").innerText = userPoints;
+                    document.getElementById("spent").innerText = userSpent;
+                    
+                    const resBox = document.getElementById("result-box");
+                    resBox.className = "";
+                    resBox.innerText = "🌀 กำลังเปิดกล่องลุ้นระทึก...";
 
-                      let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
+                    setTimeout(() => {
+                        let reward = "";
+                        let isGuarantee = false;
 
-                      if (isGuarantee || reward.includes("แจ็คพอต") || reward.includes("100 Robux") || reward.includes("500 Robux") || reward.includes("1,000 Robux")) {
-                          playSound('jackpot');
-                          resBox.className = "epic-glow";
-                          resBox.innerHTML = "🎉 <span style='color:#ffd700; font-size:18px;'>ยอดเยี่ยม! คุณได้รับรางวัลใหญ่/การันตี!</span><br>ได้รับ: <b>" + reward + "</b>" + noticeText;
-                      } else {
-                          playSound('normal');
-                          resBox.style.color = "#2ed573";
-                          resBox.innerHTML = "🎉 ผลลัพธ์: ได้รับ <b>" + reward + "</b>" + noticeText;
-                      }
+                        if (userSpent === 1000) {
+                            reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
+                            isGuarantee = true;
+                        } else if (userSpent === 500) {
+                            reward = "500 Robux (🛡️ การันตีสะสมครบ 500 บาท!)";
+                            isGuarantee = true;
+                        } else if (userSpent === 300) {
+                            reward = "300 Robux (🛡️ การันตีสะสมครบ 300 บาท!)";
+                            isGuarantee = true;
+                        } else if (userSpent === 100) {
+                            reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
+                            isGuarantee = true;
+                        } else {
+                            const rand = Math.random() * 100;
+                            if (rand < 0.001) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
+                            else if (rand < 0.01) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
+                            else if (rand < 0.05) reward = "100 Robux (🔥 แจ็คพอตแตก!)";
+                            else if (rand < 0.15) reward = "50 Robux (✨ สุดยอดรางวัล!)";
+                            else if (rand < 0.4) reward = "30 Robux";
+                            else if (rand < 1.0) reward = "20 Robux";
+                            else if (rand < 2.2) reward = "15 Robux";
+                            else if (rand < 4.5) reward = "10 Robux";
+                            else if (rand < 8.0) reward = "9 Robux";
+                            else if (rand < 13.0) reward = "8 Robux";
+                            else if (rand < 19.0) reward = "7 Robux";
+                            else if (rand < 26.0) reward = "6 Robux";
+                            else if (rand < 35.0) reward = "5 Robux";
+                            else if (rand < 45.0) reward = "4 Robux";
+                            else if (rand < 57.0) reward = "3 Robux";
+                            else if (rand < 70.0) reward = "2 Robux";
+                            else if (rand < 90.0) reward = "1 Robux";
+                            else reward = "0 Robux (😢 เกลือสนั่น)";
+                        }
 
-                      // ส่งข้อมูลไปอัปเดตยอดสะสมและประวัติหลังบ้าน
-                      fetch('/save-history', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ username: '${username}', reward: reward })
-                      });
-                  }, 600);
-              }
+                        let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
 
-              function topupWallet() {
-                  const url = document.getElementById("giftUrl").value;
-                  if (!url) {
-                      alert("กรุณากรอกลิงก์ซองของขวัญก่อนครับ!");
-                      return;
-                  }
+                        if (isGuarantee || reward.includes("แจ็คพอต") || reward.includes("100 Robux") || reward.includes("500 Robux") || reward.includes("1,000 Robux")) {
+                            playSound('jackpot');
+                            resBox.className = "epic-glow";
+                            resBox.innerHTML = "🎉 <span style='color:#ffd700; font-size:18px;'>ยอดเยี่ยม! คุณได้รับรางวัลใหญ่/การันตี!</span><br>ได้รับ: <b>" + reward + "</b>" + noticeText;
+                        } else {
+                            playSound('normal');
+                            resBox.style.color = "#2ed573";
+                            resBox.innerHTML = "🎉 ผลลัพธ์: ได้รับ <b>" + reward + "</b>" + noticeText;
+                        }
 
-                  fetch('/topup', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ username: '${username}', giftUrl: url })
-                  })
-                  .then(response => response.json())
-                  .then(data => {
-                      alert(data.message);
-                      if (data.success) {
-                          location.reload();
-                      }
-                  })
-                  .catch(error => {
-                      alert("เกิดข้อผิดพลาดในการเชื่อมต่อกับระบบเติมเงิน!");
-                  });
-              }
-          </script>
-      </body>
-      </html>
-    `);
+                        fetch('/save-history', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: '${username}', reward: reward })
+                        });
+                    }, 600);
+                }
+            </script>
+        </body>
+        </html>
+      `);
+    });
+  });
+});
+
+app.post("/create-topup", (req, res) => {
+  const { username, amount } = req.body;
+  const randomDecimal = (Math.floor(Math.random() * 99) + 1) / 100;
+  const exactAmount = parseFloat(amount) + randomDecimal;
+  const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount.toFixed(2)}.png`;
+
+  res.send(`
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สแกนและแนบสลิป</title>
+    <style>
+        body { font-family: Arial; background: #1e1e2f; color: #fff; text-align: center; padding-top: 30px; }
+        .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
+    </style></head>
+    <body><div class="box">
+        <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายด้วย MyMo</h2>
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        
+        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
+            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
+        </div>
+        
+        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount.toFixed(2)} บาท</h2>
+        <p style="font-size:12px; color:#ff4757; text-align:center;">⚠️ โอนให้ตรงกับเศษสตางค์เป๊ะๆ</p>
+        
+        <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
+
+        <form action="/upload-slip" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="username" value="${username}">
+            <input type="hidden" name="exact_amount" value="${exactAmount.toFixed(2)}">
+            
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
+            <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
+            
+            <button type="submit" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
+        </form>
+
+        <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
+    </div></body></html>
+  `);
+});
+
+app.post("/upload-slip", upload.single('slip_img'), (req, res) => {
+  const { username, exact_amount } = req.body;
+  const slipImg = req.file ? `/uploads/${req.file.filename}` : "";
+
+  db.run(`INSERT INTO pending_topup (username, exact_amount, slip_img, status) VALUES (?, ?, ?, 'pending')`, [username, exact_amount, slipImg], (err) => {
+    if (err) {
+      return res.send(`<script>alert("เกิดข้อผิดพลาด กรุณาลองใหม่"); window.location.href="/lootbox?username=${username}";</script>`);
+    }
+    res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
   });
 });
 
@@ -419,7 +479,6 @@ app.post("/save-history", (req, res) => {
   const { username, reward } = req.body;
   db.get(`SELECT roblox_img FROM users WHERE username = ?`, [username], (err, row) => {
     if (row) {
-      // ตัดแต้มลดลง 1 และเพิ่มยอดสะสม total_spent ทีละ 1 ทุกครั้งที่กดสุ่ม
       db.run(`UPDATE users SET points = points - 1, total_spent = total_spent + 1 WHERE username = ?`, [username], () => {
         db.run(`INSERT INTO history (username, roblox_img, reward) VALUES (?, ?, ?)`, [username, row.roblox_img, reward]);
       });
@@ -428,63 +487,6 @@ app.post("/save-history", (req, res) => {
   res.sendStatus(200);
 });
 
-app.post("/topup", async (req, res) => {
-  const { username, giftUrl } = req.body;
-
-  try {
-    let voucherCode = giftUrl.trim();
-    if (giftUrl.includes("gift.truemoney.com")) {
-      let match = giftUrl.match(/(?:v=|voucher_hash=)([a-zA-Z0-9]+)/) || giftUrl.match(/\/([a-zA-Z0-9]{15,})/);
-      if (match) {
-        voucherCode = match[1];
-      } else {
-        let parts = giftUrl.split('?v=');
-        if (parts.length > 1) {
-          voucherCode = parts[1].split('&')[0];
-        }
-      }
-    }
-
-    if (!voucherCode || voucherCode.length < 10) {
-      return res.json({ success: false, message: "รูปแบบลิงก์ซองของขวัญไม่ถูกต้อง!" });
-    }
-
-    let myWalletPhone = "0643399170"; // ใส่เบอร์ TrueMoney Wallet ของคุณตรงนี้
-
-    let apiResponse = await axios.post(`https://gift.truemoney.com/campaign/vouchers/${voucherCode}/redeem`, {
-      mobile: myWalletPhone,
-      voucher_hash: voucherCode
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    });
-
-    let data = apiResponse.data;
-
-    if (data.status && data.status.code === "SUCCESS") {
-      let amount = parseFloat(data.data.my_ticket.amount_baht);
-
-      db.run(`UPDATE users SET points = points + ? WHERE username = ?`, [amount, username], (err) => {
-        if (err) {
-          res.json({ success: false, message: "เติมเงินสำเร็จ แต่บันทึกแต้มลงฐานข้อมูลไม่สำเร็จ!" });
-        } else {
-          res.json({ success: true, message: `เติมเงินสำเร็จ! คุณได้รับ ${amount} แต้มเข้าบัญชีแล้ว` });
-        }
-      });
-    } else {
-      let errMessage = data.status && data.status.message ? data.status.message : "ซองของขวัญไม่ถูกต้องหรือถูกใช้งานไปแล้ว";
-      res.json({ success: false, message: `ไม่สามารถเติมเงินได้: ${errMessage}` });
-    }
-
-  } catch (error) {
-    console.error("Topup Error:", error.response ? error.response.data : error.message);
-    res.json({ success: false, message: "ไม่สามารถตรวจสอบซองได้ (ซองอาจถูกใช้ไปแล้ว หรือหมดอายุ หรือลิงก์ไม่ถูกต้อง)" });
-  }
-});
-
-// --- หน้าแอดมิน ---
 app.get("/admin", (req, res) => {
   if (req.session.isAdmin) {
     return renderAdminDashboard(res);
@@ -495,7 +497,7 @@ app.get("/admin", (req, res) => {
       <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
         <h2>🛠️ เข้าสู่ระบบผู้ดูแลระบบ</h2>
         <form action="/admin/login" method="POST">
-          <input type="password" name="password" placeholder="กรอกรหัสผ่านแอดมิน" style="padding:10px; width:240px; border-radius:4px; border:none; box-sizing:border-box;" required>
+          <input type="password" name="password" placeholder="รหัสผ่านแอดมิน" style="padding:10px; width:240px; border-radius:4px; border:none; box-sizing:border-box;" required>
           <button type="submit" style="padding:10px 15px; background:#ff4757; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; margin-top:10px; width:100%;">เข้าสู่ระบบ</button>
         </form>
         <br><a href="/" style="color:#70a1ff; text-decoration:none; margin-top:15px; display:inline-block;">กลับหน้าแรก</a>
@@ -510,7 +512,7 @@ app.post("/admin/login", (req, res) => {
     req.session.isAdmin = true;
     res.redirect("/admin");
   } else {
-    res.send(`<script>alert("รหัสผ่านแอดมินไม่ถูกต้อง!"); window.location.href="/admin";</script>`);
+    res.send(`<script>alert("รหัสผ่านไม่ถูกต้อง!"); window.location.href="/admin";</script>`);
   }
 });
 
@@ -520,54 +522,133 @@ app.get("/admin/logout", (req, res) => {
   });
 });
 
+app.post("/admin/approve-topup", (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { topup_id, username, exact_amount } = req.body;
+  const pointsToAdd = Math.floor(parseFloat(exact_amount));
+
+  db.run(`UPDATE users SET points = points + ? WHERE username = ?`, [pointsToAdd, username], () => {
+    db.run(`UPDATE pending_topup SET status = 'completed' WHERE id = ?`, [topup_id], () => {
+      res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+    });
+  });
+});
+
+app.post("/admin/update-points", (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { username, points, action } = req.body;
+  const numPoints = parseInt(points) || 0;
+
+  let sql = action === "add" ? 
+    `UPDATE users SET points = points + ? WHERE username = ?` : 
+    `UPDATE users SET points = MAX(0, points - ?) WHERE username = ?`;
+
+  db.run(sql, [numPoints, username], () => {
+    res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
+  });
+});
+
 function renderAdminDashboard(res) {
   db.all(`SELECT * FROM users`, [], (err, usersRows) => {
-    db.all(`SELECT * FROM history ORDER BY id DESC`, [], (err, historyRows) => {
-      let userHtml = "";
-      if (usersRows) {
-        usersRows.forEach(u => {
-          userHtml += `<tr>
-            <td>${u.id}</td>
-            <td><b>${u.username}</b></td>
-            <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
-            <td>${u.points} แต้ม</td>
-            <td>${u.total_spent || 0} บาท</td>
-          </tr>`;
-        });
-      }
+    db.all(`SELECT * FROM pending_topup WHERE status = 'pending' ORDER BY id DESC`, [], (err, pendingRows) => {
+      db.all(`SELECT * FROM history ORDER BY id DESC`, [], (err, historyRows) => {
+        
+        let pendingSlipHtml = "";
+        if (pendingRows && pendingRows.length > 0) {
+          pendingRows.forEach(p => {
+            pendingSlipHtml += `<tr>
+              <td>${p.id}</td>
+              <td><b>${p.username}</b></td>
+              <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b></td>
+              <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
+              <td>${p.time}</td>
+              <td>
+                <form action="/admin/approve-topup" method="POST" style="margin:0;">
+                  <input type="hidden" name="topup_id" value="${p.id}">
+                  <input type="hidden" name="username" value="${p.username}">
+                  <input type="hidden" name="exact_amount" value="${p.exact_amount}">
+                  <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติแต้ม</button>
+                </form>
+              </td>
+            </tr>`;
+          });
+        } else {
+          pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
+        }
 
-      let historyHtml = "";
-      if (historyRows) {
-        historyRows.forEach(h => {
-          historyHtml += `<tr>
-            <td>${h.id}</td>
-            <td><b>${h.username}</b></td>
-            <td><img src="${h.roblox_img}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
-            <td style="color:#ffd700; font-size:15px;"><b>${h.reward}</b></td>
-            <td>${h.time}</td>
-          </tr>`;
-        });
-      }
+        let userHtml = "";
+        if (usersRows) {
+          usersRows.forEach(u => {
+            userHtml += `<tr>
+              <td>${u.id}</td>
+              <td><b>${u.username}</b></td>
+              <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
+              <td>${u.points} แต้ม</td>
+              <td>${u.total_spent || 0} บาท</td>
+            </tr>`;
+          });
+        }
 
-      res.send(`
-        <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px; font-family:Arial;">
-          <h2>🛠️ ระบบจัดการหลังบ้าน (แอดมิน)</h2>
-          <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; display:inline-block; margin-bottom:20px;">🔒 ออกจากระบบแอดมิน</a>
-          <a href="/" style="color:#70a1ff; text-decoration:none; margin-left:15px;">🏠 กลับหน้าแรก</a>
+        let historyHtml = "";
+        if (historyRows) {
+          historyRows.forEach(h => {
+            historyHtml += `<tr>
+              <td>${h.id}</td>
+              <td><b>${h.username}</b></td>
+              <td><img src="${h.roblox_img}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
+              <td style="color:#ffd700;"><b>${h.reward}</b></td>
+              <td>${h.time}</td>
+            </tr>`;
+          });
+        }
 
-          <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
-          <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 650px; background:#2b2b40; border-color:#444;">
-            <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th></tr>
-            ${userHtml}
-          </table>
+        res.send(`
+          <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:30px; font-family:Arial;">
+            <h2>🛠️ ระบบจัดการหลังบ้าน (แอดมิน)</h2>
+            <div style="margin-bottom: 20px;">
+                <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; margin-right:15px;">🔒 ออกจากระบบ</a>
+                <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
+            </div>
 
-          <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง (ตรวจสอบรูปโปรไฟล์เพื่อทยอยส่ง Robux)</h3>
-          <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
-            <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox (คลิกดูเพื่อแอดเพื่อน)</th><th style="padding:8px;">รางวัลที่ได้ / การันตี</th><th style="padding:8px;">เวลา</th></tr>
-            ${historyHtml}
-          </table>
-        </body>
-      `);
+            <h3 style="color:#ffd700;">📥 รายการสลิปรอตรวจสอบการเติมเงิน</h3>
+            <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
+              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">ยอดเงิน</th><th style="padding:8px;">รูปสลิป (คลิกดูภาพใหญ่)</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
+              ${pendingSlipHtml}
+            </table>
+
+            <div style="background:#2b2b40; padding:20px; border-radius:8px; display:inline-block; width:500px; margin-bottom:25px; text-align:left; border:1px solid #444;">
+                <h3 style="margin-top:0; color:#ffd700;">⚙️ จัดการแต้มสมาชิก (Manual)</h3>
+                <form action="/admin/update-points" method="POST">
+                    <label style="font-size:13px; display:block; margin-top:8px;">Username สมาชิก:</label>
+                    <input type="text" name="username" placeholder="ระบุชื่อผู้ใช้" required style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; border-radius:4px; border:none;">
+                    
+                    <label style="font-size:13px; display:block; margin-top:8px;">จำนวนแต้ม:</label>
+                    <input type="number" name="points" placeholder="เช่น 50" required style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; border-radius:4px; border:none;">
+                    
+                    <label style="font-size:13px; display:block; margin-top:8px;">การกระทำ:</label>
+                    <select name="action" style="width:100%; padding:8px; margin-top:4px; border-radius:4px; border:none;">
+                        <option value="add">➕ เติมแต้มเพิ่ม</option>
+                        <option value="subtract">➖ หักแต้มออก</option>
+                    </select>
+                    
+                    <button type="submit" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:4px; margin-top:15px; font-weight:bold; cursor:pointer;">ยืนยันการทำรายการ</button>
+                </form>
+            </div>
+
+            <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
+            <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 650px; background:#2b2b40; border-color:#444;">
+              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th></tr>
+              ${userHtml}
+            </table>
+
+            <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง</h3>
+            <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
+              <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">รางวัลที่ได้</th><th style="padding:8px;">เวลา</th></tr>
+              ${historyHtml}
+            </table>
+          </body>
+        `);
+      });
     });
   });
 }
