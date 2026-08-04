@@ -630,7 +630,7 @@ function renderAdminDashboard(res) {
             userHtml += `<tr>
               <td>${u.id}</td>
               <td><b>${u.username}</b></td>
-              <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
+              <td><a href="${u.roblox_img}" target="_blank"><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;" title="คลิกเพื่อดูรูปใหญ่"></a></td>
               <td>${u.points} แต้ม</td>
               <td>${u.total_spent || 0} บาท</td>
               <td>
@@ -650,7 +650,7 @@ function renderAdminDashboard(res) {
           summaryRows.forEach(s => {
             summaryHtml += `<tr>
               <td><b>${s.username}</b></td>
-              <td><img src="${s.roblox_img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
+              <td><a href="${s.roblox_img}" target="_blank"><img src="${s.roblox_img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;" title="คลิกเพื่อดูรูปใหญ่"></a></td>
               <td style="color:#00d2d3; font-weight:bold;">สุ่มไป ${s.total_opens} ครั้ง</td>
               <td style="color:#2ed573; font-size:16px; font-weight:bold;">รวมได้ ${s.total_robux || 0} Robux</td>
               <td>
@@ -682,13 +682,13 @@ function renderAdminDashboard(res) {
 
             <h3 style="color:#ffd700;">🎁 สรุปยอดรวมรางวัล Robux แยกตามรายชื่อผู้ใช้</h3>
             <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-              <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวนครั้งที่สุ่ม</th><th style="padding:8px;">ยอดรวม Robux ที่ต้องแจก</th><th style="padding:8px;">จัดการ / ดูรายละเอียด</th></tr>
+              <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox (คลิกซูมดูภาพ)</th><th style="padding:8px;">จำนวนครั้งที่สุ่ม</th><th style="padding:8px;">ยอดรวม Robux ที่ต้องแจก</th><th style="padding:8px;">จัดการ / ดูรายละเอียด</th></tr>
               ${summaryHtml}
             </table>
 
             <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้มด่วนหลังชื่อ)</h3>
             <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
-              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่ายสะสม</th><th style="padding:8px;">จัดการแต้ม (+/-)</th></tr>
+              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox (คลิกซูมดูภาพ)</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่ายสะสม</th><th style="padding:8px;">จัดการแต้ม (+/-)</th></tr>
               ${userHtml}
             </table>
           </body>
