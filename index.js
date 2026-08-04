@@ -585,6 +585,14 @@ function renderAdminDashboard(res) {
               <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
               <td>${u.points} แต้ม</td>
               <td>${u.total_spent || 0} บาท</td>
+              <td>
+                <form action="/admin/update-points" method="POST" style="display:inline-flex; gap:5px; align-items:center; margin:0;">
+                  <input type="hidden" name="username" value="${u.username}">
+                  <input type="number" name="points" value="1" min="1" style="width:50px; padding:4px; text-align:center; border-radius:4px; border:none;">
+                  <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold;" title="เพิ่มแต้ม">➕</button>
+                  <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
+                </form>
+              </td>
             </tr>`;
           });
         }
@@ -616,32 +624,13 @@ function renderAdminDashboard(res) {
               ${pendingSlipHtml}
             </table>
 
-            <div style="background:#2b2b40; padding:20px; border-radius:8px; display:inline-block; width:500px; margin-bottom:25px; text-align:left; border:1px solid #444;">
-                <h3 style="margin-top:0; color:#ffd700;">⚙️ จัดการแต้มสมาชิก (Manual)</h3>
-                <form action="/admin/update-points" method="POST">
-                    <label style="font-size:13px; display:block; margin-top:8px;">Username สมาชิก:</label>
-                    <input type="text" name="username" placeholder="ระบุชื่อผู้ใช้" required style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; border-radius:4px; border:none;">
-                    
-                    <label style="font-size:13px; display:block; margin-top:8px;">จำนวนแต้ม:</label>
-                    <input type="number" name="points" placeholder="เช่น 50" required style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box; border-radius:4px; border:none;">
-                    
-                    <label style="font-size:13px; display:block; margin-top:8px;">การกระทำ:</label>
-                    <select name="action" style="width:100%; padding:8px; margin-top:4px; border-radius:4px; border:none;">
-                        <option value="add">➕ เติมแต้มเพิ่ม</option>
-                        <option value="subtract">➖ หักแต้มออก</option>
-                    </select>
-                    
-                    <button type="submit" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:4px; margin-top:15px; font-weight:bold; cursor:pointer;">ยืนยันการทำรายการ</button>
-                </form>
-            </div>
-
-            <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
-            <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 650px; background:#2b2b40; border-color:#444;">
-              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th></tr>
+            <h3 style="color:#ffd700;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้มด่วนหลังชื่อ)</h3>
+            <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
+              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่ายสะสม</th><th style="padding:8px;">จัดการแต้ม (+/-)</th></tr>
               ${userHtml}
             </table>
 
-            <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง</h3>
+            <h3 style="color:#ffd700; margin-top:40px;">📜 ประวัติการเปิดกล่อง</h3>
             <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
               <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">รางวัลที่ได้</th><th style="padding:8px;">เวลา</th></tr>
               ${historyHtml}
