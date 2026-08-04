@@ -393,7 +393,6 @@ app.get("/lootbox", (req, res) => {
   });
 });
 
-// หน้าสำหรับให้ลูกค้ากดดูประวัติการสุ่มของตัวเอง
 app.get("/my-history", (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
@@ -439,9 +438,8 @@ app.get("/my-history", (req, res) => {
 
 app.post("/create-topup", (req, res) => {
   const { username, amount } = req.body;
-  const randomDecimal = (Math.floor(Math.random() * 99) + 1) / 100;
-  const exactAmount = parseFloat(amount) + randomDecimal;
-  const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount.toFixed(2)}.png`;
+  const exactAmount = parseFloat(amount).toFixed(2); // ใช้จำนวนเงินเต็มตามที่ลูกค้ากรอก
+  const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
 
   res.send(`
     <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สแกนและแนบสลิป</title>
@@ -457,14 +455,13 @@ app.post("/create-topup", (req, res) => {
             <img src="${qrCodeUrl}" style="width:180px; height:180px;">
         </div>
         
-        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount.toFixed(2)} บาท</h2>
-        <p style="font-size:12px; color:#ff4757; text-align:center;">⚠️ โอนให้ตรงกับเศษสตางค์เป๊ะๆ</p>
+        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
         <form action="/upload-slip" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="username" value="${username}">
-            <input type="hidden" name="exact_amount" value="${exactAmount.toFixed(2)}">
+            <input type="hidden" name="exact_amount" value="${exactAmount}">
             
             <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
