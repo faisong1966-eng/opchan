@@ -28,11 +28,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+// สร้างตาราง users (เพิ่มฟิลด์ roblox_name สำหรับเก็บชื่อในเกม)
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE,
   password TEXT,
+  roblox_name TEXT,
   points INTEGER DEFAULT 0
+)`);
+
+// สร้างตาราง history สำหรับเก็บประวัติการสุ่มกล่อง
+db.run(`CREATE TABLE IF NOT EXISTS history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT,
+  roblox_name TEXT,
+  reward TEXT,
+  time DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
 app.get("/", (req, res) => {
@@ -70,7 +81,7 @@ app.get("/register", (req, res) => {
         <meta charset="UTF-8">
         <title>สมัครสมาชิก</title>
         <style>
-            body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 50px; }
+            body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
             .container { background: #2b2b40; padding: 30px; border-radius: 10px; display: inline-block; width: 350px; text-align: left; }
             h2 { color: #2ed573; text-align: center; }
             label { display: block; margin-top: 10px; font-size: 14px; }
@@ -83,10 +94,12 @@ app.get("/register", (req, res) => {
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
             <form action="/register" method="POST">
-                <label>Username:</label>
+                <label>Username (สำหรับเข้าเว็บ):</label>
                 <input type="text" name="username" required>
                 <label>Password:</label>
                 <input type="password" name="password" required>
+                <label>ชื่อในเกม Roblox (Display/Username):</label>
+                <input type="text" name="roblox_name" placeholder="เช่น Player123" required>
                 <button type="submit">ยืนยันการสมัคร</button>
             </form>
             <a href="/">กลับหน้าแรก</a>
@@ -97,11 +110,11 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  const { username, password } = req.body;
-  const sql = `INSERT INTO users (username, password, points) VALUES (?, ?, 0)`;
-  db.run(sql, [username, password], (err) => {
+  const { username, password, roblox_name } = req.body;
+  const sql = `INSERT INTO users (username, password, roblox_name, points) VALUES (?, ?, ?, 0)`;
+  db.run(sql, [username, password, roblox_name], (err) => {
     if (err) {
-      res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำ!"); window.location.href="/register";</script>`);
+      res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
     } else {
       res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (เริ่มต้น 0 แต้ม กรุณาเติมเงินก่อนใช้งาน)"); window.location.href="/login";</script>`);
     }
@@ -158,8 +171,10 @@ app.get("/lootbox", (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
 
-  db.get(`SELECT points FROM users WHERE username = ?`, [username], (err, row) => {
-    const currentPoints = row ? row.points : 0;
+  db.get(`SELECT * FROM users WHERE username = ?`, [username], (err, row) => {
+    if (!row) return res.redirect("/login");
+    const currentPoints = row.points;
+    const robloxName = row.roblox_name;
 
     res.send(`
       <!DOCTYPE html>
@@ -184,7 +199,7 @@ app.get("/lootbox", (req, res) => {
       <body>
           <div class="container">
               <h1>🎁 สุ่มกล่อง Robux</h1>
-              <p>ผู้ใช้งาน: <b>${username}</b></p>
+              <p>ผู้ใช้งาน: <b>${username}</b> | โรบล็อกซ์: <b style="color:#2ed573;">${robloxName}</b></p>
               <div class="wallet">💰 แต้มคงเหลือ: <span id="points">${currentPoints}</span> แต้ม</div>
               
               <button class="box-btn" onclick="openBox()">📦 เปิดกล่อง (1 แต้ม)</button>
@@ -211,45 +226,52 @@ app.get("/lootbox", (req, res) => {
                   userPoints -= 1;
                   document.getElementById("points").innerText = userPoints;
                   
-                  // ระบบสุ่ม Robux (0 โล ออกเยอะสุด, 1 โล ออกรองลงมา, รางวัลอื่นออกยาก)
-                  const rand = Math.random() * 100; // สุ่ม 0 - 100
+                  // ระบบสุ่ม Robux ตามเรทที่คุณต้องการ
+                  const rand = Math.random() * 100;
                   let reward = "";
 
                   if (rand < 0.2) {
-                      reward = "🔥 แจ็คพอตแตก! ได้รับ 100 Robux!";
+                      reward = "100 Robux";
                   } else if (rand < 0.6) {
-                      reward = "💎 ยอดเยี่ยม! ได้รับ 50 Robux!";
+                      reward = "50 Robux";
                   } else if (rand < 1.2) {
-                      reward = "✨ ได้รับ 30 Robux!";
+                      reward = "30 Robux";
                   } else if (rand < 2.0) {
-                      reward = "🎉 ได้รับ 20 Robux!";
+                      reward = "20 Robux";
                   } else if (rand < 3.5) {
-                      reward = "🎁 ได้รับ 15 Robux!";
+                      reward = "15 Robux";
                   } else if (rand < 6.0) {
-                      reward = "📦 ได้รับ 10 Robux";
+                      reward = "10 Robux";
                   } else if (rand < 9.5) {
-                      reward = "📦 ได้รับ 9 Robux";
+                      reward = "9 Robux";
                   } else if (rand < 14.0) {
-                      reward = "📦 ได้รับ 8 Robux";
+                      reward = "8 Robux";
                   } else if (rand < 19.5) {
-                      reward = "📦 ได้รับ 7 Robux";
+                      reward = "7 Robux";
                   } else if (rand < 26.0) {
-                      reward = "📦 ได้รับ 6 Robux";
+                      reward = "6 Robux";
                   } else if (rand < 34.0) {
-                      reward = "📦 ได้รับ 5 Robux";
+                      reward = "5 Robux";
                   } else if (rand < 43.0) {
-                      reward = "📦 ได้รับ 4 Robux";
+                      reward = "4 Robux";
                   } else if (rand < 53.0) {
-                      reward = "📦 ได้รับ 3 Robux";
+                      reward = "3 Robux";
                   } else if (rand < 65.0) {
-                      reward = "📦 ได้รับ 2 Robux";
+                      reward = "2 Robux";
                   } else if (rand < 88.0) {
-                      reward = "📦 ได้รับ 1 Robux (เน้นออกบ่อย)";
+                      reward = "1 Robux";
                   } else {
-                      reward = "😢 เกลือ! ได้รับ 0 Robux (ออกเยอะที่สุด)";
+                      reward = "0 Robux (เกลือ)";
                   }
 
-                  document.getElementById("result").innerText = reward;
+                  document.getElementById("result").innerText = "🎉 ผลลัพธ์: ได้รับ " + reward;
+
+                  // ส่งข้อมูลประวัติไปบันทึกลงฐานข้อมูล
+                  fetch('/save-history', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ username: '${username}', reward: reward })
+                  });
               }
 
               function topupWallet() {
@@ -282,6 +304,17 @@ app.get("/lootbox", (req, res) => {
   });
 });
 
+// บันทึกประวัติการสุ่ม
+app.post("/save-history", (req, res) => {
+  const { username, reward } = req.body;
+  db.get(`SELECT roblox_name FROM users WHERE username = ?`, [username], (err, row) => {
+    if (row) {
+      db.run(`INSERT INTO history (username, roblox_name, reward) VALUES (?, ?, ?)`, [username, row.roblox_name, reward]);
+    }
+  });
+  res.sendStatus(200);
+});
+
 app.post("/topup", async (req, res) => {
   const { username, giftUrl } = req.body;
 
@@ -291,7 +324,6 @@ app.post("/topup", async (req, res) => {
       return res.json({ success: false, message: "รูปแบบลิงก์ซองของขวัญไม่ถูกต้อง!" });
     }
     let voucherCode = match[1];
-
     let myWalletPhone = "0812345678"; 
 
     let apiResponse = await axios.post(`https://gift.truemoney.com/campaign/vouchers/${voucherCode}/redeem`, {
@@ -320,7 +352,7 @@ app.post("/topup", async (req, res) => {
   }
 });
 
-// --- หน้าแอดมิน (ปลอดภัยด้วย Session) ---
+// --- หน้าแอดมิน (แสดงตารางผู้ใช้ และ ประวัติการสุ่มรางวัลทั้งหมด) ---
 app.get("/admin", (req, res) => {
   if (req.session.isAdmin) {
     return renderAdminDashboard(res);
@@ -357,25 +389,42 @@ app.get("/admin/logout", (req, res) => {
 });
 
 function renderAdminDashboard(res) {
-  db.all(`SELECT * FROM users`, [], (err, rows) => {
-    let htmlRows = "";
-    if (rows) {
-      rows.forEach(user => {
-        htmlRows += `<tr><td>${user.id}</td><td><b>${user.username}</b></td><td>${user.points} แต้ม</td></tr>`;
-      });
-    }
-    res.send(`
-      <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:50px; font-family:Arial;">
-        <h2>🛠️ รายชื่อสมาชิกทั้งหมด (ผู้ดูแลระบบ)</h2>
-        <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 500px; background:#2b2b40;">
-          <tr><th>ID</th><th>Username</th><th>Points</th></tr>
-          ${htmlRows}
-        </table>
-        <br>
-        <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; margin-right:15px;">🔒 ออกจากระบบแอดมิน</a>
-        <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
-      </body>
-    `);
+  db.all(`SELECT * FROM users`, [], (err, usersRows) => {
+    db.all(`SELECT * FROM history ORDER BY id DESC`, [], (err, historyRows) => {
+      let userHtml = "";
+      if (usersRows) {
+        usersRows.forEach(u => {
+          userHtml += `<tr><td>${u.id}</td><td><b>${u.username}</b></td><td style="color:#2ed573;">${u.roblox_name}</td><td>${u.points} แต้ม</td></tr>`;
+        });
+      }
+
+      let historyHtml = "";
+      if (historyRows) {
+        historyRows.forEach(h => {
+          historyHtml += `<tr><td>${h.id}</td><td>${h.username}</td><td style="color:#2ed573;"><b>${h.roblox_name}</b></td><td style="color:#ffd700;">${h.reward}</td><td>${h.time}</td></tr>`;
+        });
+      }
+
+      res.send(`
+        <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px; font-family:Arial;">
+          <h2>🛠️ ระบบจัดการหลังบ้าน (แอดมิน)</h2>
+          <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; display:inline-block; margin-bottom:20px;">🔒 ออกจากระบบแอดมิน</a>
+          <a href="/" style="color:#70a1ff; text-decoration:none; margin-left:15px;">🏠 กลับหน้าแรก</a>
+
+          <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
+          <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 600px; background:#2b2b40;">
+            <tr><th>ID</th><th>Username</th><th>ชื่อใน Roblox</th><th>Points</th></tr>
+            ${userHtml}
+          </table>
+
+          <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง (สำหรับนำไปแจก Robux)</h3>
+          <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 700px; background:#2b2b40;">
+            <tr><th>#ID</th><th>Username</th><th>ชื่อใน Roblox</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
+            ${historyHtml}
+          </table>
+        </body>
+      `);
+    });
   });
 }
 
