@@ -251,6 +251,16 @@ app.get("/lootbox", (req, res) => {
                     border: 2px solid #ffd700;
                 }
 
+                .rainbow-flash {
+                    animation: rainbowAnim 0.4s infinite alternate;
+                }
+                @keyframes rainbowAnim {
+                    0% { background-color: rgba(255, 0, 127, 0.4); box-shadow: 0 0 30px #ff007f; }
+                    33% { background-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 30px #ffd700; }
+                    66% { background-color: rgba(0, 210, 211, 0.4); box-shadow: 0 0 30px #00d2d3; }
+                    100% { background-color: rgba(142, 68, 173, 0.4); box-shadow: 0 0 30px #8e44ad; }
+                }
+
                 @keyframes epicFlash {
                     0% { background-color: rgba(255, 215, 0, 0.2); }
                     100% { background-color: rgba(255, 71, 87, 0.4); }
@@ -353,9 +363,9 @@ app.get("/lootbox", (req, res) => {
                         let rewardNum = 0;
 
                         const rand = Math.random() * 100;
-                        if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)"; rewardNum = 1000; }
-                        else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)"; rewardNum = 500; }
-                        else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก!)"; rewardNum = 100; }
+                        if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน โคตรอลังการ!)"; rewardNum = 1000; }
+                        else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่ แสงพุ่งสุดยอด!)"; rewardNum = 500; }
+                        else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
                         else if (rand < 0.05) { reward = "20 Robux"; rewardNum = 20; }
                         else if (rand < 0.15) { reward = "15 Robux"; rewardNum = 15; }
                         else if (rand < 0.5) { reward = "10 Robux"; rewardNum = 10; }
@@ -368,14 +378,24 @@ app.get("/lootbox", (req, res) => {
 
                         let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
 
-                        if (reward.includes("แจ็คพอต") || reward.includes("100 Robux") || reward.includes("500 Robux") || reward.includes("1,000 Robux")) {
+                        if (rewardNum >= 500) {
+                            playSound('jackpot');
+                            resBox.className = "epic-glow rainbow-flash";
+                            resBox.innerHTML = "💎✨ <span style='color:#ff007f; font-size:20px; text-shadow: 0 0 10px #ff007f;'>สุดยอดแห่งความเว่อร์วัง! แจ็คพอตระดับพระเจ้า!</span><br>ได้รับ: <b style='color:#ff007f; font-size:18px;'>" + reward + "</b>" + noticeText;
+                        } else if (rewardNum >= 100) {
                             playSound('jackpot');
                             resBox.className = "epic-glow";
-                            resBox.innerHTML = "🎉 <span style='color:#ffd700; font-size:18px;'>ยอดเยี่ยม! คุณได้รับรางวัลใหญ่!</span><br>ได้รับ: <b>" + reward + "</b>" + noticeText;
+                            resBox.innerHTML = "💎🔥 <span style='color:#ffd700; font-size:18px; text-shadow: 0 0 10px #ffd700;'>ยอดเยี่ยม! รางวัลใหญ่ไฟกระพริบ!</span><br>ได้รับ: <b style='color:#ffd700; font-size:16px;'>" + reward + "</b>" + noticeText;
+                        } else if (rewardNum >= 1) {
+                            playSound('normal');
+                            resBox.className = "";
+                            resBox.style.color = "#2ed573";
+                            resBox.innerHTML = "💎 ผลลัพธ์: ได้รับ <b style='color:#2ed573;'>" + reward + "</b>" + noticeText;
                         } else {
                             playSound('normal');
+                            resBox.className = "";
                             resBox.style.color = "#ff4757";
-                            resBox.innerHTML = "💀 ผลลัพธ์: ได้รับ <b>" + reward + "</b>" + noticeText;
+                            resBox.innerHTML = "💎 ผลลัพธ์: ได้รับ <b style='color:#ff4757;'>" + reward + "</b>" + noticeText;
                         }
 
                         fetch('/save-history', {
