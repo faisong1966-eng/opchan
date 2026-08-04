@@ -363,7 +363,6 @@ app.get("/lootbox", (req, res) => {
                         let reward = "";
                         let isGuarantee = false;
 
-                        // ระบบการันตียังอยู่เหมือนเดิม
                         if (userSpent === 1000) {
                             reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
                             isGuarantee = true;
@@ -377,7 +376,7 @@ app.get("/lootbox", (req, res) => {
                             reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
                             isGuarantee = true;
                         } else {
-                            // ปรับเรทให้เกลือจัดๆ ออก 0, 1, 2 รัวๆ
+                            // ปรับเรทให้เกลือจัดๆ ตามที่ต้องการ
                             const rand = Math.random() * 100;
                             if (rand < 0.0005) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
                             else if (rand < 0.002) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
@@ -545,10 +544,20 @@ app.post("/admin/update-points", (req, res) => {
   });
 });
 
+// ฟังก์ชันสำหรับเคลียร์ประวัติสุ่มของยูสเซอร์นั้นๆ (หลังจากแจกของรางวัลเสร็จแล้ว)
+app.post("/admin/clear-user-history", (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { username } = req.body;
+  db.run(`DELETE FROM history WHERE username = ?`, [username], () => {
+    res.send(`<script>alert("ล้างประวัติการสุ่มของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+  });
+});
+
 function renderAdminDashboard(res) {
   db.all(`SELECT * FROM users`, [], (err, usersRows) => {
     db.all(`SELECT * FROM pending_topup WHERE status = 'pending' ORDER BY id DESC`, [], (err, pendingRows) => {
-      db.all(`SELECT * FROM history ORDER BY id DESC`, [], (err, historyRows) => {
+      // ดึงประวัติแบบจัดกลุ่มรวมยอดแยกตามผู้ใช้งาน (Sum / Count)
+      db.all(`SELECT username, roblox_img, COUNT(id) as total_opens, GROUP_CONCAT(reward, ' | ') as all_rewards FROM history GROUP BY username`, [], (err, summaryRows) => {
         
         let pendingSlipHtml = "";
         if (pendingRows && pendingRows.length > 0) {
@@ -594,17 +603,24 @@ function renderAdminDashboard(res) {
           });
         }
 
-        let historyHtml = "";
-        if (historyRows) {
-          historyRows.forEach(h => {
-            historyHtml += `<tr>
-              <td>${h.id}</td>
-              <td><b>${h.username}</b></td>
-              <td><img src="${h.roblox_img}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
-              <td style="color:#ffd700;"><b>${h.reward}</b></td>
-              <td>${h.time}</td>
+        let summaryHtml = "";
+        if (summaryRows && summaryRows.length > 0) {
+          summaryRows.forEach(s => {
+            summaryHtml += `<tr>
+              <td><b>${s.username}</b></td>
+              <td><img src="${s.roblox_img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
+              <td style="color:#00d2d3; font-weight:bold;">เปิดไป ${s.total_opens} ครั้ง</td>
+              <td style="color:#ffd700; text-align:left; font-size:13px; max-width:350px; word-break:break-word; padding:8px;">${s.all_rewards}</td>
+              <td>
+                <form action="/admin/clear-user-history" method="POST" onsubmit="return confirm('เคลียร์ประวัติของ ${s.username} แล้วใช่ไหม? (กดยืนยันเมื่อแจกของให้ผู้เล่นคนนี้เรียบร้อยแล้ว)');" style="margin:0;">
+                  <input type="hidden" name="username" value="${s.username}">
+                  <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">🎁 เคลียร์รายการ (แจกแล้ว)</button>
+                </form>
+              </td>
             </tr>`;
           });
+        } else {
+          summaryHtml = `<tr><td colspan="5" style="padding:15px; color:#aaa;">ยังไม่มีประวัติการเปิดกล่องจากผู้เล่นคนไหนเลย</td></tr>`;
         }
 
         res.send(`
@@ -621,16 +637,16 @@ function renderAdminDashboard(res) {
               ${pendingSlipHtml}
             </table>
 
-            <h3 style="color:#ffd700;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้มด่วนหลังชื่อ)</h3>
-            <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
-              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่ายสะสม</th><th style="padding:8px;">จัดการแต้ม (+/-)</th></tr>
-              ${userHtml}
+            <h3 style="color:#ffd700;">🎁 สรุปผลรางวัลแยกตามรายชื่อผู้ใช้ (กดเคลียร์เมื่อโอน Robux ให้แล้ว)</h3>
+            <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
+              <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวนครั้ง</th><th style="padding:8px;">รายการรางวัลทั้งหมดที่สุ่มได้</th><th style="padding:8px;">จัดการ</th></tr>
+              ${summaryHtml}
             </table>
 
-            <h3 style="color:#ffd700; margin-top:40px;">📜 ประวัติการเปิดกล่อง</h3>
-            <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
-              <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">รางวัลที่ได้</th><th style="padding:8px;">เวลา</th></tr>
-              ${historyHtml}
+            <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้มด่วนหลังชื่อ)</h3>
+            <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
+              <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่ายสะสม</th><th style="padding:8px;">จัดการแต้ม (+/-)</th></tr>
+              ${userHtml}
             </table>
           </body>
         `);
