@@ -294,8 +294,8 @@ app.get("/lootbox", (req, res) => {
 
                 <hr>
 
-                <h3>⚡ เติมเงินผ่าน MyMo (พร้อมเพย์)</h3>
-                <p style="font-size: 13px; color: #aaa; text-align: left;">1. ใส่จำนวนเงินเพื่อสร้าง QR<br>2. สแกนโอนผ่าน MyMo แล้วอัปโหลดสลิป</p>
+                <h3>⚡ เติมเงินผ่าน พร้อมเพย์</h3>
+                <p style="font-size: 13px; color: #aaa; text-align: left;">1. ใส่จำนวนเงินเพื่อสร้าง QR<br>2. สแกนโอนผ่านพร้อมเพย์ แล้วอัปโหลดสลิป</p>
                 
                 <form action="/create-topup" method="POST" style="text-align: left;">
                     <input type="hidden" name="username" value="${username}">
@@ -438,7 +438,7 @@ app.get("/my-history", (req, res) => {
 
 app.post("/create-topup", (req, res) => {
   const { username, amount } = req.body;
-  const exactAmount = parseFloat(amount).toFixed(2); // ใช้จำนวนเงินเต็มตามที่ลูกค้ากรอก
+  const exactAmount = parseFloat(amount).toFixed(2);
   const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
 
   res.send(`
@@ -448,7 +448,7 @@ app.post("/create-topup", (req, res) => {
         .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
     </style></head>
     <body><div class="box">
-        <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายด้วย MyMo</h2>
+        <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายด้วยพร้อมเพย์</h2>
         <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
         
         <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
