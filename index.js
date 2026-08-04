@@ -4,6 +4,9 @@ const axios = require("axios");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// กำหนดรหัสผ่านสำหรับเข้าหน้าแอดมินตรงนี้ (สามารถเปลี่ยนได้ตามต้องการ)
+const ADMIN_PASSWORD = "3579"; 
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -45,7 +48,6 @@ app.get("/", (req, res) => {
             <p>เว็บสุ่มกล่องรางวัลสุดมันส์</p>
             <a href="/login">เข้าสู่ระบบ</a>
             <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
-            <a href="/admin" style="background-color: #ffa502;">🛠️ หน้าแอดมิน</a>
         </div>
     </body>
     </html>
@@ -274,7 +276,24 @@ app.post("/topup", async (req, res) => {
   }
 });
 
+// หน้าแอดมิน (ป้องกันด้วยรหัสผ่าน)
 app.get("/admin", (req, res) => {
+  const pass = req.query.pass;
+  if (pass !== ADMIN_PASSWORD) {
+    return res.send(`
+      <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:80px; font-family:Arial;">
+        <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px;">
+          <h2>🛠️ เข้าสู่ระบบแอดมิน</h2>
+          <form action="/admin" method="GET">
+            <input type="password" name="pass" placeholder="กรอกรหัสผ่านแอดมิน" style="padding:8px; width:220px; border-radius:4px; border:none;" required>
+            <button type="submit" style="padding:8px 15px; background:#ff4757; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">เข้าสู่ระบบ</button>
+          </form>
+          <br><a href="/" style="color:#70a1ff; text-decoration:none;">กลับหน้าแรก</a>
+        </div>
+      </body>
+    `);
+  }
+
   db.all(`SELECT * FROM users`, [], (err, rows) => {
     let htmlRows = "";
     if (rows) {
@@ -284,7 +303,7 @@ app.get("/admin", (req, res) => {
     }
     res.send(`
       <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:50px; font-family:Arial;">
-        <h2>🛠️ รายชื่อสมาชิกทั้งหมด</h2>
+        <h2>🛠️ รายชื่อสมาชิกทั้งหมด (ผู้ดูแลระบบ)</h2>
         <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 500px; background:#2b2b40;">
           <tr><th>ID</th><th>Username</th><th>Points</th></tr>
           ${htmlRows}
