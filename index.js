@@ -1,6 +1,6 @@
 const express = require("express");
 const session = require("express-session");
-const { Pool } = require("pg"); // เปลี่ยนมาใช้ pg สำหรับ Supabase / PostgreSQL
+const { Pool } = require("pg");
 const axios = require("axios");
 const multer = require("multer");
 const path = require("path");
@@ -37,9 +37,9 @@ if (!fs.existsSync('./public/uploads')) {
   fs.mkdirSync('./public/uploads', { recursive: true });
 }
 
-// 🔗 เชื่อมต่อกับ Supabase Cloud Database (แทนที่ลิงก์ด้านล่างด้วยลิงก์จาก Supabase ของคุณ)
+// เชื่อมต่อกับ Supabase PostgreSQL
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:รหัสผ่านของคุณ@db.xxxxxxxxx.supabase.co:5432/postgres',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:0986135717gG@db.xxxxxxxxx.supabase.co:5432/postgres',
   ssl: { rejectUnauthorized: false }
 });
 
@@ -87,6 +87,7 @@ app.get("/", (req, res) => {
             <p>เว็บสุ่มลุ้นรับ Robux พร้อมระบบการันตี (ข้อมูลปลอดภัยบน Cloud)</p>
             <a href="/login">เข้าสู่ระบบ</a>
             <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
+            <a href="/admin" style="background-color: #ffa502;">🛠️ เข้าสู่ระบบแอดมิน</a>
         </div>
     </body>
     </html>
@@ -138,7 +139,8 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
     await pool.query(sql, [username, password, robloxImg]);
     res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (เริ่มต้น 0 แต้ม กรุณาเติมเงินก่อนใช้งาน)"); window.location.href="/login";</script>`);
   } catch (err) {
-    res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
+    console.error(err);
+    res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
   }
 });
 
@@ -501,10 +503,26 @@ app.get("/admin/logout", (req, res) => {
   });
 });
 
+app.post("/admin/action", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { action, userId, points } = req.body;
+
+  try {
+    if (action === "add_points") {
+      await pool.query(`UPDATE users SET points = points + $1 WHERE id = $2`, [parseInt(points), userId]);
+    } else if (action === "delete_user") {
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  res.redirect("/admin");
+});
+
 async function renderAdminDashboard(res) {
   try {
-    const usersResult = await pool.query(`SELECT * FROM users`);
-    const historyResult = await pool.query(`SELECT * FROM history ORDER BY id DESC`);
+    const usersResult = await pool.query(`SELECT * FROM users ORDER BY id ASC`);
+    const historyResult = await pool.query(`SELECT * FROM history ORDER BY id DESC LIMIT 50`);
     
     let userHtml = "";
     usersResult.rows.forEach(u => {
@@ -514,6 +532,19 @@ async function renderAdminDashboard(res) {
         <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
         <td>${u.points} แต้ม</td>
         <td>${u.total_spent || 0} บาท</td>
+        <td>
+          <form action="/admin/action" method="POST" style="display:inline;">
+            <input type="hidden" name="action" value="add_points">
+            <input type="hidden" name="userId" value="${u.id}">
+            <input type="number" name="points" value="10" style="width:50px;">
+            <button type="submit" style="background:#2ed573; color:white; border:none; padding:3px 6px; cursor:pointer;">เพิ่มแต้ม</button>
+          </form>
+          <form action="/admin/action" method="POST" style="display:inline; margin-left:5px;" onsubmit="return confirm('ยืนยันการลบผู้ใช้นี้?');">
+            <input type="hidden" name="action" value="delete_user">
+            <input type="hidden" name="userId" value="${u.id}">
+            <button type="submit" style="background:#ff4757; color:white; border:none; padding:3px 6px; cursor:pointer;">ลบ</button>
+          </form>
+        </td>
       </tr>`;
     });
 
@@ -535,14 +566,14 @@ async function renderAdminDashboard(res) {
         <a href="/" style="color:#70a1ff; text-decoration:none; margin-left:15px;">🏠 กลับหน้าแรก</a>
 
         <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
-        <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 650px; background:#2b2b40; border-color:#444;">
-          <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th></tr>
+        <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
+          <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th><th style="padding:8px;">จัดการ</th></tr>
           ${userHtml}
         </table>
 
         <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง (ตรวจสอบรูปโปรไฟล์เพื่อทยอยส่ง Robux)</h3>
         <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
-          <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox (คลิกดูเพื่อแอดเพื่อน)</th><th style="padding:8px;">รางวัลที่ได้ / การันตี</th><th style="padding:8px;">เวลา</th></tr>
+          <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">รางวัลที่ได้ / การันตี</th><th style="padding:8px;">เวลา</th></tr>
           ${historyHtml}
         </table>
       </body>
