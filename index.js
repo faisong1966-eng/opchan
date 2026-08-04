@@ -1,6 +1,6 @@
 const express = require("express");
 const session = require("express-session");
-const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg"); // เปลี่ยนมาใช้ pg สำหรับ Supabase / PostgreSQL
 const axios = require("axios");
 const multer = require("multer");
 const path = require("path");
@@ -37,31 +37,34 @@ if (!fs.existsSync('./public/uploads')) {
   fs.mkdirSync('./public/uploads', { recursive: true });
 }
 
-const dbPath = process.env.NODE_ENV === "production" ? "./database.db" : "./database.db";
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error("เชื่อมต่อฐานข้อมูล failed:", err.message);
-  } else {
-    console.log("Connected to SQLite database.");
-  }
+// 🔗 เชื่อมต่อกับ Supabase Cloud Database (แทนที่ลิงก์ด้านล่างด้วยลิงก์จาก Supabase ของคุณ)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:[0986135717gG]@db.ccokzxoanldcwfyfoocq.supabase.co:5432/postgres',
+  ssl: { rejectUnauthorized: false }
 });
 
-db.run(`CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE,
-  password TEXT,
-  roblox_img TEXT,
-  points INTEGER DEFAULT 0,
-  total_spent INTEGER DEFAULT 0
-)`);
-
-db.run(`CREATE TABLE IF NOT EXISTS history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT,
-  roblox_img TEXT,
-  reward TEXT,
-  time DATETIME DEFAULT CURRENT_TIMESTAMP
-)`);
+// สร้างตารางอัตโนมัติถ้ายังไม่มี
+pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username TEXT UNIQUE,
+    password TEXT,
+    roblox_img TEXT,
+    points INTEGER DEFAULT 0,
+    total_spent INTEGER DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS history (
+    id SERIAL PRIMARY KEY,
+    username TEXT,
+    roblox_img TEXT,
+    reward TEXT,
+    time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`).then(() => {
+  console.log("Connected to Supabase PostgreSQL database.");
+}).catch(err => {
+  console.error("Database connection error:", err);
+});
 
 app.get("/", (req, res) => {
   res.send(`
@@ -81,7 +84,7 @@ app.get("/", (req, res) => {
     <body>
         <div class="container">
             <h1>🎁 Roblox Robux Box</h1>
-            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์ พร้อมระบบการันตี!</p>
+            <p>เว็บสุ่มลุ้นรับ Robux พร้อมระบบการันตี (ข้อมูลปลอดภัยบน Cloud)</p>
             <a href="/login">เข้าสู่ระบบ</a>
             <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
         </div>
@@ -126,18 +129,17 @@ app.get("/register", (req, res) => {
   `);
 });
 
-app.post("/register", upload.single('roblox_img'), (req, res) => {
+app.post("/register", upload.single('roblox_img'), async (req, res) => {
   const { username, password } = req.body;
   const robloxImg = req.file ? `/uploads/${req.file.filename}` : "";
 
-  const sql = `INSERT INTO users (username, password, roblox_img, points, total_spent) VALUES (?, ?, ?, 0, 0)`;
-  db.run(sql, [username, password, robloxImg], (err) => {
-    if (err) {
-      res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
-    } else {
-      res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (เริ่มต้น 0 แต้ม กรุณาเติมเงินก่อนใช้งาน)"); window.location.href="/login";</script>`);
-    }
-  });
+  try {
+    const sql = `INSERT INTO users (username, password, roblox_img, points, total_spent) VALUES ($1, $2, $3, 0, 0)`;
+    await pool.query(sql, [username, password, robloxImg]);
+    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (เริ่มต้น 0 แต้ม กรุณาเติมเงินก่อนใช้งาน)"); window.location.href="/login";</script>`);
+  } catch (err) {
+    res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
+  }
 });
 
 app.get("/login", (req, res) => {
@@ -174,24 +176,29 @@ app.get("/login", (req, res) => {
   `);
 });
 
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const sql = `SELECT * FROM users WHERE username = ? AND password = ?`;
-  db.get(sql, [username, password], (err, row) => {
-    if (row) {
-      res.redirect(`/lootbox?username=${row.username}`);
+  try {
+    const result = await pool.query(`SELECT * FROM users WHERE username = $1 AND password = $2`, [username, password]);
+    if (result.rows.length > 0) {
+      res.redirect(`/lootbox?username=${result.rows[0].username}`);
     } else {
       res.send(`<script>alert("รหัสผ่านหรือชื่อผู้ใช้ไม่ถูกต้อง!"); window.location.href="/login";</script>`);
     }
-  });
+  } catch (err) {
+    res.send(`<script>alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ"); window.location.href="/login";</script>`);
+  }
 });
 
-app.get("/lootbox", (req, res) => {
+app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
 
-  db.get(`SELECT * FROM users WHERE username = ?`, [username], (err, row) => {
-    if (!row) return res.redirect("/login");
+  try {
+    const result = await pool.query(`SELECT * FROM users WHERE username = $1`, [username]);
+    if (result.rows.length === 0) return res.redirect("/login");
+    
+    const row = result.rows[0];
     const currentPoints = row.points;
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
@@ -255,7 +262,6 @@ app.get("/lootbox", (req, res) => {
                   <div>🎯 ยอดสุ่มสะสม: <span id="spent">${totalSpent}</span> บาท</div>
               </div>
 
-              <!-- ระบบการันตี (แสดงเงื่อนไขให้ผู้เล่นเห็นชัดเจน) -->
               <div class="guarantee-box">
                   <b>🛡️ ระบบการันตีสุดคุ้ม (ยอดสะสม):</b><br>
                   • ครบ <b>100 บาท</b> การันตีรับ <b>100 Robux</b><br>
@@ -328,7 +334,6 @@ app.get("/lootbox", (req, res) => {
                       let reward = "";
                       let isGuarantee = false;
 
-                      // ตรวจสอบระบบการันตีตามยอดสะสมที่ตั้งไว้
                       if (userSpent === 1000) {
                           reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
                           isGuarantee = true;
@@ -342,7 +347,6 @@ app.get("/lootbox", (req, res) => {
                           reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
                           isGuarantee = true;
                       } else {
-                          // สุ่มปกติถ้ายังไม่ถึงยอดการันตี
                           const rand = Math.random() * 100;
                           if (rand < 0.001) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
                           else if (rand < 0.01) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
@@ -376,7 +380,6 @@ app.get("/lootbox", (req, res) => {
                           resBox.innerHTML = "🎉 ผลลัพธ์: ได้รับ <b>" + reward + "</b>" + noticeText;
                       }
 
-                      // ส่งข้อมูลไปอัปเดตยอดสะสมและประวัติหลังบ้าน
                       fetch('/save-history', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -412,19 +415,21 @@ app.get("/lootbox", (req, res) => {
       </body>
       </html>
     `);
-  });
+  } catch (err) {
+    res.redirect("/login");
+  }
 });
 
-app.post("/save-history", (req, res) => {
+app.post("/save-history", async (req, res) => {
   const { username, reward } = req.body;
-  db.get(`SELECT roblox_img FROM users WHERE username = ?`, [username], (err, row) => {
-    if (row) {
-      // ตัดแต้มลดลง 1 และเพิ่มยอดสะสม total_spent ทีละ 1 ทุกครั้งที่กดสุ่ม
-      db.run(`UPDATE users SET points = points - 1, total_spent = total_spent + 1 WHERE username = ?`, [username], () => {
-        db.run(`INSERT INTO history (username, roblox_img, reward) VALUES (?, ?, ?)`, [username, row.roblox_img, reward]);
-      });
+  try {
+    const userRes = await pool.query(`SELECT roblox_img FROM users WHERE username = $1`, [username]);
+    if (userRes.rows.length > 0) {
+      const robloxImg = userRes.rows[0].roblox_img;
+      await pool.query(`UPDATE users SET points = points - 1, total_spent = total_spent + 1 WHERE username = $1`, [username]);
+      await pool.query(`INSERT INTO history (username, roblox_img, reward) VALUES ($1, $2, $3)`, [username, robloxImg, reward]);
     }
-  });
+  } catch (err) {}
   res.sendStatus(200);
 });
 
@@ -449,13 +454,8 @@ app.post("/topup", async (req, res) => {
     if (data.status.code === "SUCCESS") {
       let amount = parseFloat(data.data.my_ticket.amount_baht);
 
-      db.run(`UPDATE users SET points = points + ? WHERE username = ?`, [amount, username], (err) => {
-        if (err) {
-          res.json({ success: false, message: "เติมเงินสำเร็จ แต่บันทึกแต้มลงฐานข้อมูลไม่สำเร็จ!" });
-        } else {
-          res.json({ success: true, message: `เติมเงินสำเร็จ! คุณได้รับ ${amount} แต้มเข้าบัญชีแล้ว` });
-        }
-      });
+      await pool.query(`UPDATE users SET points = points + $1 WHERE username = $2`, [amount, username]);
+      res.json({ success: true, message: `เติมเงินสำเร็จ! คุณได้รับ ${amount} แต้มเข้าบัญชีแล้ว` });
     } else {
       res.json({ success: false, message: "ซองของขวัญไม่ถูกต้อง, ถูกใช้งานไปแล้ว, หรือหมดอายุแล้ว!" });
     }
@@ -501,56 +501,55 @@ app.get("/admin/logout", (req, res) => {
   });
 });
 
-function renderAdminDashboard(res) {
-  db.all(`SELECT * FROM users`, [], (err, usersRows) => {
-    db.all(`SELECT * FROM history ORDER BY id DESC`, [], (err, historyRows) => {
-      let userHtml = "";
-      if (usersRows) {
-        usersRows.forEach(u => {
-          userHtml += `<tr>
-            <td>${u.id}</td>
-            <td><b>${u.username}</b></td>
-            <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
-            <td>${u.points} แต้ม</td>
-            <td>${u.total_spent || 0} บาท</td>
-          </tr>`;
-        });
-      }
-
-      let historyHtml = "";
-      if (historyRows) {
-        historyRows.forEach(h => {
-          historyHtml += `<tr>
-            <td>${h.id}</td>
-            <td><b>${h.username}</b></td>
-            <td><img src="${h.roblox_img}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
-            <td style="color:#ffd700; font-size:15px;"><b>${h.reward}</b></td>
-            <td>${h.time}</td>
-          </tr>`;
-        });
-      }
-
-      res.send(`
-        <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px; font-family:Arial;">
-          <h2>🛠️ ระบบจัดการหลังบ้าน (แอดมิน)</h2>
-          <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; display:inline-block; margin-bottom:20px;">🔒 ออกจากระบบแอดมิน</a>
-          <a href="/" style="color:#70a1ff; text-decoration:none; margin-left:15px;">🏠 กลับหน้าแรก</a>
-
-          <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
-          <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 650px; background:#2b2b40; border-color:#444;">
-            <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th></tr>
-            ${userHtml}
-          </table>
-
-          <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง (ตรวจสอบรูปโปรไฟล์เพื่อทยอยส่ง Robux)</h3>
-          <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
-            <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox (คลิกดูเพื่อแอดเพื่อน)</th><th style="padding:8px;">รางวัลที่ได้ / การันตี</th><th style="padding:8px;">เวลา</th></tr>
-            ${historyHtml}
-          </table>
-        </body>
-      `);
+async function renderAdminDashboard(res) {
+  try {
+    const usersResult = await pool.query(`SELECT * FROM users`);
+    const historyResult = await pool.query(`SELECT * FROM history ORDER BY id DESC`);
+    
+    let userHtml = "";
+    usersResult.rows.forEach(u => {
+      userHtml += `<tr>
+        <td>${u.id}</td>
+        <td><b>${u.username}</b></td>
+        <td><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"></td>
+        <td>${u.points} แต้ม</td>
+        <td>${u.total_spent || 0} บาท</td>
+      </tr>`;
     });
-  });
+
+    let historyHtml = "";
+    historyResult.rows.forEach(h => {
+      historyHtml += `<tr>
+        <td>${h.id}</td>
+        <td><b>${h.username}</b></td>
+        <td><img src="${h.roblox_img}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
+        <td style="color:#ffd700; font-size:15px;"><b>${h.reward}</b></td>
+        <td>${h.time}</td>
+      </tr>`;
+    });
+
+    res.send(`
+      <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px; font-family:Arial;">
+        <h2>🛠️ ระบบจัดการหลังบ้าน (แอดมิน - Cloud DB)</h2>
+        <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; display:inline-block; margin-bottom:20px;">🔒 ออกจากระบบแอดมิน</a>
+        <a href="/" style="color:#70a1ff; text-decoration:none; margin-left:15px;">🏠 กลับหน้าแรก</a>
+
+        <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
+        <table border="1" style="margin: 0 auto; border-collapse: collapse; width: 650px; background:#2b2b40; border-color:#444;">
+          <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox</th><th style="padding:8px;">Points</th><th style="padding:8px;">ยอดสุ่มสะสม</th></tr>
+          ${userHtml}
+        </table>
+
+        <h3 style="margin-top:40px;">📜 ประวัติการเปิดกล่อง (ตรวจสอบรูปโปรไฟล์เพื่อทยอยส่ง Robux)</h3>
+        <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
+          <tr><th style="padding:8px;">#ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูปโปรไฟล์ Roblox (คลิกดูเพื่อแอดเพื่อน)</th><th style="padding:8px;">รางวัลที่ได้ / การันตี</th><th style="padding:8px;">เวลา</th></tr>
+          ${historyHtml}
+        </table>
+      </body>
+    `);
+  } catch (err) {
+    res.send("เกิดข้อผิดพลาดในการโหลดหน้าแอดมิน");
+  }
 }
 
 app.listen(PORT, () => {
