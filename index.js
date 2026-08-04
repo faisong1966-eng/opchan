@@ -290,9 +290,10 @@ app.get("/lootbox", (req, res) => {
                 
                 <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
                 <div class="reward-showcase">
-                    <span class="reward-item">0 - 10 Robux</span>
-                    <span class="reward-item">15 - 20 Robux</span>
-                    <span class="reward-item reward-epic">30 - 50 Robux</span>
+                    <span class="reward-item">0 Robux (เกลือ)</span>
+                    <span class="reward-item">1 - 2 Robux</span>
+                    <span class="reward-item">3 - 5 Robux</span>
+                    <span class="reward-item reward-epic">10 - 20 Robux</span>
                     <span class="reward-item reward-legend">100 Robux 🔥</span>
                     <span class="reward-item reward-legend">500 Robux 💎</span>
                     <span class="reward-item reward-legend">1,000 Robux 👑</span>
@@ -362,6 +363,7 @@ app.get("/lootbox", (req, res) => {
                         let reward = "";
                         let isGuarantee = false;
 
+                        // ระบบการันตียังอยู่เหมือนเดิม
                         if (userSpent === 1000) {
                             reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
                             isGuarantee = true;
@@ -375,25 +377,20 @@ app.get("/lootbox", (req, res) => {
                             reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
                             isGuarantee = true;
                         } else {
+                            // ปรับเรทให้เกลือจัดๆ ออก 0, 1, 2 รัวๆ
                             const rand = Math.random() * 100;
-                            if (rand < 0.001) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
-                            else if (rand < 0.01) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
-                            else if (rand < 0.05) reward = "100 Robux (🔥 แจ็คพอตแตก!)";
-                            else if (rand < 0.15) reward = "50 Robux (✨ สุดยอดรางวัล!)";
-                            else if (rand < 0.4) reward = "30 Robux";
-                            else if (rand < 1.0) reward = "20 Robux";
-                            else if (rand < 2.2) reward = "15 Robux";
-                            else if (rand < 4.5) reward = "10 Robux";
-                            else if (rand < 8.0) reward = "9 Robux";
-                            else if (rand < 13.0) reward = "8 Robux";
-                            else if (rand < 19.0) reward = "7 Robux";
-                            else if (rand < 26.0) reward = "6 Robux";
-                            else if (rand < 35.0) reward = "5 Robux";
-                            else if (rand < 45.0) reward = "4 Robux";
-                            else if (rand < 57.0) reward = "3 Robux";
-                            else if (rand < 70.0) reward = "2 Robux";
-                            else if (rand < 90.0) reward = "1 Robux";
-                            else reward = "0 Robux (😢 เกลือสนั่น)";
+                            if (rand < 0.0005) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
+                            else if (rand < 0.002) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
+                            else if (rand < 0.01) reward = "100 Robux (🔥 แจ็คพอตแตก!)";
+                            else if (rand < 0.05) reward = "20 Robux";
+                            else if (rand < 0.15) reward = "15 Robux";
+                            else if (rand < 0.5) reward = "10 Robux";
+                            else if (rand < 1.5) reward = "5 Robux";
+                            else if (rand < 4.0) reward = "4 Robux";
+                            else if (rand < 10.0) reward = "3 Robux";
+                            else if (rand < 25.0) reward = "2 Robux";
+                            else if (rand < 50.0) reward = "1 Robux";
+                            else reward = "0 Robux (😢 เกลือสนั่น ไม่ได้อะไรเลย)";
                         }
 
                         let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
@@ -404,8 +401,8 @@ app.get("/lootbox", (req, res) => {
                             resBox.innerHTML = "🎉 <span style='color:#ffd700; font-size:18px;'>ยอดเยี่ยม! คุณได้รับรางวัลใหญ่/การันตี!</span><br>ได้รับ: <b>" + reward + "</b>" + noticeText;
                         } else {
                             playSound('normal');
-                            resBox.style.color = "#2ed573";
-                            resBox.innerHTML = "🎉 ผลลัพธ์: ได้รับ <b>" + reward + "</b>" + noticeText;
+                            resBox.style.color = "#ff4757";
+                            resBox.innerHTML = "💀 ผลลัพธ์: ได้รับ <b>" + reward + "</b>" + noticeText;
                         }
 
                         fetch('/save-history', {
