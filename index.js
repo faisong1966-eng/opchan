@@ -1,5 +1,5 @@
 const express = require("express");
-const session = require("express-session"); // เพิ่มไลบรารีจัดการ Session
+const session = require("express-session");
 const sqlite3 = require("sqlite3").verbose();
 const axios = require("axios");
 const app = express();
@@ -11,15 +11,14 @@ const ADMIN_PASSWORD = "3579";
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// ตั้งค่า Session สำหรับความปลอดภัยในระดับโปรดักชัน
+// ตั้งค่า Session สำหรับความปลอดภัย
 app.use(session({
   secret: 'lootbox_super_secret_key_2026',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 600000 } // กำหนดให้ Session หมดอายุใน 10 นาที (เพื่อความปลอดภัย)
+  cookie: { maxAge: 600000 }
 }));
 
-// ปรับให้รองรับ path บน Render หรือสร้างไฟล์ฐานข้อมูลสำรอง
 const dbPath = process.env.NODE_ENV === "production" ? "./database.db" : "./database.db";
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -33,7 +32,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE,
   password TEXT,
-  points INTEGER DEFAULT 100
+  points INTEGER DEFAULT 0
 )`);
 
 app.get("/", (req, res) => {
@@ -42,7 +41,7 @@ app.get("/", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <title>🎁 LootBox Web - หน้าแรก</title>
+        <title>🎁 Roblox Robux LootBox - หน้าแรก</title>
         <style>
             body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 80px; }
             .container { background: #2b2b40; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.3); width: 350px; }
@@ -53,8 +52,8 @@ app.get("/", (req, res) => {
     </head>
     <body>
         <div class="container">
-            <h1>🎁 LootBox Web</h1>
-            <p>เว็บสุ่มกล่องรางวัลสุดมันส์</p>
+            <h1>🎁 Roblox Robux Box</h1>
+            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์</p>
             <a href="/login">เข้าสู่ระบบ</a>
             <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
         </div>
@@ -99,12 +98,12 @@ app.get("/register", (req, res) => {
 
 app.post("/register", (req, res) => {
   const { username, password } = req.body;
-  const sql = `INSERT INTO users (username, password, points) VALUES (?, ?, 100)`;
+  const sql = `INSERT INTO users (username, password, points) VALUES (?, ?, 0)`;
   db.run(sql, [username, password], (err) => {
     if (err) {
       res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำ!"); window.location.href="/register";</script>`);
     } else {
-      res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (รับฟรี 100 แต้ม)"); window.location.href="/login";</script>`);
+      res.send(`<script>alert("สมัครสมาชิกสำเร็จ! (เริ่มต้น 0 แต้ม กรุณาเติมเงินก่อนใช้งาน)"); window.location.href="/login";</script>`);
     }
   });
 });
@@ -167,7 +166,7 @@ app.get("/lootbox", (req, res) => {
       <html lang="th">
       <head>
           <meta charset="UTF-8">
-          <title>สุ่มกล่องรางวัล & เติมเงิน</title>
+          <title>สุ่มกล่อง Robux & เติมเงิน</title>
           <style>
               body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
               .container { background: #2b2b40; padding: 25px; border-radius: 10px; display: inline-block; width: 420px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
@@ -184,11 +183,11 @@ app.get("/lootbox", (req, res) => {
       </head>
       <body>
           <div class="container">
-              <h1>🎁 หน้าสุ่มกล่องรางวัล</h1>
+              <h1>🎁 สุ่มกล่อง Robux</h1>
               <p>ผู้ใช้งาน: <b>${username}</b></p>
               <div class="wallet">💰 แต้มคงเหลือ: <span id="points">${currentPoints}</span> แต้ม</div>
               
-              <button class="box-btn" onclick="openBox()">📦 เปิดกล่อง (50 แต้ม)</button>
+              <button class="box-btn" onclick="openBox()">📦 เปิดกล่อง (1 แต้ม)</button>
               <p id="result" style="margin-top: 15px; font-size: 16px; color: #2ed573;"></p>
 
               <hr>
@@ -205,16 +204,52 @@ app.get("/lootbox", (req, res) => {
               let userPoints = ${currentPoints};
               
               function openBox() {
-                  if (userPoints < 50) {
-                      alert("แต้มของคุณไม่พอใช้งาน!");
+                  if (userPoints < 1) {
+                      alert("แต้มของคุณไม่พอใช้งาน! กรุณาเติมเงินก่อนครับ");
                       return;
                   }
-                  userPoints -= 50;
+                  userPoints -= 1;
                   document.getElementById("points").innerText = userPoints;
                   
-                  const rewards = ["🎉 เกลือ (ไม่ได้อะไรเลย)", "🏆 ไอเทมระดับ SSR!", "💎 เพชร 500 เม็ด"];
-                  const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
-                  document.getElementById("result").innerText = randomReward;
+                  // ระบบสุ่ม Robux (0 โล ออกเยอะสุด, 1 โล ออกรองลงมา, รางวัลอื่นออกยาก)
+                  const rand = Math.random() * 100; // สุ่ม 0 - 100
+                  let reward = "";
+
+                  if (rand < 0.2) {
+                      reward = "🔥 แจ็คพอตแตก! ได้รับ 100 Robux!";
+                  } else if (rand < 0.6) {
+                      reward = "💎 ยอดเยี่ยม! ได้รับ 50 Robux!";
+                  } else if (rand < 1.2) {
+                      reward = "✨ ได้รับ 30 Robux!";
+                  } else if (rand < 2.0) {
+                      reward = "🎉 ได้รับ 20 Robux!";
+                  } else if (rand < 3.5) {
+                      reward = "🎁 ได้รับ 15 Robux!";
+                  } else if (rand < 6.0) {
+                      reward = "📦 ได้รับ 10 Robux";
+                  } else if (rand < 9.5) {
+                      reward = "📦 ได้รับ 9 Robux";
+                  } else if (rand < 14.0) {
+                      reward = "📦 ได้รับ 8 Robux";
+                  } else if (rand < 19.5) {
+                      reward = "📦 ได้รับ 7 Robux";
+                  } else if (rand < 26.0) {
+                      reward = "📦 ได้รับ 6 Robux";
+                  } else if (rand < 34.0) {
+                      reward = "📦 ได้รับ 5 Robux";
+                  } else if (rand < 43.0) {
+                      reward = "📦 ได้รับ 4 Robux";
+                  } else if (rand < 53.0) {
+                      reward = "📦 ได้รับ 3 Robux";
+                  } else if (rand < 65.0) {
+                      reward = "📦 ได้รับ 2 Robux";
+                  } else if (rand < 88.0) {
+                      reward = "📦 ได้รับ 1 Robux (เน้นออกบ่อย)";
+                  } else {
+                      reward = "😢 เกลือ! ได้รับ 0 Robux (ออกเยอะที่สุด)";
+                  }
+
+                  document.getElementById("result").innerText = reward;
               }
 
               function topupWallet() {
@@ -285,9 +320,7 @@ app.post("/topup", async (req, res) => {
   }
 });
 
-// --- ระบบจัดการหน้าแอดมินแบบปลอดภัย (ใช้ Session และฟอร์ม POST) ---
-
-// ตรวจสอบสิทธิ์และแสดงหน้าล็อกอินแอดมิน (ถ้ายังไม่เข้าสู่ระบบ)
+// --- หน้าแอดมิน (ปลอดภัยด้วย Session) ---
 app.get("/admin", (req, res) => {
   if (req.session.isAdmin) {
     return renderAdminDashboard(res);
@@ -307,25 +340,22 @@ app.get("/admin", (req, res) => {
   `);
 });
 
-// รับรหัสผ่านผ่าน POST (ซ่อนรหัสผ่าน ไม่ให้โชว์บน URL)
 app.post("/admin/login", (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
-    req.session.isAdmin = true; // บันทึกสถานะแอดมินลงใน Session
+    req.session.isAdmin = true;
     res.redirect("/admin");
   } else {
     res.send(`<script>alert("รหัสผ่านแอดมินไม่ถูกต้อง!"); window.location.href="/admin";</script>`);
   }
 });
 
-// ออกจากระบบแอดมิน (ทำลาย Session)
 app.get("/admin/logout", (req, res) => {
   req.session.destroy(() => {
     res.redirect("/admin");
   });
 });
 
-// ฟังก์ชันแสดงตารางจัดการข้อมูลสมาชิก
 function renderAdminDashboard(res) {
   db.all(`SELECT * FROM users`, [], (err, rows) => {
     let htmlRows = "";
