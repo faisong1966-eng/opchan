@@ -264,9 +264,12 @@ app.get("/lootbox", (req, res) => {
             <div class="container">
                 <h1>🎁 สุ่มกล่อง Roblox Robux</h1>
                 
-                <div style="margin-bottom: 15px; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
-                    <img src="${robloxImg}" class="profile-img">
-                    <span>ผู้ใช้งาน: <b>${username}</b></span>
+                <div style="margin-bottom: 15px; text-align: left; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <img src="${robloxImg}" class="profile-img">
+                        <span>ผู้ใช้งาน: <b>${username}</b></span>
+                    </div>
+                    <a href="/my-history?username=${username}" style="background:#00d2d3; color:#000; padding:6px 12px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-top:0;">📜 ประวัติการสุ่ม</a>
                 </div>
                 
                 <div class="wallet">
@@ -349,7 +352,6 @@ app.get("/lootbox", (req, res) => {
                         let reward = "";
                         let rewardNum = 0;
 
-                        // สุ่มแบบปกติ ไม่มีระบบการันตี
                         const rand = Math.random() * 100;
                         if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)"; rewardNum = 1000; }
                         else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)"; rewardNum = 500; }
@@ -388,6 +390,50 @@ app.get("/lootbox", (req, res) => {
         </html>
       `);
     });
+  });
+});
+
+// หน้าสำหรับให้ลูกค้ากดดูประวัติการสุ่มของตัวเอง
+app.get("/my-history", (req, res) => {
+  const username = req.query.username;
+  if (!username) return res.redirect("/login");
+
+  db.all(`SELECT * FROM history WHERE username = ? ORDER BY id DESC`, [username], (err, rows) => {
+    let historyList = "";
+    if (rows && rows.length > 0) {
+      rows.forEach(r => {
+        historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
+      });
+    } else {
+      historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
+    }
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+          <meta charset="UTF-8">
+          <title>ประวัติการสุ่มของฉัน</title>
+          <style>
+              body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
+              .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+              table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
+              th { padding: 10px; background: #3d3d5c; color: #ffd700; }
+              a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h2 style="color:#ffd700;">📜 ประวัติการสุ่มของ: ${username}</h2>
+              <table border="1">
+                  <tr><th>ID</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
+                  ${historyList}
+              </table>
+              <a href="/lootbox?username=${username}">⬅️ กลับหน้าสุ่มกล่อง</a>
+          </div>
+      </body>
+      </html>
+    `);
   });
 });
 
