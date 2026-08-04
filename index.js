@@ -93,7 +93,7 @@ app.get("/", (req, res) => {
     <body>
         <div class="container">
             <h1>🎁 Roblox Robux Box</h1>
-            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์ พร้อมระบบการันตี</p>
+            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์</p>
             <a href="/login">เข้าสู่ระบบ</a>
             <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
         </div>
@@ -243,9 +243,6 @@ app.get("/lootbox", (req, res) => {
                 .reward-epic { background: #8e44ad; color: #fff; }
                 .reward-legend { background: #e74c3c; color: #fff; }
 
-                .guarantee-box { background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: left; font-size: 13px; }
-                .guarantee-box b { color: #ffa502; }
-
                 #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; }
                 
                 .epic-glow {
@@ -275,14 +272,6 @@ app.get("/lootbox", (req, res) => {
                 <div class="wallet">
                     <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
                     <div>🎯 ยอดสุ่มสะสม: <span id="spent">${totalSpent}</span> บาท</div>
-                </div>
-
-                <div class="guarantee-box">
-                    <b>🛡️ ระบบการันตีสุดคุ้ม (ยอดสะสม):</b><br>
-                    • ครบ <b>100 บาท</b> การันตีรับ <b>100 Robux</b><br>
-                    • ครบ <b>300 บาท</b> การันตีรับ <b>300 Robux</b><br>
-                    • ครบ <b>500 บาท</b> การันตีรับ <b>500 Robux</b><br>
-                    • ครบ <b>1,000 บาท</b> การันตีรับ <b>1,000 Robux</b>
                 </div>
                 
                 <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
@@ -359,46 +348,28 @@ app.get("/lootbox", (req, res) => {
                     setTimeout(() => {
                         let reward = "";
                         let rewardNum = 0;
-                        let isGuarantee = false;
 
-                        if (userSpent === 1000) {
-                            reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
-                            rewardNum = 1000;
-                            isGuarantee = true;
-                        } else if (userSpent === 500) {
-                            reward = "500 Robux (🛡️ การันตีสะสมครบ 500 บาท!)";
-                            rewardNum = 500;
-                            isGuarantee = true;
-                        } else if (userSpent === 300) {
-                            reward = "300 Robux (🛡️ การันตีสะสมครบ 300 บาท!)";
-                            rewardNum = 300;
-                            isGuarantee = true;
-                        } else if (userSpent === 100) {
-                            reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
-                            rewardNum = 100;
-                            isGuarantee = true;
-                        } else {
-                            const rand = Math.random() * 100;
-                            if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)"; rewardNum = 1000; }
-                            else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)"; rewardNum = 500; }
-                            else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก!)"; rewardNum = 100; }
-                            else if (rand < 0.05) { reward = "20 Robux"; rewardNum = 20; }
-                            else if (rand < 0.15) { reward = "15 Robux"; rewardNum = 15; }
-                            else if (rand < 0.5) { reward = "10 Robux"; rewardNum = 10; }
-                            else if (rand < 1.5) { reward = "5 Robux"; rewardNum = 5; }
-                            else if (rand < 4.0) { reward = "4 Robux"; rewardNum = 4; }
-                            else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
-                            else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
-                            else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
-                            else { reward = "0 Robux (😢 เกลือสนั่น)"; rewardNum = 0; }
-                        }
+                        // สุ่มแบบปกติ ไม่มีระบบการันตี
+                        const rand = Math.random() * 100;
+                        if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)"; rewardNum = 1000; }
+                        else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)"; rewardNum = 500; }
+                        else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก!)"; rewardNum = 100; }
+                        else if (rand < 0.05) { reward = "20 Robux"; rewardNum = 20; }
+                        else if (rand < 0.15) { reward = "15 Robux"; rewardNum = 15; }
+                        else if (rand < 0.5) { reward = "10 Robux"; rewardNum = 10; }
+                        else if (rand < 1.5) { reward = "5 Robux"; rewardNum = 5; }
+                        else if (rand < 4.0) { reward = "4 Robux"; rewardNum = 4; }
+                        else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
+                        else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
+                        else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+                        else { reward = "0 Robux (😢 เกลือสนั่น)"; rewardNum = 0; }
 
                         let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
 
-                        if (isGuarantee || reward.includes("แจ็คพอต") || reward.includes("100 Robux") || reward.includes("500 Robux") || reward.includes("1,000 Robux")) {
+                        if (reward.includes("แจ็คพอต") || reward.includes("100 Robux") || reward.includes("500 Robux") || reward.includes("1,000 Robux")) {
                             playSound('jackpot');
                             resBox.className = "epic-glow";
-                            resBox.innerHTML = "🎉 <span style='color:#ffd700; font-size:18px;'>ยอดเยี่ยม! คุณได้รับรางวัลใหญ่/การันตี!</span><br>ได้รับ: <b>" + reward + "</b>" + noticeText;
+                            resBox.innerHTML = "🎉 <span style='color:#ffd700; font-size:18px;'>ยอดเยี่ยม! คุณได้รับรางวัลใหญ่!</span><br>ได้รับ: <b>" + reward + "</b>" + noticeText;
                         } else {
                             playSound('normal');
                             resBox.style.color = "#ff4757";
@@ -545,7 +516,6 @@ app.post("/admin/update-points", (req, res) => {
   });
 });
 
-// หน้าต่างดูประวัติย่อยเฉพาะยูสเซอร์นั้นๆ แบบละเอียด
 app.get("/admin/user-detail", (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const username = req.query.username;
@@ -586,7 +556,6 @@ app.post("/admin/clear-user-history", (req, res) => {
 function renderAdminDashboard(res) {
   db.all(`SELECT * FROM users`, [], (err, usersRows) => {
     db.all(`SELECT * FROM pending_topup WHERE status = 'pending' ORDER BY id DESC`, [], (err, pendingRows) => {
-      // สรุปยอดรวม: นับจำนวนครั้ง และ บวกผลรวม Robux ทั้งหมด (SUM) ออกมาให้เลย
       db.all(`SELECT username, roblox_img, COUNT(id) as total_opens, SUM(reward_num) as total_robux FROM history GROUP BY username`, [], (err, summaryRows) => {
         
         let pendingSlipHtml = "";
