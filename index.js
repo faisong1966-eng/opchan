@@ -7,17 +7,13 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// กำหนดรหัสผ่านสำหรับเข้าหน้าแอดมิน
 const ADMIN_PASSWORD = "3579"; 
-
-// ข้อมูลพร้อมเพย์ของคุณ (MyMo ธนาคารออมสิน)
 const MY_PROMPTPAY_NUMBER = "0643399170";
 const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงคุณ";
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// เช็คและสร้างโฟลเดอร์สำหรับเก็บรูป (รองรับ Render Disk หรือ Local)
 const uploadDir = fs.existsSync('/data') ? '/data/uploads' : './public/uploads';
 
 const storage = multer.diskStorage({
@@ -66,6 +62,7 @@ db.serialize(() => {
     username TEXT,
     roblox_img TEXT,
     reward TEXT,
+    reward_num INTEGER DEFAULT 0,
     time DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
   db.run(`CREATE TABLE IF NOT EXISTS pending_topup (
@@ -361,35 +358,39 @@ app.get("/lootbox", (req, res) => {
 
                     setTimeout(() => {
                         let reward = "";
+                        let rewardNum = 0;
                         let isGuarantee = false;
 
                         if (userSpent === 1000) {
                             reward = "1,000 Robux (🛡️ การันตีสะสมครบ 1,000 บาท!)";
+                            rewardNum = 1000;
                             isGuarantee = true;
                         } else if (userSpent === 500) {
                             reward = "500 Robux (🛡️ การันตีสะสมครบ 500 บาท!)";
+                            rewardNum = 500;
                             isGuarantee = true;
                         } else if (userSpent === 300) {
                             reward = "300 Robux (🛡️ การันตีสะสมครบ 300 บาท!)";
+                            rewardNum = 300;
                             isGuarantee = true;
                         } else if (userSpent === 100) {
                             reward = "100 Robux (🛡️ การันตีสะสมครบ 100 บาท!)";
+                            rewardNum = 100;
                             isGuarantee = true;
                         } else {
-                            // ปรับเรทให้เกลือจัดๆ ตามที่ต้องการ
                             const rand = Math.random() * 100;
-                            if (rand < 0.0005) reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)";
-                            else if (rand < 0.002) reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)";
-                            else if (rand < 0.01) reward = "100 Robux (🔥 แจ็คพอตแตก!)";
-                            else if (rand < 0.05) reward = "20 Robux";
-                            else if (rand < 0.15) reward = "15 Robux";
-                            else if (rand < 0.5) reward = "10 Robux";
-                            else if (rand < 1.5) reward = "5 Robux";
-                            else if (rand < 4.0) reward = "4 Robux";
-                            else if (rand < 10.0) reward = "3 Robux";
-                            else if (rand < 25.0) reward = "2 Robux";
-                            else if (rand < 50.0) reward = "1 Robux";
-                            else reward = "0 Robux (😢 เกลือสนั่น ไม่ได้อะไรเลย)";
+                            if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน!)"; rewardNum = 1000; }
+                            else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่มาก!)"; rewardNum = 500; }
+                            else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก!)"; rewardNum = 100; }
+                            else if (rand < 0.05) { reward = "20 Robux"; rewardNum = 20; }
+                            else if (rand < 0.15) { reward = "15 Robux"; rewardNum = 15; }
+                            else if (rand < 0.5) { reward = "10 Robux"; rewardNum = 10; }
+                            else if (rand < 1.5) { reward = "5 Robux"; rewardNum = 5; }
+                            else if (rand < 4.0) { reward = "4 Robux"; rewardNum = 4; }
+                            else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
+                            else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
+                            else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+                            else { reward = "0 Robux (😢 เกลือสนั่น)"; rewardNum = 0; }
                         }
 
                         let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
@@ -407,7 +408,7 @@ app.get("/lootbox", (req, res) => {
                         fetch('/save-history', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: '${username}', reward: reward })
+                            body: JSON.stringify({ username: '${username}', reward: reward, reward_num: rewardNum })
                         });
                     }, 600);
                 }
@@ -472,11 +473,11 @@ app.post("/upload-slip", upload.single('slip_img'), (req, res) => {
 });
 
 app.post("/save-history", (req, res) => {
-  const { username, reward } = req.body;
+  const { username, reward, reward_num } = req.body;
   db.get(`SELECT roblox_img FROM users WHERE username = ?`, [username], (err, row) => {
     if (row) {
       db.run(`UPDATE users SET points = points - 1, total_spent = total_spent + 1 WHERE username = ?`, [username], () => {
-        db.run(`INSERT INTO history (username, roblox_img, reward) VALUES (?, ?, ?)`, [username, row.roblox_img, reward]);
+        db.run(`INSERT INTO history (username, roblox_img, reward, reward_num) VALUES (?, ?, ?, ?)`, [username, row.roblox_img, reward, reward_num || 0]);
       });
     }
   });
@@ -544,7 +545,36 @@ app.post("/admin/update-points", (req, res) => {
   });
 });
 
-// ฟังก์ชันสำหรับเคลียร์ประวัติสุ่มของยูสเซอร์นั้นๆ (หลังจากแจกของรางวัลเสร็จแล้ว)
+// หน้าต่างดูประวัติย่อยเฉพาะยูสเซอร์นั้นๆ แบบละเอียด
+app.get("/admin/user-detail", (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const username = req.query.username;
+
+  db.all(`SELECT * FROM history WHERE username = ? ORDER BY id DESC`, [username], (err, rows) => {
+    let historyList = "";
+    if (rows && rows.length > 0) {
+      rows.forEach(r => {
+        historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
+      });
+    } else {
+      historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
+    }
+
+    res.send(`
+      <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px; font-family:Arial;">
+        <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px; width:600px;">
+          <h2 style="color:#ffd700;">📦 ประวัติการสุ่มของ: ${username}</h2>
+          <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; margin-bottom:20px;">
+            <tr><th style="padding:8px;">ID</th><th style="padding:8px;">รางวัลที่ได้</th><th style="padding:8px;">เวลา</th></tr>
+            ${historyList}
+          </table>
+          <a href="/admin" style="background:#70a1ff; color:#fff; padding:10px 20px; border-radius:5px; text-decoration:none; font-weight:bold; display:inline-block;">⬅️ กลับหน้าแอดมินหลัก</a>
+        </div>
+      </body>
+    `);
+  });
+});
+
 app.post("/admin/clear-user-history", (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username } = req.body;
@@ -556,8 +586,8 @@ app.post("/admin/clear-user-history", (req, res) => {
 function renderAdminDashboard(res) {
   db.all(`SELECT * FROM users`, [], (err, usersRows) => {
     db.all(`SELECT * FROM pending_topup WHERE status = 'pending' ORDER BY id DESC`, [], (err, pendingRows) => {
-      // ดึงประวัติแบบจัดกลุ่มรวมยอดแยกตามผู้ใช้งาน (Sum / Count)
-      db.all(`SELECT username, roblox_img, COUNT(id) as total_opens, GROUP_CONCAT(reward, ' | ') as all_rewards FROM history GROUP BY username`, [], (err, summaryRows) => {
+      // สรุปยอดรวม: นับจำนวนครั้ง และ บวกผลรวม Robux ทั้งหมด (SUM) ออกมาให้เลย
+      db.all(`SELECT username, roblox_img, COUNT(id) as total_opens, SUM(reward_num) as total_robux FROM history GROUP BY username`, [], (err, summaryRows) => {
         
         let pendingSlipHtml = "";
         if (pendingRows && pendingRows.length > 0) {
@@ -609,9 +639,10 @@ function renderAdminDashboard(res) {
             summaryHtml += `<tr>
               <td><b>${s.username}</b></td>
               <td><img src="${s.roblox_img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></td>
-              <td style="color:#00d2d3; font-weight:bold;">เปิดไป ${s.total_opens} ครั้ง</td>
-              <td style="color:#ffd700; text-align:left; font-size:13px; max-width:350px; word-break:break-word; padding:8px;">${s.all_rewards}</td>
+              <td style="color:#00d2d3; font-weight:bold;">สุ่มไป ${s.total_opens} ครั้ง</td>
+              <td style="color:#2ed573; font-size:16px; font-weight:bold;">รวมได้ ${s.total_robux || 0} Robux</td>
               <td>
+                <a href="/admin/user-detail?username=${s.username}" style="background:#00d2d3; color:#000; padding:6px 12px; border-radius:4px; text-decoration:none; font-weight:bold; display:inline-block; margin-bottom:5px;">🔍 ดูประวัติย่อย</a>
                 <form action="/admin/clear-user-history" method="POST" onsubmit="return confirm('เคลียร์ประวัติของ ${s.username} แล้วใช่ไหม? (กดยืนยันเมื่อแจกของให้ผู้เล่นคนนี้เรียบร้อยแล้ว)');" style="margin:0;">
                   <input type="hidden" name="username" value="${s.username}">
                   <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">🎁 เคลียร์รายการ (แจกแล้ว)</button>
@@ -637,9 +668,9 @@ function renderAdminDashboard(res) {
               ${pendingSlipHtml}
             </table>
 
-            <h3 style="color:#ffd700;">🎁 สรุปผลรางวัลแยกตามรายชื่อผู้ใช้ (กดเคลียร์เมื่อโอน Robux ให้แล้ว)</h3>
+            <h3 style="color:#ffd700;">🎁 สรุปยอดรวมรางวัล Robux แยกตามรายชื่อผู้ใช้</h3>
             <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-              <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวนครั้ง</th><th style="padding:8px;">รายการรางวัลทั้งหมดที่สุ่มได้</th><th style="padding:8px;">จัดการ</th></tr>
+              <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวนครั้งที่สุ่ม</th><th style="padding:8px;">ยอดรวม Robux ที่ต้องแจก</th><th style="padding:8px;">จัดการ / ดูรายละเอียด</th></tr>
               ${summaryHtml}
             </table>
 
