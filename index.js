@@ -245,6 +245,16 @@ app.get("/lootbox", (req, res) => {
 
                 #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; }
                 
+                @keyframes bouncePop {
+                    0% { transform: scale(0.3); opacity: 0; }
+                    50% { transform: scale(1.15); opacity: 1; }
+                    70% { transform: scale(0.95); }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                .popup-animation {
+                    animation: bouncePop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                }
+
                 .epic-glow {
                     animation: epicFlash 0.5s infinite alternate;
                     box-shadow: 0 0 25px #ffd700, inset 0 0 15px #ff4757;
@@ -255,10 +265,10 @@ app.get("/lootbox", (req, res) => {
                     animation: rainbowAnim 0.4s infinite alternate;
                 }
                 @keyframes rainbowAnim {
-                    0% { background-color: rgba(255, 0, 127, 0.4); box-shadow: 0 0 30px #ff007f; }
-                    33% { background-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 30px #ffd700; }
-                    66% { background-color: rgba(0, 210, 211, 0.4); box-shadow: 0 0 30px #00d2d3; }
-                    100% { background-color: rgba(142, 68, 173, 0.4); box-shadow: 0 0 30px #8e44ad; }
+                    0% { background-color: rgba(255, 0, 127, 0.5); box-shadow: 0 0 40px #ff007f; }
+                    33% { background-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 40px #ffd700; }
+                    66% { background-color: rgba(0, 210, 211, 0.5); box-shadow: 0 0 40px #00d2d3; }
+                    100% { background-color: rgba(142, 68, 173, 0.5); box-shadow: 0 0 40px #8e44ad; }
                 }
 
                 @keyframes epicFlash {
@@ -329,17 +339,31 @@ app.get("/lootbox", (req, res) => {
                 function playSound(type) {
                     try {
                         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                        let notes = type === 'jackpot' ? [523.25, 659.25, 783.99, 1046.50] : [300, 150];
+                        let notes = [];
+                        let duration = 0.15;
+
+                        if (type === 'god_jackpot') {
+                            notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
+                            duration = 0.2;
+                        } else if (type === 'jackpot') {
+                            notes = [523.25, 659.25, 783.99, 1046.50];
+                        } else if (type === 'normal') {
+                            notes = [400, 600];
+                        } else {
+                            notes = [220, 196, 164, 130];
+                            duration = 0.3;
+                        }
+
                         notes.forEach((freq, index) => {
                             let o = audioCtx.createOscillator();
                             let g = audioCtx.createGain();
                             o.connect(g);
                             g.connect(audioCtx.destination);
-                            o.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * 0.1));
-                            g.gain.setValueAtTime(0.15, audioCtx.currentTime + (index * 0.1));
-                            g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + (index * 0.1) + 0.3);
-                            o.start(audioCtx.currentTime + (index * 0.1));
-                            o.stop(audioCtx.currentTime + (index * 0.1) + 0.3);
+                            o.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * duration));
+                            g.gain.setValueAtTime(0.2, audioCtx.currentTime + (index * duration));
+                            g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + (index * duration) + duration);
+                            o.start(audioCtx.currentTime + (index * duration));
+                            o.stop(audioCtx.currentTime + (index * duration) + duration);
                         });
                     } catch(e) {}
                 }
@@ -374,28 +398,28 @@ app.get("/lootbox", (req, res) => {
                         else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
                         else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
                         else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
-                        else { reward = "0 Robux (😢 เกลือสนั่น)"; rewardNum = 0; }
+                        else { reward = "0 Robux (😢 เกลือสนั่น กินเกลือไปก่อนนะ)"; rewardNum = 0; }
 
                         let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
 
                         if (rewardNum >= 500) {
-                            playSound('jackpot');
-                            resBox.className = "epic-glow rainbow-flash";
-                            resBox.innerHTML = "💎✨ <span style='color:#ff007f; font-size:20px; text-shadow: 0 0 10px #ff007f;'>สุดยอดแห่งความเว่อร์วัง! แจ็คพอตระดับพระเจ้า!</span><br>ได้รับ: <b style='color:#ff007f; font-size:18px;'>" + reward + "</b>" + noticeText;
+                            playSound('god_jackpot');
+                            resBox.className = "epic-glow rainbow-flash popup-animation";
+                            resBox.innerHTML = "💎✨ <span style='color:#ff007f; font-size:20px; text-shadow: 0 0 15px #ff007f;'>พระเจ้าช่วย! แจ็คพอตสะเทือนแผ่นดิน!</span><br>ได้รับ: <b style='color:#ff007f; font-size:19px;'>" + reward + "</b>" + noticeText;
                         } else if (rewardNum >= 100) {
                             playSound('jackpot');
-                            resBox.className = "epic-glow";
-                            resBox.innerHTML = "💎🔥 <span style='color:#ffd700; font-size:18px; text-shadow: 0 0 10px #ffd700;'>ยอดเยี่ยม! รางวัลใหญ่ไฟกระพริบ!</span><br>ได้รับ: <b style='color:#ffd700; font-size:16px;'>" + reward + "</b>" + noticeText;
+                            resBox.className = "epic-glow popup-animation";
+                            resBox.innerHTML = "💎🔥 <span style='color:#ffd700; font-size:18px; text-shadow: 0 0 10px #ffd700;'>สุดยอด! รางวัลใหญ่ไฟกระพริบ!</span><br>ได้รับ: <b style='color:#ffd700; font-size:17px;'>" + reward + "</b>" + noticeText;
                         } else if (rewardNum >= 1) {
                             playSound('normal');
-                            resBox.className = "";
+                            resBox.className = "popup-animation";
                             resBox.style.color = "#2ed573";
-                            resBox.innerHTML = "💎 ผลลัพธ์: ได้รับ <b style='color:#2ed573;'>" + reward + "</b>" + noticeText;
+                            resBox.innerHTML = "💎 ผลลัพธ์: ได้รับ <b style='color:#2ed573; font-size:16px;'>" + reward + "</b>" + noticeText;
                         } else {
-                            playSound('normal');
-                            resBox.className = "";
+                            playSound('sad');
+                            resBox.className = "popup-animation";
                             resBox.style.color = "#ff4757";
-                            resBox.innerHTML = "💎 ผลลัพธ์: ได้รับ <b style='color:#ff4757;'>" + reward + "</b>" + noticeText;
+                            resBox.innerHTML = "❌ ผลลัพธ์: ได้รับ <b style='color:#ff4757; font-size:16px;'>" + reward + "</b>" + noticeText;
                         }
 
                         fetch('/save-history', {
