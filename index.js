@@ -482,7 +482,6 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-              // ฟังก์ชันแจ้งเตือนก่อนกดถอน
               function confirmWithdraw() {
                   return confirm(
                       "⚠️ แจ้งเตือนการยืนยันอายุ:\\n\\n" +
@@ -588,10 +587,9 @@ app.get("/lootbox", async (req, res) => {
                   resBox.className = "";
                   resBox.innerText = \`🌀 กำลังเปิดกล่องรัวๆ \${selectedCount} ครั้ง...\`;
 
-                  setTimeout(() => {
+                  setTimeout(async () => {
                       let totalRewardNum = 0;
                       let highestRewardNum = 0;
-                      let bestRewardText = "";
                       let historyBatch = [];
                       let summaryRewards = {};
 
@@ -619,7 +617,6 @@ app.get("/lootbox", async (req, res) => {
 
                           if (rewardNum > highestRewardNum) {
                               highestRewardNum = rewardNum;
-                              bestRewardText = reward;
                           }
 
                           historyBatch.push({ username: '${username}', reward: reward, reward_num: rewardNum });
@@ -664,7 +661,7 @@ app.get("/lootbox", async (req, res) => {
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>
                           \${noticeText}\`;
 
-                      fetch('/save-history-batch', {
+                      await fetch('/save-history-batch', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ username: '${username}', historyBatch: historyBatch })
@@ -1049,7 +1046,7 @@ async function renderAdminDashboard(req, res) {
       withdrawHtml += `<tr>
         <td>${w.id}</td>
         <td><b>${w.username}</b></td>
-        <td><a href="${w.roblox_img}" target="_blank"><img src="${w.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;"></a></td>
+        <td><a href="${w.roblox_img}" target="_blank"><img src="${w.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;" title="คลิกเพื่อดูรูปใหญ่"></a></td>
         <td style="color:#ffd700; font-size:16px; font-weight:bold;">${w.amount} Robux</td>
         <td>${w.time}</td>
         <td>
@@ -1093,6 +1090,7 @@ async function renderAdminDashboard(req, res) {
             <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="เพิ่มแต้ม">➕</button>
             <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
           </form>
+          <a href="/admin/user-detail?username=${u.username}" style="background:#00d2d3; color:#000; padding:4px 8px; border-radius:3px; text-decoration:none; font-weight:bold; font-size:11px; display:inline-block; margin-bottom:4px;">📜 ดูประวัติ</a>
           <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin:0;">
             <input type="hidden" name="username" value="${u.username}">
             <button type="submit" style="background:#c0392b; color:#fff; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">🗑️ ลบยูส</button>
