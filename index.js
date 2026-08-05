@@ -263,13 +263,17 @@ app.get("/lootbox", async (req, res) => {
           <title>สุ่มกล่อง Roblox Robux</title>
           <style>
               body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 20px; }
-              .container { background: #2b2b40; padding: 25px; border-radius: 10px; display: inline-block; width: 460px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+              .container { background: #2b2b40; padding: 25px; border-radius: 10px; display: inline-block; width: 480px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
               h1 { color: #ffd700; font-size: 24px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
               .wallet { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 16px; display: flex; justify-content: space-around; }
               
-              .box-btn { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; padding: 14px 25px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.2s; }
+              .box-btn { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.2s; margin-top: 5px; }
               .box-btn:hover { transform: scale(1.02); background: linear-gradient(45deg, #ff6b81, #ff4757); }
               
+              .select-group { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 10px; }
+              .select-group button { flex: 1; background: #3d3d5c; color: #fff; border: 1px solid #555; padding: 8px 0; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
+              .select-group button.active { background: #ffd700; color: #000; border-color: #ffaa00; }
+
               input[type="number"] { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; box-sizing: border-box; }
               .topup-btn { background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; }
               .topup-btn:hover { background-color: #26af5f; }
@@ -281,7 +285,7 @@ app.get("/lootbox", async (req, res) => {
               .reward-legend { background: #e74c3c; color: #fff; }
               .reward-ufo { background: #00d2d3; color: #000; }
 
-              #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; }
+              #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 15px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; max-height: 220px; overflow-y: auto; }
               
               @keyframes bouncePop {
                   0% { transform: scale(0.3); opacity: 0; }
@@ -309,7 +313,6 @@ app.get("/lootbox", async (req, res) => {
                   100% { background-color: rgba(142, 68, 173, 0.5); box-shadow: 0 0 40px #8e44ad; }
               }
 
-              /* เอฟเฟกต์แสงสีเสียงใหม่สุดอลังการสำหรับ 10,000 Robux */
               .ufo-galaxy-flash {
                   animation: ufoAnim 0.25s infinite alternate;
               }
@@ -340,7 +343,6 @@ app.get("/lootbox", async (req, res) => {
                   <a href="/my-history?username=${username}" style="background:#00d2d3; color:#000; padding:6px 12px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-top:0;">📜 ประวัติการสุ่ม</a>
               </div>
 
-              <!-- ส่วนแสดงอายุการใช้งานที่เหลือ -->
               <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
                   ⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...
               </div>
@@ -362,7 +364,18 @@ app.get("/lootbox", async (req, res) => {
                   <span class="reward-item reward-ufo">10,000 Robux 🛸 (ใหม่!)</span>
               </div>
 
-              <button class="box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (1 แต้ม/ครั้ง)</button>
+              <!-- เลือกจำนวนครั้งในการสุ่ม -->
+              <div style="text-align: left; font-size: 13px; color: #ffd700; margin-bottom: 5px;">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
+              <div class="select-group">
+                  <button type="button" class="active" onclick="setCount(1, this)">1 ครั้ง</button>
+                  <button type="button" onclick="setCount(10, this)">10 ครั้ง</button>
+                  <button type="button" onclick="setCount(20, this)">20 ครั้ง</button>
+                  <button type="button" onclick="setCount(30, this)">30 ครั้ง</button>
+                  <button type="button" onclick="setCount(50, this)">50 ครั้ง</button>
+                  <button type="button" onclick="setCount(100, this)">100 ครั้ง</button>
+              </div>
+
+              <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (ใช้ 1 แต้ม)</button>
               
               <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
 
@@ -389,8 +402,16 @@ app.get("/lootbox", async (req, res) => {
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
+              let selectedCount = 1;
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              function setCount(count, btn) {
+                  selectedCount = count;
+                  document.querySelectorAll('.select-group button').forEach(b => b.classList.remove('active'));
+                  btn.classList.add('active');
+                  document.getElementById('open-box-btn').innerText = \`📦 เปิดกล่องลุ้นโชค (\${count} ครั้ง / ใช้ \${count} แต้ม)\`;
+              }
 
               function updateCountdown() {
                   const now = new Date().getTime();
@@ -423,7 +444,6 @@ app.get("/lootbox", async (req, res) => {
                       let duration = 0.15;
 
                       if (type === 'ufo_ultimate') {
-                          // เสียงดนตรีรัวโน้ตสูงแบบอลังการสะใจสำหรับ 10,000 Robux
                           notes = [300, 450, 600, 900, 1200, 1500, 1800, 2400, 3000];
                           duration = 0.1;
                       } else if (type === 'god_jackpot') {
@@ -453,68 +473,92 @@ app.get("/lootbox", async (req, res) => {
               }
 
               function openBox() {
-                  if (userPoints < 1) {
-                      alert("แต้มของคุณไม่พอใช้งาน! กรุณาเติมเงินก่อนครับ");
+                  if (userPoints < selectedCount) {
+                      alert("แต้มของคุณไม่พอใช้งานสำหรับ " + selectedCount + " ครั้ง! กรุณาเติมเงินก่อนครับ");
                       return;
                   }
-                  userPoints -= 1;
-                  userSpent += 1;
+
+                  userPoints -= selectedCount;
+                  userSpent += selectedCount;
                   document.getElementById("points").innerText = userPoints;
                   document.getElementById("spent").innerText = userSpent;
                   
                   const resBox = document.getElementById("result-box");
                   resBox.className = "";
-                  resBox.innerText = "🌀 กำลังเปิดกล่องลุ้นระทึก...";
+                  resBox.innerText = \`🌀 กำลังเปิดกล่องรัวๆ \${selectedCount} ครั้ง...\`;
 
                   setTimeout(() => {
-                      let reward = "";
-                      let rewardNum = 0;
+                      let totalRewardNum = 0;
+                      let highestRewardNum = 0;
+                      let bestRewardText = "";
+                      let historyBatch = [];
+                      let summaryRewards = {};
 
-                      const rand = Math.random() * 100;
-                      if (rand < 0.0001) { reward = "10,000 Robux (🛸 ยูเอฟโอถล่มจักรวาล แสงสีเสียงอลังการงานสร้าง!)"; rewardNum = 10000; }
-                      else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน โคตรอลังการ!)"; rewardNum = 1000; }
-                      else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่ แสงพุ่งสุดยอด!)"; rewardNum = 500; }
-                      else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
-                      else if (rand < 2.0) { reward = "20 Robux"; rewardNum = 20; }
-                      else if (rand < 3.1) { reward = "15 Robux"; rewardNum = 15; }
-                      else if (rand < 4.5) { reward = "10 Robux"; rewardNum = 10; }
-                      else if (rand < 5.5) { reward = "5 Robux"; rewardNum = 5; }
-                      else if (rand < 7.0) { reward = "4 Robux"; rewardNum = 4; }
-                      else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
-                      else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
-                      else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
-                      else { reward = "0 Robux (😢 เกลือสนั่น กินเกลือไปก่อนนะ)"; rewardNum = 0; }
+                      for (let i = 0; i < selectedCount; i++) {
+                          let reward = "";
+                          let rewardNum = 0;
 
-                      let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
+                          const rand = Math.random() * 100;
+                          if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+                          else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+                          else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
+                          else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+                          else if (rand < 2.0) { reward = "20 Robux"; rewardNum = 20; }
+                          else if (rand < 3.1) { reward = "15 Robux"; rewardNum = 15; }
+                          else if (rand < 4.5) { reward = "10 Robux"; rewardNum = 10; }
+                          else if (rand < 5.5) { reward = "5 Robux"; rewardNum = 5; }
+                          else if (rand < 7.0) { reward = "4 Robux"; rewardNum = 4; }
+                          else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
+                          else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
+                          else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+                          else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
 
-                      if (rewardNum >= 10000) {
+                          totalRewardNum += rewardNum;
+                          summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
+
+                          if (rewardNum > highestRewardNum) {
+                              highestRewardNum = rewardNum;
+                              bestRewardText = reward;
+                          }
+
+                          historyBatch.push({ username: '${username}', reward: reward, reward_num: rewardNum });
+                      }
+
+                      let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: บันทึกประวัติเรียบร้อย กรุณารอแอดมินตรวจสอบจัดส่ง Robux</span>";
+
+                      if (highestRewardNum >= 10000) {
                           playSound('ufo_ultimate');
                           resBox.className = "ufo-galaxy-flash popup-animation";
-                          resBox.innerHTML = "🛸🌌 <span style='color:#00ffff; font-size:21px; text-shadow: 0 0 20px #00ffff;'>สะเทือนทั้งกาแล็กซี! ยูเอฟโอ UFO บุกโลกแล้ว!</span><br>ได้รับ: <b style='color:#ffffff; font-size:20px; text-shadow: 0 0 10px #ff00ff;'>" + reward + "</b>" + noticeText;
-                      } else if (rewardNum >= 500) {
+                      } else if (highestRewardNum >= 500) {
                           playSound('god_jackpot');
                           resBox.className = "epic-glow rainbow-flash popup-animation";
-                          resBox.innerHTML = "💎✨ <span style='color:#ff007f; font-size:20px; text-shadow: 0 0 15px #ff007f;'>พระเจ้าช่วย! แจ็คพอตสะเทือนแผ่นดิน!</span><br>ได้รับ: <b style='color:#ff007f; font-size:19px;'>" + reward + "</b>" + noticeText;
-                      } else if (rewardNum >= 100) {
+                      } else if (highestRewardNum >= 100) {
                           playSound('jackpot');
                           resBox.className = "epic-glow popup-animation";
-                          resBox.innerHTML = "💎🔥 <span style='color:#ffd700; font-size:18px; text-shadow: 0 0 10px #ffd700;'>สุดยอด! รางวัลใหญ่ไฟกระพริบ!</span><br>ได้รับ: <b style='color:#ffd700; font-size:17px;'>" + reward + "</b>" + noticeText;
-                      } else if (rewardNum >= 1) {
+                      } else if (highestRewardNum >= 1) {
                           playSound('normal');
                           resBox.className = "popup-animation";
                           resBox.style.color = "#2ed573";
-                          resBox.innerHTML = "💎 ผลลัพธ์: ได้รับ <b style='color:#2ed573; font-size:16px;'>" + reward + "</b>" + noticeText;
                       } else {
                           playSound('sad');
                           resBox.className = "popup-animation";
                           resBox.style.color = "#ff4757";
-                          resBox.innerHTML = "❌ ผลลัพธ์: ได้รับ <b style='color:#ff4757; font-size:16px;'>" + reward + "</b>" + noticeText;
                       }
 
-                      fetch('/save-history', {
+                      let summaryListHtml = "";
+                      for (const [rew, count] of Object.entries(summaryRewards)) {
+                          summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
+                      }
+
+                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
+                          รวม Robux ที่ได้ทั้งหมด: <b style="color:#ffd700; font-size:16px;">\${totalRewardNum} Robux</b><br>
+                          <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>
+                          \${noticeText}\`;
+
+                      fetch('/save-history-batch', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ username: '${username}', reward: reward, reward_num: rewardNum })
+                          body: JSON.stringify({ username: '${username}', historyBatch: historyBatch })
                       });
                   }, 600);
               }
@@ -626,8 +670,8 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
-app.post("/save-history", async (req, res) => {
-  const { username, reward, reward_num } = req.body;
+app.post("/save-history-batch", async (req, res) => {
+  const { username, historyBatch } = req.body;
   
   const { data: user } = await supabase
     .from('users')
@@ -635,15 +679,23 @@ app.post("/save-history", async (req, res) => {
     .eq('username', username)
     .single();
 
-  if (user) {
+  if (user && historyBatch && historyBatch.length > 0) {
+    const count = historyBatch.length;
     await supabase
       .from('users')
-      .update({ points: user.points - 1, total_spent: (user.total_spent || 0) + 1 })
+      .update({ points: user.points - count, total_spent: (user.total_spent || 0) + count })
       .eq('username', username);
+
+    const insertData = historyBatch.map(item => ({
+      username: username,
+      roblox_img: user.roblox_img,
+      reward: item.reward,
+      reward_num: item.reward_num || 0
+    }));
 
     await supabase
       .from('history')
-      .insert([{ username, roblox_img: user.roblox_img, reward, reward_num: reward_num || 0 }]);
+      .insert(insertData);
   }
   res.sendStatus(200);
 });
