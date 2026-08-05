@@ -279,6 +279,7 @@ app.get("/lootbox", async (req, res) => {
               .reward-item { display: inline-block; background: #3d3d5c; padding: 4px 8px; margin: 3px; border-radius: 4px; color: #ffd700; font-weight: bold; }
               .reward-epic { background: #8e44ad; color: #fff; }
               .reward-legend { background: #e74c3c; color: #fff; }
+              .reward-ufo { background: #00d2d3; color: #000; }
 
               #result-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; background: rgba(0,0,0,0.4); min-height: 50px; transition: all 0.3s; text-align: left; }
               
@@ -306,6 +307,16 @@ app.get("/lootbox", async (req, res) => {
                   33% { background-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 40px #ffd700; }
                   66% { background-color: rgba(0, 210, 211, 0.5); box-shadow: 0 0 40px #00d2d3; }
                   100% { background-color: rgba(142, 68, 173, 0.5); box-shadow: 0 0 40px #8e44ad; }
+              }
+
+              /* เอฟเฟกต์แสงสีเสียงใหม่สุดอลังการสำหรับ 10,000 Robux */
+              .ufo-galaxy-flash {
+                  animation: ufoAnim 0.25s infinite alternate;
+              }
+              @keyframes ufoAnim {
+                  0% { background-color: rgba(0, 255, 255, 0.7); box-shadow: 0 0 60px #00ffff, inset 0 0 30px #ffffff; border: 3px solid #fff; }
+                  50% { background-color: rgba(255, 0, 255, 0.7); box-shadow: 0 0 60px #ff00ff, inset 0 0 30px #ffff00; border: 3px solid #ffd700; }
+                  100% { background-color: rgba(0, 255, 0, 0.7); box-shadow: 0 0 60px #00ff00, inset 0 0 30px #00ffff; border: 3px solid #00d2d3; }
               }
 
               @keyframes epicFlash {
@@ -348,6 +359,7 @@ app.get("/lootbox", async (req, res) => {
                   <span class="reward-item reward-legend">100 Robux 🔥</span>
                   <span class="reward-item reward-legend">500 Robux 💎</span>
                   <span class="reward-item reward-legend">1,000 Robux 👑</span>
+                  <span class="reward-item reward-ufo">10,000 Robux 🛸 (ใหม่!)</span>
               </div>
 
               <button class="box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (1 แต้ม/ครั้ง)</button>
@@ -410,7 +422,11 @@ app.get("/lootbox", async (req, res) => {
                       let notes = [];
                       let duration = 0.15;
 
-                      if (type === 'god_jackpot') {
+                      if (type === 'ufo_ultimate') {
+                          // เสียงดนตรีรัวโน้ตสูงแบบอลังการสะใจสำหรับ 10,000 Robux
+                          notes = [300, 450, 600, 900, 1200, 1500, 1800, 2400, 3000];
+                          duration = 0.1;
+                      } else if (type === 'god_jackpot') {
                           notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
                           duration = 0.2;
                       } else if (type === 'jackpot') {
@@ -455,14 +471,15 @@ app.get("/lootbox", async (req, res) => {
                       let rewardNum = 0;
 
                       const rand = Math.random() * 100;
-                      if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน โคตรอลังการ!)"; rewardNum = 1000; }
-                      else if (rand < 0.004) { reward = "500 Robux (💎 แจ็คพอตใหญ่ แสงพุ่งสุดยอด!)"; rewardNum = 500; }
-                      else if (rand < 0.5) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
-                      else if (rand < 1.5) { reward = "20 Robux"; rewardNum = 20; }
-                      else if (rand < 2.5) { reward = "15 Robux"; rewardNum = 15; }
-                      else if (rand < 3.5) { reward = "10 Robux"; rewardNum = 10; }
-                      else if (rand < 7.5) { reward = "5 Robux"; rewardNum = 5; }
-                      else if (rand < 6.0) { reward = "4 Robux"; rewardNum = 4; }
+                      if (rand < 0.0001) { reward = "10,000 Robux (🛸 ยูเอฟโอถล่มจักรวาล แสงสีเสียงอลังการงานสร้าง!)"; rewardNum = 10000; }
+                      else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน โคตรอลังการ!)"; rewardNum = 1000; }
+                      else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่ แสงพุ่งสุดยอด!)"; rewardNum = 500; }
+                      else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
+                      else if (rand < 0.05) { reward = "20 Robux"; rewardNum = 20; }
+                      else if (rand < 0.15) { reward = "15 Robux"; rewardNum = 15; }
+                      else if (rand < 0.5) { reward = "10 Robux"; rewardNum = 10; }
+                      else if (rand < 1.5) { reward = "5 Robux"; rewardNum = 5; }
+                      else if (rand < 4.0) { reward = "4 Robux"; rewardNum = 4; }
                       else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
                       else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
                       else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
@@ -470,7 +487,11 @@ app.get("/lootbox", async (req, res) => {
 
                       let noticeText = "<br><span style='font-size:12px; color:#00d2d3; font-weight:normal;'>⏳ แจ้งเตือน: บันทึกข้อมูลเรียบร้อย กรุณารอแอดมินตรวจสอบและจัดส่ง Robux ภายใน 1-24 ชั่วโมงครับ</span>";
 
-                      if (rewardNum >= 500) {
+                      if (rewardNum >= 10000) {
+                          playSound('ufo_ultimate');
+                          resBox.className = "ufo-galaxy-flash popup-animation";
+                          resBox.innerHTML = "🛸🌌 <span style='color:#00ffff; font-size:21px; text-shadow: 0 0 20px #00ffff;'>สะเทือนทั้งกาแล็กซี! ยูเอฟโอ UFO บุกโลกแล้ว!</span><br>ได้รับ: <b style='color:#ffffff; font-size:20px; text-shadow: 0 0 10px #ff00ff;'>" + reward + "</b>" + noticeText;
+                      } else if (rewardNum >= 500) {
                           playSound('god_jackpot');
                           resBox.className = "epic-glow rainbow-flash popup-animation";
                           resBox.innerHTML = "💎✨ <span style='color:#ff007f; font-size:20px; text-shadow: 0 0 15px #ff007f;'>พระเจ้าช่วย! แจ็คพอตสะเทือนแผ่นดิน!</span><br>ได้รับ: <b style='color:#ff007f; font-size:19px;'>" + reward + "</b>" + noticeText;
@@ -821,7 +842,9 @@ async function renderAdminDashboard(req, res) {
 
   let userHtml = "";
   if (usersRows && usersRows.length > 0) {
-    usersRows.forEach(u => {
+    usersRows.forEach((u, index) => {
+      const runningNo = offset + index + 1;
+
       let daysLeft = "-";
       if (u.created_at) {
           const createdTime = new Date(u.created_at).getTime();
@@ -832,7 +855,7 @@ async function renderAdminDashboard(req, res) {
       }
 
       userHtml += `<tr>
-        <td>${u.id}</td>
+        <td>${runningNo}</td>
         <td><b>${u.username}</b></td>
         <td><a href="${u.roblox_img}" target="_blank"><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;" title="คลิกเพื่อดูรูปใหญ่"></a></td>
         <td>${u.points} แต้ม</td>
@@ -912,7 +935,7 @@ async function renderAdminDashboard(req, res) {
 
       <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ลบยูส / อายุ 30 วัน)</h3>
       <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px;">จัดการ</th></tr>
+        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px;">จัดการ</th></tr>
         ${userHtml}
       </table>
       ${paginationHtml}
