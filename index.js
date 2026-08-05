@@ -663,7 +663,6 @@ app.get("/my-history", async (req, res) => {
   `);
 });
 
-// [เพิ่มใหม่] หน้าแก้ไขโปรไฟล์ / เปลี่ยนรูป Roblox
 app.get("/edit-profile", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
@@ -696,7 +695,7 @@ app.get("/edit-profile", async (req, res) => {
     <body>
         <div class="container">
             <h2>🔄 เปลี่ยนรูปโปรไฟล์ Roblox</h2>
-            <p style="font-size:12px; color:#aaa; text-align:center;">อัปเดตรูปใหม่ได้ตลอด หากต้องการเปลี่ยนบัญชีหรือตั้งค่าอายุใหม่</p>
+            <p style="font-size:12px; color:#aaa; text-align:center;">อัปเดตรูปใหม่ได้ตลอด หากเปลี่ยนบัญชีหรือสมัคร ID ใหม่</p>
             <img src="${currentImg}" class="current-img">
             <form action="/edit-profile" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="username" value="${username}">
@@ -721,7 +720,6 @@ app.post("/edit-profile", upload.single('roblox_img'), async (req, res) => {
       .update({ roblox_img: newRobloxImg })
       .eq('username', username);
 
-    // อัปเดตตาราง history ด้วยเพื่อให้รูปโปรไฟล์ในประวัติซิงค์กัน
     await supabase
       .from('history')
       .update({ roblox_img: newRobloxImg })
@@ -731,7 +729,6 @@ app.post("/edit-profile", upload.single('roblox_img'), async (req, res) => {
   res.send(`<script>alert("เปลี่ยนรูปโปรไฟล์ Roblox สำเร็จ!"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
-// [ปรับปรุงเพิ่ม] หน้าคำเตือนก่อนกดยืนยันขอถอน Robux
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
@@ -775,10 +772,10 @@ app.post("/request-withdraw", async (req, res) => {
             <p style="text-align:center; font-size:14px; color:#fff;">ยอดถอน: <b style="color:#ffd700; font-size:18px;">${totalRobux} Robux</b></p>
             
             <div class="warning-box">
-                <b>📌 คำเตือนและเงื่อนไขการรับ Robux:</b><br>
+                <b>📌 คำเตือนและเงื่อนไขการรับ Robux:</b><br><br>
                 1. โปรดตรวจสอบให้แน่ใจว่าในเกม Roblox ของคุณตั้งค่าอายุเป็น <b>18 ปีขึ้นไปแล้วหรือยัง</b> และผ่านการ<b>สแกนใบหน้า (Age Check)</b> หรือยืนยันตัวตนแล้ว<br><br>
                 2. <b>หากอายุในเกมไม่ถึง 18 ปี</b> ระบบ Roblox จะบังคับให้ต้องมี <b>"บัญชีผู้ปกครอง" (Parent Account)</b> ทำการกดอนุมัติ/รับ Robux ให้ทุกครั้ง<br><br>
-                3. หากบัญชีของคุณไม่พร้อมรับโอน อาจทำให้การจัดส่งรางวัลล่าช้าหรือเกิดข้อผิดพลาดได้
+                3. <b>ทุกครั้งที่มีการเปลี่ยน ID Roblox หรือใช้ ID ใหม่ในการรับรางวัล</b> คุณจะต้องกดเข้าไปเปลี่ยนรูปโปรไฟล์ Roblox ในหน้าเว็บให้ตรงกับไอดีใหม่ทุกครั้ง เพื่อให้แอดมินส่ง Robux ได้อย่างถูกต้อง
             </div>
 
             <form action="/confirm-withdraw" method="POST">
