@@ -663,13 +663,12 @@ app.get("/my-history", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
-  // 1. ดึงข้อมูลประวัติการสุ่มทั้งหมดของผู้ใช้นี้ออกมาก่อน
-  const { data: userHistory, error: fetchError } = await supabase
+  const { data: userHistory } = await supabase
     .from('history')
     .select('*')
     .eq('username', username);
 
-  if (fetchError || !userHistory || userHistory.length === 0) {
+  if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
@@ -683,7 +682,6 @@ app.post("/request-withdraw", async (req, res) => {
     return res.send(`<script>alert("แต้ม Robux สะสมยังไม่ถึง 10 Robux ไม่สามารถถอนได้!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
-  // 2. ดึงรูปโปรไฟล์ Roblox ของผู้ใช้
   const { data: userData } = await supabase
     .from('users')
     .select('roblox_img')
@@ -692,33 +690,19 @@ app.post("/request-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
-  // 3. แปลงข้อมูลประวัติทั้งหมดเป็น JSON String เก็บสำรองไว้ทันที
-  const historyJsonStr = JSON.stringify(userHistory);
-
-  // 4. บันทึกลงตาราง pending_withdraw พร้อมตัวสำรอง
-  const { error: insertError } = await supabase
+  await supabase
     .from('pending_withdraw')
     .insert([{
       username: username,
       roblox_img: robloxImg,
       total_opens: totalOpens,
       total_robux: totalRobux,
-      history_backup: historyJsonStr, 
       status: 'pending'
     }]);
 
-  if (insertError) {
-    console.error("Insert Withdraw Error:", insertError);
-    return res.send(`<script>alert("เกิดข้อผิดพลาดในการบันทึกคำขอถอน"); window.location.href="/lootbox?username=${username}";</script>`);
-  }
+  // [ปรับแก้] เอาคำสั่งลบ history ออกจากตรงนี้แล้ว เพื่อให้ประวัติยังอยู่ให้แอดมินตรวจ
 
-  // 5. หลังจากสำรองข้อมูลลงตารางถอนเรียบร้อยแล้วค่อยลบออกจาก history จริง
-  await supabase
-    .from('history')
-    .delete()
-    .eq('username', username);
-
-  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ!"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! ประวัติถูกส่งไปให้แอดมินตรวจสอบเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -885,6 +869,12 @@ app.post("/admin/approve-withdraw", async (req, res) => {
     .update({ status: 'completed' })
     .eq('id', withdraw_id);
 
+  // [ปรับแก้] พึ่งมาสั่งลบประวัติ history ของยูสเซอร์นี้ทิ้งเมื่อแอดมินกดอนุมัติการถอนแล้ว
+  await supabase
+    .from('history')
+    .delete()
+    .eq('username', username);
+
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
@@ -892,10 +882,24 @@ app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
 
+  const { data: withdrawData } = await supabase
+    .from('pending_withdraw')
+    .select('username')
+    .eq('id', withdraw_id)
+    .single();
+
   await supabase
     .from('pending_withdraw')
     .delete()
     .eq('id', withdraw_id);
+
+  // [ปรับแก้] หากแอดมินกดเคลียร์/ลบคำขอถอน ให้ลบประวัติ history ทิ้งด้วย
+  if (withdrawData) {
+    await supabase
+      .from('history')
+      .delete()
+      .eq('username', withdrawData.username);
+  }
 
   res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
@@ -938,42 +942,19 @@ app.get("/admin/user-detail", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const username = req.query.username;
 
-  // 1. ค้นหาในประวัติปัจจุบันก่อน
-  let { data: rows } = await supabase
+  const { data: rows } = await supabase
     .from('history')
     .select('*')
     .eq('username', username)
     .order('id', { ascending: false });
 
   let historyList = "";
-  
   if (rows && rows.length > 0) {
     rows.forEach(r => {
       historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
     });
   } else {
-    // 2. ถ้าไม่พบใน history ให้ลองดึงข้อมูลสำรองจากตาราง pending_withdraw (กรณีที่ผู้เล่นกดขอถอนไปแล้ว)
-    const { data: withdrawRow } = await supabase
-      .from('pending_withdraw')
-      .select('history_backup')
-      .eq('username', username)
-      .eq('status', 'pending')
-      .single();
-
-    if (withdrawRow && withdrawRow.history_backup) {
-      try {
-        const backupData = JSON.parse(withdrawRow.history_backup);
-        if (backupData && backupData.length > 0) {
-          backupData.forEach((r, idx) => {
-            historyList += `<tr><td>${idx + 1}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time || '-'}</td></tr>`;
-          });
-        }
-      } catch (e) {}
-    }
-  }
-
-  if (!historyList) {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่มในระบบ</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
   }
 
   res.send(`
