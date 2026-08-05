@@ -691,8 +691,7 @@ app.post("/request-withdraw", async (req, res) => {
             return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux" });
         }
 
-        // บันทึกลงตาราง pending_withdraw พร้อมเก็บข้อมูลประวัติทั้งหมดของรอบนี้ไว้ตรวจสอบ (JSON stringify)
-        await supabase
+        const { error: insertError } = await supabase
             .from('pending_withdraw')
             .insert([{
                 username: username,
@@ -702,7 +701,11 @@ app.post("/request-withdraw", async (req, res) => {
                 status: 'pending'
             }]);
 
-        // เคลียร์ประวัติฝั่งยูสเซอร์ออกเพื่อให้ยอดสะสมเริ่มต้นนับใหม่เป็น 0
+        if (insertError) {
+            console.error("Insert Withdraw Error:", insertError);
+            return res.json({ success: false, message: "บันทึกข้อมูลถอนไม่สำเร็จ (เช็คตาราง pending_withdraw ใน Supabase)" });
+        }
+
         await supabase
             .from('history')
             .delete()
