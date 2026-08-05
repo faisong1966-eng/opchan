@@ -15,6 +15,10 @@ const ADMIN_PASSWORD = "3579";
 const MY_PROMPTPAY_NUMBER = "0643399170";
 const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงคุณ";
 
+// ข้อมูล TrueMoney Wallet ที่เพิ่มเข้ามาใหม่ตามคำขอ
+const MY_TRUEMONEY_NUMBER = "0643399170";
+const MY_TRUEMONEY_NAME = "ธีรวัฒน์ คำมุงคุณ";
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -429,9 +433,23 @@ app.get("/lootbox", async (req, res) => {
               
               <form action="/create-topup" method="POST" style="text-align: left;">
                   <input type="hidden" name="username" value="${username}">
+                  <input type="hidden" name="topup_type" value="promptpay">
                   <label style="font-size: 13px;">จำนวนเงินที่ต้องการเติม (บาท):</label>
                   <input type="number" name="amount" placeholder="เช่น 50" required>
                   <button type="submit" class="topup-btn">สร้าง QR Code สแกนจ่าย</button>
+              </form>
+
+              <hr>
+
+              <h3>🧡 เติมเงินผ่าน TrueMoney Wallet</h3>
+              <p style="font-size: 13px; color: #aaa; text-align: left;">โอนเงินเข้า TrueMoney Wallet: <b style="color:#ff4757;">0643399170</b> (ชื่อ: <b>ธีรวัฒน์ คำมุงคุณ</b>)<br>แล้วกรอกจำนวนเงินพร้อมอัปโหลดสลิปด้านล่าง</p>
+              
+              <form action="/create-topup" method="POST" style="text-align: left;">
+                  <input type="hidden" name="username" value="${username}">
+                  <input type="hidden" name="topup_type" value="truemoney">
+                  <label style="font-size: 13px;">จำนวนเงินที่โอน (บาท):</label>
+                  <input type="number" name="amount" placeholder="เช่น 50" required>
+                  <button type="submit" class="topup-btn" style="background:#ff4757;">แจ้งโอนผ่าน TrueMoney Wallet</button>
               </form>
 
               <div style="text-align:left; margin-top:15px; background:rgba(0,0,0,0.3); padding:10px; border-radius:5px;">
@@ -829,23 +847,38 @@ app.post("/confirm-withdraw", async (req, res) => {
 });
 
 app.post("/create-topup", (req, res) => {
-  const { username, amount } = req.body;
+  const { username, amount, topup_type } = req.body;
   const exactAmount = parseFloat(amount).toFixed(2);
-  const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
+  
+  let titleText = "";
+  let infoHtml = "";
+
+  if (topup_type === "truemoney") {
+      titleText = "🧡 แจ้งโอนเงิน TrueMoney Wallet";
+      infoHtml = `
+        <p style="font-size:13px; color:#aaa; text-align:center;">โอนเข้าเบอร์: <b style="color:#ff4757; font-size:16px;">${MY_TRUEMONEY_NUMBER}</b></p>
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_TRUEMONEY_NAME}</b></p>
+      `;
+  } else {
+      titleText = "📱 สแกนจ่ายด้วยพร้อมเพย์";
+      const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
+      infoHtml = `
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
+            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
+        </div>
+      `;
+  }
 
   res.send(`
-    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สแกนและแนบสลิป</title>
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${titleText}</title>
     <style>
         body { font-family: Arial; background: #1e1e2f; color: #fff; text-align: center; padding-top: 30px; }
         .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
     </style></head>
     <body><div class="box">
-        <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายด้วยพร้อมเพย์</h2>
-        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
-        
-        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
-            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
-        </div>
+        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center;">${titleText}</h2>
+        ${infoHtml}
         
         <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
         
@@ -854,11 +887,12 @@ app.post("/create-topup", (req, res) => {
         <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
+            <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
             
             <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
-            <button type="submit" id="submit-btn" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
+            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
 
         <div id="loading-text" style="display:none; text-align:center; margin-top:10px; color:#ffd700; font-size:13px; font-weight:bold;">
@@ -882,14 +916,20 @@ app.post("/create-topup", (req, res) => {
 });
 
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
-  const { username, exact_amount } = req.body;
+  const { username, exact_amount, topup_type } = req.body;
   
   try {
     const slipImg = await uploadToSupabaseStorage(req.file);
 
     const { error } = await supabase
       .from('pending_topup')
-      .insert([{ username, exact_amount: parseFloat(exact_amount), slip_img: slipImg, status: 'pending' }]);
+      .insert([{ 
+          username, 
+          exact_amount: parseFloat(exact_amount), 
+          slip_img: slipImg, 
+          status: 'pending',
+          topup_type: topup_type || 'promptpay' 
+      }]);
 
     if (error) {
       return res.send(`<script>alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -1133,10 +1173,11 @@ async function renderAdminDashboard(req, res) {
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
     pendingRows.forEach(p => {
+      const topupBadge = p.topup_type === 'truemoney' ? '<span style="color:#ff4757; font-size:11px;">[TrueMoney]</span>' : '<span style="color:#2ed573; font-size:11px;">[PromptPay]</span>';
       pendingSlipHtml += `<tr>
         <td>${p.id}</td>
         <td><b>${p.username}</b></td>
-        <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b></td>
+        <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b><br>${topupBadge}</td>
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
         <td>${p.time}</td>
         <td>
