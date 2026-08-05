@@ -52,7 +52,6 @@ app.use(session({
     cookie: { maxAge: 600000 }
 }));
 
-// ฟังก์ชันตรวจสอบอายุสมาชิก 30 วัน (ลบอัตโนมัติหากเกินกำหนด)
 async function checkUserExpiration(username) {
     try {
         const { data: user } = await supabase
@@ -67,15 +66,14 @@ async function checkUserExpiration(username) {
             const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
             if (now - createdTime > thirtyDaysMs) {
-                // ครบ 30 วันแล้ว ทำการลบข้อมูลผู้ใช้ออกจากระบบ
                 await supabase.from('users').delete().eq('username', username);
                 await supabase.from('history').delete().eq('username', username);
                 await supabase.from('pending_topup').delete().eq('username', username);
-                return true; // หมดอายุ
+                return true; 
             }
         }
     } catch (e) {}
-    return false; // ยังไม่หมดอายุ
+    return false; 
 }
 
 app.get("/", (req, res) => {
@@ -197,7 +195,6 @@ app.get("/login", (req, res) => {
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   
-  // ตรวจสอบว่าหมดอายุ 30 วันหรือยังก่อนล็อกอิน
   const isExpired = await checkUserExpiration(username);
   if (isExpired) {
       return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งาน 30 วันแล้ว ถูกลบออกจากระบบอัตโนมัติครับ!"); window.location.href="/login";</script>`);
@@ -225,7 +222,6 @@ app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
 
-  // ตรวจสอบอายุ 30 วันระหว่างใช้งาน
   const isExpired = await checkUserExpiration(username);
   if (isExpired) {
       return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
@@ -242,6 +238,7 @@ app.get("/lootbox", async (req, res) => {
     const currentPoints = row.points;
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
+    const createdAt = row.created_at;
 
     const { data: pendingRows } = await supabase
       .from('pending_topup')
@@ -331,6 +328,11 @@ app.get("/lootbox", async (req, res) => {
                   </div>
                   <a href="/my-history?username=${username}" style="background:#00d2d3; color:#000; padding:6px 12px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-top:0;">📜 ประวัติการสุ่ม</a>
               </div>
+
+              <!-- ส่วนแสดงอายุการใช้งานที่เหลือ -->
+              <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
+                  ⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...
+              </div>
               
               <div class="wallet">
                   <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
@@ -375,6 +377,32 @@ app.get("/lootbox", async (req, res) => {
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
+              const createdAtTime = new Date("${createdAt}").getTime();
+              const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              function updateCountdown() {
+                  const now = new Date().getTime();
+                  const expireTime = createdAtTime + thirtyDaysMs;
+                  const timeLeft = expireTime - now;
+
+                  const box = document.getElementById("countdown-box");
+                  if (timeLeft <= 0) {
+                      box.innerHTML = "❌ บัญชีของคุณหมดอายุการใช้งานแล้ว!";
+                      box.style.color = "#ff4757";
+                      box.style.borderColor = "#ff4757";
+                      return;
+                  }
+
+                  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                  const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                  box.innerHTML = \`⏳ ID นี้ใช้งานได้อีก: \${days} วัน \${hours} ชม. \${minutes} นาที \${seconds} วิ\`;
+              }
+
+              setInterval(updateCountdown, 1000);
+              updateCountdown();
               
               function playSound(type) {
                   try {
@@ -682,7 +710,6 @@ app.post("/admin/update-points", async (req, res) => {
   res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// ฟังก์ชันลบสมาชิกจากหลังบ้านแอดมิน
 app.post("/admin/delete-user", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username } = req.body;
@@ -740,7 +767,6 @@ app.post("/admin/clear-user-history", async (req, res) => {
 });
 
 async function renderAdminDashboard(req, res) {
-  // ระบบแบ่งหน้า (Pagination) แสดงหน้าละ 10 คน
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const offset = (page - 1) * limit;
@@ -796,7 +822,6 @@ async function renderAdminDashboard(req, res) {
   let userHtml = "";
   if (usersRows && usersRows.length > 0) {
     usersRows.forEach(u => {
-      // คำนวณวันหมดอายุเหลืออีกกี่วัน
       let daysLeft = "-";
       if (u.created_at) {
           const createdTime = new Date(u.created_at).getTime();
@@ -831,7 +856,6 @@ async function renderAdminDashboard(req, res) {
     userHtml = `<tr><td colspan="7" style="padding:15px; color:#aaa;">ยังไม่มีสมาชิกในระบบ</td></tr>`;
   }
 
-  // สร้างปุ่มเปลี่ยนหน้า (Pagination Buttons)
   let paginationHtml = "";
   if (totalPages > 1) {
       paginationHtml += `<div style="margin: 15px 0;">`;
