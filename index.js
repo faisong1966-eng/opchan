@@ -795,7 +795,7 @@ app.post("/confirm-withdraw", async (req, res) => {
     .eq('username', username);
 
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.send(`<script>alert("เกิดข้อผิดพลาด Không พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   let totalRobux = 0;
@@ -949,32 +949,31 @@ app.post("/open-lootbox", async (req, res) => {
   let currentSaltCount = user.custom_salt_count || 0;
   let forceRateType = user.force_rate_type || 'normal';
 
-  let hasHitTargetJackpot = false;
-
+  // วนลูปตามจำนวนครั้งที่กดสุ่ม
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
 
-      if (forceRateType === 'always_salt') {
-          reward = "0 Robux (😢 เกลือ)";
-          rewardNum = 0;
-      } else if (forceRateType === 'always_jackpot_100') {
-          reward = "100 Robux (🔥 แจ็คพอตแตก)";
-          rewardNum = 100;
-          hasHitTargetJackpot = true;
-      } else if (forceRateType === 'always_jackpot_500') {
-          reward = "500 Robux (💎 แจ็คพอตใหญ่)";
-          rewardNum = 500;
-          hasHitTargetJackpot = true;
-      } else if (forceRateType === 'always_jackpot_1000') {
-          reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)";
-          rewardNum = 1000;
-          hasHitTargetJackpot = true;
-      } else if (forceRateType === 'always_jackpot_10000') {
-          reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)";
-          rewardNum = 10000;
-          hasHitTargetJackpot = true;
+      // ถ้าเป็นการสุ่มครั้งแรก (i === 0) และมีการตั้งค่าเรตพิเศษ/เกลือไว้ จะออกผลลัพธ์นั้นแค่ครั้งเดียวในรอบนี้
+      if (i === 0 && forceRateType !== 'normal') {
+          if (forceRateType === 'always_salt') {
+              reward = "0 Robux (😢 เกลือ)";
+              rewardNum = 0;
+          } else if (forceRateType === 'always_jackpot_100') {
+              reward = "100 Robux (🔥 แจ็คพอตแตก)";
+              rewardNum = 100;
+          } else if (forceRateType === 'always_jackpot_500') {
+              reward = "500 Robux (💎 แจ็คพอตใหญ่)";
+              rewardNum = 500;
+          } else if (forceRateType === 'always_jackpot_1000') {
+              reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)";
+              rewardNum = 1000;
+          } else if (forceRateType === 'always_jackpot_10000') {
+              reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)";
+              rewardNum = 10000;
+          }
       } else {
+          // รอบที่เหลือ หรือกรณีปกติ จะใช้ระบบสุ่มความน่าจะเป็นตามปกติ
           if (currentSaltCount > 0) {
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
@@ -1027,15 +1026,9 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
-  let finalForceRateType = forceRateType;
+  // หลังจากสุ่มเสร็จแล้ว ให้รีเซ็ตค่าการบังคับเรตกลับเป็น 'normal' ทันที เพื่อไม่ให้ค้างไปรอบถัดไป
+  let finalForceRateType = 'normal';
   let finalSaltCount = currentSaltCount;
-
-  if (forceRateType.startsWith('always_jackpot_') && hasHitTargetJackpot) {
-      finalForceRateType = 'normal';
-      finalSaltCount = 0;
-  } else if (forceRateType === 'normal' && currentSaltCount === 0 && highestRewardNum >= 100) {
-      finalSaltCount = 0;
-  }
 
   await supabase
     .from('users')
