@@ -18,9 +18,6 @@ const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงค�
 const MY_TRUEMONEY_NUMBER = "0643399170";
 const MY_TRUEMONEY_NAME = "ธีรวัฒน์ คำมุงคุณ";
 
-// ⚙️ ตั้งค่าระบบการันตี (Pity System): เกลือติดต่อกันกี่ครั้ง จะการันตีแจ็กพอตในครั้งถัดไป
-const PITY_THRESHOLD = 10; 
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -154,7 +151,7 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
   try {
     const { error } = await supabase
       .from('users')
-      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0, pity_count: 0 }]);
+      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0, custom_salt_count: 0, force_rate_type: 'normal' }]);
 
     if (error) {
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
@@ -246,7 +243,6 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
-    const pityCount = row.pity_count || 0;
 
     const { data: userHistoryRows } = await supabase
       .from('history')
@@ -392,12 +388,8 @@ app.get("/lootbox", async (req, res) => {
                   </div>
               </div>
 
-              <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
+              <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
                   ⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...
-              </div>
-
-              <div style="background: rgba(255,71,87,0.15); border: 1px solid #ff4757; padding: 6px; border-radius: 6px; margin-bottom: 15px; font-size: 12px; color: #ff6b81; text-align: center; font-weight: bold;">
-                  🛡️ แต้มการันตีเกลือ (Pity): <span style="color:#ffd700;">${pityCount} / ${PITY_THRESHOLD}</span> ครั้ง (ครบกำหนดการันตีแจ็กพอตทันที!)
               </div>
               
               <div class="wallet">
@@ -925,7 +917,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// 🔒 ระบบสุ่มปลอดภัยพร้อมระบบการันตี (Pity System) บน Server
+// 🔒 ระบบสุ่มปลอดภัย พร้อมเชื่อมต่อหลังบ้านแอดมิน (Custom Salt & Rate Control)
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
   const selectedCount = parseInt(count) || 1;
@@ -952,46 +944,45 @@ app.post("/open-lootbox", async (req, res) => {
   let highestRewardNum = 0;
   let historyBatch = [];
   let summaryRewards = {};
-  let currentPity = user.pity_count || 0;
+
+  let currentSaltCount = user.custom_salt_count || 0;
+  let forceRateType = user.force_rate_type || 'normal';
 
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
 
-      // ตรวจสอบระบบการันตี (Pity System)
-      if (currentPity >= PITY_THRESHOLD) {
-          // บังคับออกรางวัลใหญ่ (การันตีสุ่มได้ 10 Robux ขึ้นไป)
-          const pityRand = Math.random() * 100;
-          if (pityRand < 1.0) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
-          else if (pityRand < 30.0) { reward = "20 Robux"; rewardNum = 20; }
-          else if (pityRand < 65.0) { reward = "15 Robux"; rewardNum = 15; }
-          else { reward = "10 Robux"; rewardNum = 10; }
-          
-          currentPity = 0; // รีเซ็ตแต้มเกลือเมื่อหลุดเรตการันตี
+      // ตรวจสอบโหมดบังคับจากแอดมิน
+      if (forceRateType === 'always_salt') {
+          // บังคับเกลือตลอดกาล (0 Robux)
+          reward = "0 Robux (😢 เกลือ)";
+          rewardNum = 0;
+      } else if (forceRateType === 'always_jackpot') {
+          // บังคับออกแจ็กพอต 100 Robux
+          reward = "100 Robux (🔥 แจ็คพอตแตก)";
+          rewardNum = 100;
       } else {
-          // สุ่มปกติ
-          const rand = Math.random() * 100;
-          if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
-          else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
-          else if (rand < 0.0001) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
-          else if (rand < 0.001) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
-          else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
-          else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
-          else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
-          else if (rand < 0.2) { reward = "5 Robux"; rewardNum = 5; }
-          else if (rand < 0.3) { reward = "4 Robux"; rewardNum = 4; }
-          else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
-          else if (rand < 1.0) { reward = "2 Robux"; rewardNum = 2; }
-          else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
-          else { 
-              reward = "0 Robux (😢 เกลือ)"; 
-              rewardNum = 0; 
-              currentPity += 1; // สะสมแต้มเกลือเพิ่ม
-          }
-
-          // ถ้ารอบนี้ฟลุกสุ่มได้รางวัลใหญ่เอง ให้รีเซ็ตแต้มเกลือด้วย
-          if (rewardNum >= 10) {
-              currentPity = 0;
+          // โหมดปกติ แต่เช็คว่าแอดมินตั้งให้ยูสนี้เกลือกี่รอบติดก่อนหน้านี้ไหม
+          if (currentSaltCount > 0) {
+              reward = "0 Robux (😢 เกลือ)";
+              rewardNum = 0;
+              currentSaltCount -= 1; // หักจำนวนรอบเกลือลงทีละ 1
+          } else {
+              // สุ่มตามเรตปกติ
+              const rand = Math.random() * 100;
+              if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+              else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+              else if (rand < 0.0001) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
+              else if (rand < 0.001) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+              else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
+              else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
+              else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
+              else if (rand < 0.2) { reward = "5 Robux"; rewardNum = 5; }
+              else if (rand < 0.3) { reward = "4 Robux"; rewardNum = 4; }
+              else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
+              else if (rand < 1.0) { reward = "2 Robux"; rewardNum = 2; }
+              else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+              else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
           }
       }
 
@@ -1013,12 +1004,13 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
+  // อัปเดตข้อมูลแต้มและลดจำนวนรอบเกลือค้างท่อใน Database
   await supabase
     .from('users')
     .update({ 
         points: newPoints, 
         total_spent: newSpent,
-        pity_count: currentPity 
+        custom_salt_count: currentSaltCount 
     })
     .eq('username', username);
 
@@ -1173,6 +1165,22 @@ app.post("/admin/update-points", async (req, res) => {
   res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
+// 🎛️ ฟังก์ชันสำหรับให้แอดมินตั้งค่าเรตสุ่ม/เกลือรายบุคคล
+app.post("/admin/update-user-luck", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { username, custom_salt_count, force_rate_type } = req.body;
+
+  await supabase
+    .from('users')
+    .update({ 
+        custom_salt_count: parseInt(custom_salt_count) || 0,
+        force_rate_type: force_rate_type || 'normal'
+    })
+    .eq('username', username);
+
+  res.send(`<script>alert("บันทึกการตั้งค่าเรตสุ่มพิเศษของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+});
+
 app.post("/admin/delete-user", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username } = req.body;
@@ -1310,6 +1318,9 @@ async function renderAdminDashboard(req, res) {
           daysLeft = diffDays > 0 ? `${diffDays} วัน` : `หมดอายุ`;
       }
 
+      const saltCountVal = u.custom_salt_count || 0;
+      const rateTypeVal = u.force_rate_type || 'normal';
+
       userHtml += `<tr>
         <td>${runningNo}</td>
         <td><b>${u.username}</b></td>
@@ -1324,7 +1335,26 @@ async function renderAdminDashboard(req, res) {
             <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="เพิ่มแต้ม">➕</button>
             <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
           </form>
-          <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin:0;">
+
+          <!-- 🎛️ ฟอร์มลับตั้งค่าความเกลือและเรตส่วนตัวเฉพาะยูสนี้ -->
+          <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; margin-top:4px; text-align:left;">
+            <input type="hidden" name="username" value="${u.username}">
+            <div style="font-size:11px; color:#ffd700; margin-bottom:2px;">🎛️ ตั้งค่าเรต/เกลือลับ:</div>
+            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
+              <span style="font-size:11px; color:#aaa;">เกลือต่อ:</span>
+              <input type="number" name="custom_salt_count" value="${saltCountVal}" min="0" style="width:45px; padding:2px; font-size:11px; text-align:center;"> รอบ
+            </div>
+            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
+              <select name="force_rate_type" style="width:100%; font-size:11px; padding:2px;">
+                <option value="normal" ${rateTypeVal === 'normal' ? 'selected' : ''}>เรตปกติ (สุ่มตามดวง)</option>
+                <option value="always_salt" ${rateTypeVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
+                <option value="always_jackpot" ${rateTypeVal === 'always_jackpot' ? 'selected' : ''}>🔥 ล็อคแจ็คพอต (100)</option>
+              </select>
+            </div>
+            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกเรตยูสนี้</button>
+          </form>
+
+          <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin-top:6px;">
             <input type="hidden" name="username" value="${u.username}">
             <button type="submit" style="background:#c0392b; color:#fff; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">🗑️ ลบยูส</button>
           </form>
@@ -1368,9 +1398,9 @@ async function renderAdminDashboard(req, res) {
         ${withdrawHtml}
       </table>
 
-      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ลบยูส / อายุ 30 วัน)</h3>
-      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px;">จัดการ</th></tr>
+      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ตั้งค่าเกลือ-เรตลับรายบุคคล / อายุ 30 วัน)</h3>
+      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:220px;">จัดการ / ตั้งค่าเรตลับ</th></tr>
         ${userHtml}
       </table>
       ${paginationHtml}
