@@ -677,7 +677,7 @@ app.post("/request-withdraw", async (req, res) => {
 
         const { data: historyRows } = await supabase
             .from('history')
-            .select('reward_num')
+            .select('*')
             .eq('username', username);
 
         let totalRobux = 0;
@@ -691,15 +691,18 @@ app.post("/request-withdraw", async (req, res) => {
             return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux" });
         }
 
+        // บันทึกลงตาราง pending_withdraw พร้อมเก็บข้อมูลประวัติทั้งหมดของรอบนี้ไว้ตรวจสอบ (JSON stringify)
         await supabase
             .from('pending_withdraw')
             .insert([{
                 username: username,
                 roblox_img: user ? user.roblox_img : '',
                 total_robux: totalRobux,
+                history_snapshot: JSON.stringify(historyRows || []),
                 status: 'pending'
             }]);
 
+        // เคลียร์ประวัติฝั่งยูสเซอร์ออกเพื่อให้ยอดสะสมเริ่มต้นนับใหม่เป็น 0
         await supabase
             .from('history')
             .delete()
@@ -710,6 +713,63 @@ app.post("/request-withdraw", async (req, res) => {
         console.error("Withdraw Error:", err);
         res.json({ success: false, message: "เกิดข้อผิดพลาดในระบบ" });
     }
+});
+
+app.get("/admin/view-withdraw-history", async (req, res) => {
+    if (!req.session.isAdmin) return res.redirect("/admin");
+    const id = req.query.id;
+
+    const { data: withdrawItem } = await supabase
+        .from('pending_withdraw')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (!withdrawItem) {
+        return res.send(`<script>alert("ไม่พบข้อมูลคำขอนี้"); window.location.href="/admin";</script>`);
+    }
+
+    let historyList = "";
+    try {
+        const snapshot = JSON.parse(withdrawItem.history_snapshot || '[]');
+        if (snapshot.length > 0) {
+            snapshot.forEach(r => {
+                historyList += `<tr><td style="padding:8px;">${r.id || '-'}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
+            });
+        } else {
+            historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่มในรอบนี้</td></tr>`;
+        }
+    } catch (e) {
+        historyList = `<tr><td colspan="3" style="padding:15px; color:#ff4757;">เกิดข้อผิดพลาดในการโหลดข้อมูลประวัติ</td></tr>`;
+    }
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="th">
+      <head>
+          <meta charset="UTF-8">
+          <title>ตรวจสอบประวัติการสุ่มของผู้เล่น</title>
+          <style>
+              body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
+              .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 550px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+              table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
+              th { padding: 10px; background: #3d3d5c; color: #ffd700; }
+              a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h2 style="color:#ffd700;">🔍 ตรวจสอบประวัติการสุ่ม</h2>
+              <p style="font-size:14px; color:#aaa;">ผู้เล่น: <b>${withdrawItem.username}</b> | ยอดขอถอน: <b style="color:#2ed573;">${withdrawItem.total_robux} Robux</b></p>
+              <table border="1">
+                  <tr><th>ID</th><th>รางวัลที่ได้</th><th>เวลาที่สุ่ม</th></tr>
+                  ${historyList}
+              </table>
+              <a href="/admin">⬅️ กลับหน้าแอดมิน</a>
+          </div>
+      </body>
+      </html>
+    `);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -970,10 +1030,13 @@ async function renderAdminDashboard(req, res) {
         <td style="color:#2ed573; font-size:16px; font-weight:bold;">${w.total_robux} Robux</td>
         <td>${w.time}</td>
         <td>
-          <form action="/admin/approve-withdraw" method="POST" onsubmit="return confirm('ยืนยันว่าได้โอน Robux ให้ ${w.username} เรียบร้อยแล้ว?');" style="margin:0;">
-            <input type="hidden" name="withdraw_id" value="${w.id}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">🎁 อนุมัติการถอน (โอนแล้ว)</button>
-          </form>
+          <div style="display:flex; flex-direction:column; gap:5px; align-items:center;">
+            <a href="/admin/view-withdraw-history?id=${w.id}" target="_blank" style="background:#00d2d3; color:#000; padding:5px 8px; border-radius:4px; text-decoration:none; font-weight:bold; font-size:12px; display:block; width:100%;">📜 ดูประวัติการสุ่ม</a>
+            <form action="/admin/approve-withdraw" method="POST" onsubmit="return confirm('ยืนยันว่าได้โอน Robux ให้ ${w.username} เรียบร้อยแล้ว?');" style="margin:0; width:100%;">
+              <input type="hidden" name="withdraw_id" value="${w.id}">
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%;">🎁 อนุมัติการถอน</button>
+            </form>
+          </div>
         </td>
       </tr>`;
     });
@@ -1049,7 +1112,7 @@ async function renderAdminDashboard(req, res) {
 
       <h3 style="color:#ffd700;">🎁 รายการคำขอถอน Robux (รอแอดมินโอน)</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวน Robux ที่ขอถอน</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
+        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวน Robux ที่ขอถอน</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ / ตรวจสอบ</th></tr>
         ${withdrawHtml}
       </table>
 
