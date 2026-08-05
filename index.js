@@ -13,6 +13,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ADMIN_PASSWORD = "3579"; 
 const MY_PROMPTPAY_NUMBER = "0643399170";
+const MY_WALLET_NUMBER = "0643399170"; // เบอร์ TrueMoney Wallet
 const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงคุณ";
 
 app.use(express.urlencoded({ extended: true }));
@@ -249,7 +250,7 @@ app.get("/lootbox", async (req, res) => {
     let pendingHtml = "";
     if (pendingRows && pendingRows.length > 0) {
       pendingRows.forEach(p => {
-        pendingHtml += `<li style="color:#ffa502;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
+        pendingHtml += `<li style="color:#ffa502;">ช่องทาง <b>${p.channel || 'PromptPay'}</b> | ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบ)</li>`;
       });
     } else {
       pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
@@ -277,6 +278,9 @@ app.get("/lootbox", async (req, res) => {
               input[type="number"] { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; box-sizing: border-box; }
               .topup-btn { background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; width: 100%; font-weight: bold; cursor: pointer; }
               .topup-btn:hover { background-color: #26af5f; }
+              .wallet-btn { background-color: #ff7f50; }
+              .wallet-btn:hover { background-color: #ff6348; }
+
               .profile-img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; vertical-align: middle; margin-right: 10px; }
               
               .reward-showcase { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align: left; max-height: 100px; overflow-y: auto; font-size: 13px; border: 1px solid #444; }
@@ -381,15 +385,37 @@ app.get("/lootbox", async (req, res) => {
 
               <hr>
 
-              <h3>⚡ เติมเงินผ่าน พร้อมเพย์</h3>
-              <p style="font-size: 13px; color: #aaa; text-align: left;">1. ใส่จำนวนเงินเพื่อสร้าง QR<br>2. สแกนโอนผ่านพร้อมเพย์ แล้วอัปโหลดสลิป</p>
+              <h3>⚡ ช่องทางการเติมเงิน</h3>
               
-              <form action="/create-topup" method="POST" style="text-align: left;">
-                  <input type="hidden" name="username" value="${username}">
-                  <label style="font-size: 13px;">จำนวนเงินที่ต้องการเติม (บาท):</label>
-                  <input type="number" name="amount" placeholder="เช่น 50" required>
-                  <button type="submit" class="topup-btn">สร้าง QR Code สแกนจ่าย</button>
-              </form>
+              <!-- เมนูเลือกช่องทางเติมเงิน -->
+              <div style="display:flex; gap:10px; margin-bottom:15px;">
+                  <button type="button" onclick="switchTopup('promptpay')" id="btn-pp" style="flex:1; background:#2ed573; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer;">🟢 พร้อมเพย์</button>
+                  <button type="button" onclick="switchTopup('wallet')" id="btn-tw" style="flex:1; background:#3d3d5c; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer;">🟠 ทรูมันนี่ วอเลท</button>
+              </div>
+
+              <!-- ฟอร์มพร้อมเพย์ -->
+              <div id="form-promptpay">
+                  <p style="font-size: 13px; color: #aaa; text-align: left;"><b>พร้อมเพย์:</b> ใส่จำนวนเงินเพื่อสร้าง QR โอนแล้วอัปโหลดสลิป</p>
+                  <form action="/create-topup" method="POST" style="text-align: left;">
+                      <input type="hidden" name="username" value="${username}">
+                      <input type="hidden" name="channel" value="PromptPay">
+                      <label style="font-size: 13px;">จำนวนเงิน (บาท):</label>
+                      <input type="number" name="amount" placeholder="เช่น 50" required>
+                      <button type="submit" class="topup-btn">สร้าง QR Code พร้อมเพย์</button>
+                  </form>
+              </div>
+
+              <!-- ฟอร์ม TrueMoney Wallet -->
+              <div id="form-wallet" style="display:none;">
+                  <p style="font-size: 13px; color: #aaa; text-align: left;"><b>TrueMoney Wallet:</b> โอนเข้าเบอร์ <b>${MY_WALLET_NUMBER}</b> (${MY_ACCOUNT_NAME}) แล้วแนบสลิป</p>
+                  <form action="/create-topup" method="POST" style="text-align: left;">
+                      <input type="hidden" name="username" value="${username}">
+                      <input type="hidden" name="channel" value="TrueMoney Wallet">
+                      <label style="font-size: 13px;">จำนวนเงินที่โอน (บาท):</label>
+                      <input type="number" name="amount" placeholder="เช่น 50" required>
+                      <button type="submit" class="topup-btn wallet-btn">ยืนยันไปหน้าแนบสลิปวอเลท</button>
+                  </form>
+              </div>
 
               <div style="text-align:left; margin-top:15px; background:rgba(0,0,0,0.3); padding:10px; border-radius:5px;">
                   <b style="font-size:13px; color:#ffd700;">📌 สถานะการเติมเงิน:</b>
@@ -405,6 +431,20 @@ app.get("/lootbox", async (req, res) => {
               let selectedCount = 1;
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              function switchTopup(type) {
+                  if(type === 'promptpay') {
+                      document.getElementById('form-promptpay').style.display = 'block';
+                      document.getElementById('form-wallet').style.display = 'none';
+                      document.getElementById('btn-pp').style.background = '#2ed573';
+                      document.getElementById('btn-tw').style.background = '#3d3d5c';
+                  } else {
+                      document.getElementById('form-promptpay').style.display = 'none';
+                      document.getElementById('form-wallet').style.display = 'block';
+                      document.getElementById('btn-pp').style.background = '#3d3d5c';
+                      document.getElementById('btn-tw').style.background = '#ff7f50';
+                  }
+              }
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -619,33 +659,51 @@ app.get("/my-history", async (req, res) => {
 });
 
 app.post("/create-topup", (req, res) => {
-  const { username, amount } = req.body;
+  const { username, amount, channel } = req.body;
   const exactAmount = parseFloat(amount).toFixed(2);
-  const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
+  const payChannel = channel || "PromptPay";
+
+  let displayBoxContent = "";
+
+  if (payChannel === "PromptPay") {
+      const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
+      displayBoxContent = `
+        <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายด้วยพร้อมเพย์</h2>
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
+            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
+        </div>
+        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
+      `;
+  } else {
+      displayBoxContent = `
+        <h2 style="color:#ff7f50; text-align:center;">🟠 ทรูมันนี่ วอเลท</h2>
+        <p style="font-size:13px; color:#aaa; text-align:center;">โอนเงินไปยังเบอร์วอเลท:<br><b style="color:#fff; font-size:16px;">${MY_WALLET_NUMBER}</b></p>
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <div style="background:rgba(255,255,255,0.05); padding:15px; text-align:center; border-radius:8px; margin:10px 0; border:1px dashed #ff7f50;">
+            <span style="font-size:13px; color:#ffd700;">ยอดที่ต้องโอนให้พอดี:</span>
+            <h2 style="color:#ffd700; margin:5px 0;">${exactAmount} บาท</h2>
+        </div>
+      `;
+  }
 
   res.send(`
-    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สแกนและแนบสลิป</title>
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>แนบสลิปเติมเงิน</title>
     <style>
         body { font-family: Arial; background: #1e1e2f; color: #fff; text-align: center; padding-top: 30px; }
         .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
     </style></head>
     <body><div class="box">
-        <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายด้วยพร้อมเพย์</h2>
-        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
-        
-        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
-            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
-        </div>
-        
-        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
+        ${displayBoxContent}
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
         <form action="/upload-slip" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
+            <input type="hidden" name="channel" value="${payChannel}">
             
-            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน (${payChannel}):</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
             <button type="submit" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
@@ -657,12 +715,18 @@ app.post("/create-topup", (req, res) => {
 });
 
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
-  const { username, exact_amount } = req.body;
+  const { username, exact_amount, channel } = req.body;
   const slipImg = await uploadToSupabaseStorage(req.file);
 
   const { error } = await supabase
     .from('pending_topup')
-    .insert([{ username, exact_amount: parseFloat(exact_amount), slip_img: slipImg, status: 'pending' }]);
+    .insert([{ 
+        username, 
+        exact_amount: parseFloat(exact_amount), 
+        slip_img: slipImg, 
+        channel: channel || 'PromptPay',
+        status: 'pending' 
+    }]);
 
   if (error) {
     return res.send(`<script>alert("เกิดข้อผิดพลาด กรุณาลองใหม่"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -875,6 +939,7 @@ async function renderAdminDashboard(req, res) {
       pendingSlipHtml += `<tr>
         <td>${p.id}</td>
         <td><b>${p.username}</b></td>
+        <td style="color:#00d2d3;"><b>${p.channel || 'PromptPay'}</b></td>
         <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b></td>
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
         <td>${p.time}</td>
@@ -889,7 +954,7 @@ async function renderAdminDashboard(req, res) {
       </tr>`;
     });
   } else {
-    pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
+    pendingSlipHtml = `<tr><td colspan="7" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
   }
 
   let userHtml = "";
@@ -974,14 +1039,14 @@ async function renderAdminDashboard(req, res) {
       </div>
 
       <h3 style="color:#ffd700;">📥 รายการสลิปรอตรวจสอบการเติมเงิน</h3>
-      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">ยอดเงิน</th><th style="padding:8px;">รูปสลิป (คลิกดูภาพใหญ่)</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">ช่องทาง</th><th style="padding:8px;">ยอดเงิน</th><th style="padding:8px;">รูปสลิป</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
         ${pendingSlipHtml}
       </table>
 
       <h3 style="color:#ffd700;">🎁 สรุปยอดรวมรางวัล Robux แยกตามรายชื่อผู้ใช้</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox (คลิกซูมดูภาพ)</th><th style="padding:8px;">จำนวนครั้งที่สุ่ม</th><th style="padding:8px;">ยอดรวม Robux ที่ต้องแจก</th><th style="padding:8px;">จัดการ / ดูรายละเอียด</th></tr>
+        <tr><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวนครั้งที่สุ่ม</th><th style="padding:8px;">ยอดรวม Robux ที่ต้องแจก</th><th style="padding:8px;">จัดการ / ดูรายละเอียด</th></tr>
         ${summaryHtml}
       </table>
 
