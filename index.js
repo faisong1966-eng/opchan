@@ -240,7 +240,7 @@ app.get("/lootbox", async (req, res) => {
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
 
-    // คำนวณ Robux ที่สะสมเฉพาะรายการปกติ (ที่ยังไม่ได้แจ้งถอน)
+    // ดึงประวัติทั้งหมดของยูสเซอร์นี้มาคำนวณ
     const { data: historyRows } = await supabase
       .from('history')
       .select('reward_num, status')
@@ -252,6 +252,7 @@ app.get("/lootbox", async (req, res) => {
         historyRows.forEach(h => {
             if (h.status === 'pending_withdraw') {
                 hasPendingWithdraw = true;
+                accumulatedRobux += (h.reward_num || 0); // ถ้ารอดำเนินการ ก็นำมารวมโชว์ด้วย
             } else if (!h.status || h.status === 'normal') {
                 accumulatedRobux += (h.reward_num || 0);
             }
@@ -680,26 +681,44 @@ app.post("/request-withdraw", async (req, res) => {
     if (!username) return res.json({ success: false, message: "ไม่พบชื่อผู้ใช้" });
 
     try {
-        // ค้นหารายการทั้งหมดที่ยังปกติอยู่
+        // ดึงประวัติที่ยังไม่ได้ถอนหรือปกติทั้งหมด
         const { data: historyRows } = await supabase
             .from('history')
             .select('*')
             .eq('username', username)
-            .or('status.is.null,status.eq.normal');
+            .is('status', null);
 
         let totalRobux = 0;
+        let rowIds = [];
+        
         if (historyRows) {
             historyRows.forEach(h => {
                 totalRobux += (h.reward_num || 0);
+                rowIds.push(h.id);
             });
         }
 
-        if (totalRobux < 10) {
-            return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux" });
+        // เผื่อกรณีก่อนหน้ามีค้าง status เป็น normal ด้วย
+        const { data: normalRows } = await supabase
+            .from('history')
+            .select('*')
+            .eq('username', username)
+            .eq('status', 'normal');
+
+        if (normalRows) {
+            normalRows.forEach(h => {
+                totalRobux += (h.reward_num || 0);
+                if (!rowIds.includes(h.id)) {
+                    rowIds.push(h.id);
+                }
+            });
         }
 
-        // เปลี่ยนสถานะของประวัติทุกแถวนี้ให้เป็น pending_withdraw (รอแอดมินอนุมัติ)
-        const rowIds = historyRows.map(h => h.id);
+        if (totalRobux < 10 || rowIds.length === 0) {
+            return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux หรือไม่มีรายการให้ถอน" });
+        }
+
+        // เปลี่ยนสถานะเป็น pending_withdraw
         const { error: updateError } = await supabase
             .from('history')
             .update({ status: 'pending_withdraw' })
@@ -928,7 +947,6 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username } = req.body;
 
-  // อัปเดตสถานะประวัติของยูสเซอร์นี้จาก pending_withdraw เป็น completed
   await supabase
     .from('history')
     .update({ status: 'completed' })
@@ -988,7 +1006,7 @@ async function renderAdminDashboard(req, res) {
 
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending').order('id', { ascending: false });
 
-  // ดึงรายการที่รอดำเนินการถอนจากตาราง history โดยจัดกลุ่มตาม username
+  // ดึงรายการรอถอนจาก history มาจัดกลุ่ม
   const { data: withdrawHistoryRows } = await supabase
     .from('history')
     .select('*')
