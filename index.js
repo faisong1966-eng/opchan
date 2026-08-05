@@ -15,7 +15,6 @@ const ADMIN_PASSWORD = "3579";
 const MY_PROMPTPAY_NUMBER = "0643399170";
 const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงคุณ";
 
-// ข้อมูล TrueMoney Wallet ที่เพิ่มเข้ามาใหม่ตามคำขอ
 const MY_TRUEMONEY_NUMBER = "0643399170";
 const MY_TRUEMONEY_NAME = "ธีรวัฒน์ คำมุงคุณ";
 
@@ -539,53 +538,34 @@ app.get("/lootbox", async (req, res) => {
                       return;
                   }
 
-                  userPoints -= selectedCount;
-                  userSpent += selectedCount;
-                  document.getElementById("points").innerText = userPoints;
-                  document.getElementById("spent").innerText = userSpent;
-                  
                   const resBox = document.getElementById("result-box");
                   resBox.className = "";
-                  resBox.innerText = \`🌀 กำลังเปิดกล่องรัวๆ \${selectedCount} ครั้ง...\`;
+                  resBox.innerText = \`🌀 ส่งคำขอเปิดกล่องรัวๆ \${selectedCount} ครั้ง ไปยัง Server...\`;
 
-                  setTimeout(() => {
-                      let totalRewardNum = 0;
-                      let highestRewardNum = 0;
-                      let bestRewardText = "";
-                      let historyBatch = [];
-                      let summaryRewards = {};
-
-                      for (let i = 0; i < selectedCount; i++) {
-                          let reward = "";
-                          let rewardNum = 0;
-
-                          const rand = Math.random() * 100;
-                          if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
-                          else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
-                          else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
-                          else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
-                          else if (rand < 2.0) { reward = "20 Robux"; rewardNum = 20; }
-                          else if (rand < 3.1) { reward = "15 Robux"; rewardNum = 15; }
-                          else if (rand < 4.5) { reward = "10 Robux"; rewardNum = 10; }
-                          else if (rand < 5.5) { reward = "5 Robux"; rewardNum = 5; }
-                          else if (rand < 7.0) { reward = "4 Robux"; rewardNum = 4; }
-                          else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
-                          else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
-                          else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
-                          else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
-
-                          totalRewardNum += rewardNum;
-                          summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
-
-                          if (rewardNum > highestRewardNum) {
-                              highestRewardNum = rewardNum;
-                              bestRewardText = reward;
-                          }
-
-                          historyBatch.push({ username: '${username}', reward: reward, reward_num: rewardNum });
+                  // ส่งข้อมูลไปประมวลผลการสุ่มที่ปลอดภัยบน Server
+                  fetch('/open-lootbox', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ username: '${username}', count: selectedCount })
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                      if (!data.success) {
+                          alert(data.message || "เกิดข้อผิดพลาด");
+                          location.reload();
+                          return;
                       }
 
-                      let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: บันทึกประวัติเรียบร้อย กรุณารอแอดมินตรวจสอบจัดส่ง Robux</span>";
+                      userPoints = data.newPoints;
+                      userSpent = data.newSpent;
+                      document.getElementById("points").innerText = userPoints;
+                      document.getElementById("spent").innerText = userSpent;
+
+                      let totalRewardNum = data.totalRewardNum;
+                      let highestRewardNum = data.highestRewardNum;
+                      let summaryRewards = data.summaryRewards;
+
+                      let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: เซิร์ฟเวอร์สุ่มและบันทึกประวัติให้เรียบร้อย กรุณารอแอดมินจัดส่ง Robux</span>";
 
                       if (highestRewardNum >= 10000) {
                           playSound('ufo_ultimate');
@@ -611,19 +591,17 @@ app.get("/lootbox", async (req, res) => {
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
                       }
 
-                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
+                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง (Server Verified):</b><br>
                           รวม Robux ที่ได้ทั้งหมด: <b style="color:#ffd700; font-size:16px;">\${totalRewardNum} Robux</b><br>
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>
                           \${noticeText}\`;
 
-                      fetch('/save-history-batch', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ username: '${username}', historyBatch: historyBatch })
-                      }).then(() => {
-                          setTimeout(() => { location.reload(); }, 1500);
-                      });
-                  }, 600);
+                      setTimeout(() => { location.reload(); }, 2000);
+                  })
+                  .catch(err => {
+                      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+                      location.reload();
+                  });
               }
           </script>
       </body>
@@ -940,34 +918,93 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-app.post("/save-history-batch", async (req, res) => {
-  const { username, historyBatch } = req.body;
-  
-  const { data: user } = await supabase
+// 🔒 ระบบสุ่มปลอดภัย 100% ประมวลผลและสุ่มที่ Server ฝั่งผู้เล่นแก้เรตไม่ได้
+app.post("/open-lootbox", async (req, res) => {
+  const { username, count } = req.body;
+  const selectedCount = parseInt(count) || 1;
+
+  if (!username || selectedCount <= 0) {
+    return res.json({ success: false, message: "ข้อมูลไม่ถูกต้อง" });
+  }
+
+  // ดึงข้อมูลผู้ใช้จากฐานข้อมูลเพื่อเช็คแต้มจริง
+  const { data: user, error: userError } = await supabase
     .from('users')
-    .select('roblox_img, points, total_spent')
+    .select('*')
     .eq('username', username)
     .single();
 
-  if (user && historyBatch && historyBatch.length > 0) {
-    const count = historyBatch.length;
-    await supabase
-      .from('users')
-      .update({ points: user.points - count, total_spent: (user.total_spent || 0) + count })
-      .eq('username', username);
-
-    const insertData = historyBatch.map(item => ({
-      username: username,
-      roblox_img: user.roblox_img,
-      reward: item.reward,
-      reward_num: item.reward_num || 0
-    }));
-
-    await supabase
-      .from('history')
-      .insert(insertData);
+  if (userError || !user) {
+    return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
   }
-  res.sendStatus(200);
+
+  if (user.points < selectedCount) {
+    return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
+  }
+
+  let totalRewardNum = 0;
+  let highestRewardNum = 0;
+  let historyBatch = [];
+  let summaryRewards = {};
+
+  // ทำการสุ่มบน Server
+  for (let i = 0; i < selectedCount; i++) {
+      let reward = "";
+      let rewardNum = 0;
+
+      const rand = Math.random() * 100;
+      if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+      else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+      else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
+      else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+      else if (rand < 2.0) { reward = "20 Robux"; rewardNum = 20; }
+      else if (rand < 3.1) { reward = "15 Robux"; rewardNum = 15; }
+      else if (rand < 4.5) { reward = "10 Robux"; rewardNum = 10; }
+      else if (rand < 5.5) { reward = "5 Robux"; rewardNum = 5; }
+      else if (rand < 7.0) { reward = "4 Robux"; rewardNum = 4; }
+      else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
+      else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
+      else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+      else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
+
+      totalRewardNum += rewardNum;
+      summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
+
+      if (rewardNum > highestRewardNum) {
+          highestRewardNum = rewardNum;
+      }
+
+      historyBatch.push({
+          username: username,
+          roblox_img: user.roblox_img,
+          reward: reward,
+          reward_num: rewardNum
+      });
+  }
+
+  // หักแต้มและบวกยอดใช้จ่ายจริงในฐานข้อมูล Supabase
+  const newPoints = user.points - selectedCount;
+  const newSpent = (user.total_spent || 0) + selectedCount;
+
+  await supabase
+    .from('users')
+    .update({ points: newPoints, total_spent: newSpent })
+    .eq('username', username);
+
+  // บันทึกประวัติลงตาราง history
+  await supabase
+    .from('history')
+    .insert(historyBatch);
+
+  // ส่งผลลัพธ์ที่ปลอดภัยกลับไปแสดงที่หน้าจอ
+  return res.json({
+      success: true,
+      newPoints: newPoints,
+      newSpent: newSpent,
+      totalRewardNum: totalRewardNum,
+      highestRewardNum: highestRewardNum,
+      summaryRewards: summaryRewards
+  });
 });
 
 app.get("/admin", async (req, res) => {
