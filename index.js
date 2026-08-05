@@ -2,7 +2,6 @@ const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
 const path = require("path");
-const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -19,30 +18,41 @@ const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงค�
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const uploadDir = fs.existsSync('/data') ? '/data/uploads' : './public/uploads';
+// ใช้ memoryStorage เพื่อพักไฟล์ชั่วคราวแล้วส่งขึ้น Supabase Storage โดยตรง
+const upload = multer({ storage: multer.memoryStorage() });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage: storage });
+// ฟังก์ชันอัปโหลดไฟล์ขึ้น Supabase Storage ถาวร (ไม่หายเวลา Deploy ใหม่)
+async function uploadToSupabaseStorage(file) {
+    if (!file) return "";
+    const fileExt = path.extname(file.originalname);
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}${fileExt}`;
+    const filePath = `public/${fileName}`;
 
-app.use('/uploads', express.static(uploadDir));
+    const { data, error } = await supabase.storage
+        .from('uploads')
+        .upload(filePath, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false
+        });
+
+    if (error) {
+        console.error("Supabase Storage Error:", error);
+        return "";
+    }
+
+    const { data: publicUrlData } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+}
 
 app.use(session({
-  secret: 'lootbox_super_secret_key_2026',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 600000 }
+    secret: 'lootbox_super_secret_key_2026',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 600000 }
 }));
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 app.get("/", (req, res) => {
   res.send(`
@@ -109,7 +119,7 @@ app.get("/register", (req, res) => {
 
 app.post("/register", upload.single('roblox_img'), async (req, res) => {
   const { username, password } = req.body;
-  const robloxImg = req.file ? `/uploads/${req.file.filename}` : "";
+  const robloxImg = await uploadToSupabaseStorage(req.file);
 
   try {
     const { error } = await supabase
@@ -517,7 +527,7 @@ app.post("/create-topup", (req, res) => {
 
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount } = req.body;
-  const slipImg = req.file ? `/uploads/${req.file.filename}` : "";
+  const slipImg = await uploadToSupabaseStorage(req.file);
 
   const { error } = await supabase
     .from('pending_topup')
