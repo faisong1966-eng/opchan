@@ -917,7 +917,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// 🔒 ระบบสุ่มปลอดภัย พร้อมเชื่อมต่อหลังบ้านแอดมิน (Custom Salt & Rate Control)
+// 🔒 ระบบสุ่มปลอดภัย พร้อมเชื่อมต่อหลังบ้านแอดมิน (Custom Salt & Rate Control ที่เลือกแจ็กพอตได้ทุกระดับ)
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
   const selectedCount = parseInt(count) || 1;
@@ -948,51 +948,53 @@ app.post("/open-lootbox", async (req, res) => {
   let currentSaltCount = user.custom_salt_count || 0;
   let forceRateType = user.force_rate_type || 'normal';
 
-  // ตัวแปรสำหรับเช็คว่าในรอบการสุ่มชุดนี้ ผู้เล่นได้แจ็กพอตตามที่แอดมินล็อกไว้หรือยัง
   let hasHitTargetJackpot = false;
 
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
 
-      // ตรวจสอบโหมดบังคับจากแอดมิน
       if (forceRateType === 'always_salt') {
-          // บังคับเกลือตลอดกาล (0 Robux)
           reward = "0 Robux (😢 เกลือ)";
           rewardNum = 0;
-      } else if (forceRateType === 'always_jackpot') {
-          // บังคับออกแจ็กพอต 100 Robux
+      } else if (forceRateType === 'always_jackpot_100') {
           reward = "100 Robux (🔥 แจ็คพอตแตก)";
           rewardNum = 100;
-          hasHitTargetJackpot = true; // ทำเครื่องหมายว่าได้แจ็กพอตแล้ว
+          hasHitTargetJackpot = true;
+      } else if (forceRateType === 'always_jackpot_500') {
+          reward = "500 Robux (💎 แจ็คพอตใหญ่)";
+          rewardNum = 500;
+          hasHitTargetJackpot = true;
+      } else if (forceRateType === 'always_jackpot_1000') {
+          reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)";
+          rewardNum = 1000;
+          hasHitTargetJackpot = true;
+      } else if (forceRateType === 'always_jackpot_10000') {
+          reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)";
+          rewardNum = 10000;
+          hasHitTargetJackpot = true;
       } else {
-          // โหมดปกติ แต่เช็คว่าแอดมินตั้งให้ยูสนี้เกลือกี่รอบติดก่อนหน้านี้ไหม
           if (currentSaltCount > 0) {
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
-              currentSaltCount -= 1; // หักจำนวนรอบเกลือลงทีละ 1
+              currentSaltCount -= 1;
           } else {
-              // สุ่มตามเรตปกติ
               const rand = Math.random() * 100;
               if (rand < 0.0001) { 
                   reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; 
                   rewardNum = 10000; 
-                  if (forceRateType === 'always_jackpot') hasHitTargetJackpot = true;
               }
               else if (rand < 0.0005) { 
                   reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; 
                   rewardNum = 1000; 
-                  if (forceRateType === 'always_jackpot') hasHitTargetJackpot = true;
               }
-              else if (rand < 0.0001) { 
+              else if (rand < 0.002) { 
                   reward = "500 Robux (💎 แจ็คพอตใหญ่)"; 
                   rewardNum = 500; 
-                  if (forceRateType === 'always_jackpot') hasHitTargetJackpot = true;
               }
-              else if (rand < 0.001) { 
+              else if (rand < 0.01) { 
                   reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
                   rewardNum = 100; 
-                  hasHitTargetJackpot = true; // ถือว่าได้แจ็กพอตแล้วเช่นกัน
               }
               else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
               else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
@@ -1024,19 +1026,16 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
-  // 🔄 ตรวจสอบเงื่อนไขการรีเซ็ต: หากผู้เล่นได้แจ็กพอตตามที่แอดมินตั้งไว้แล้ว ให้รีเซ็ตค่ากลับเป็นปกติทันทีอัตโนมัติ
   let finalForceRateType = forceRateType;
   let finalSaltCount = currentSaltCount;
 
-  if (forceRateType === 'always_jackpot' && hasHitTargetJackpot) {
+  if (forceRateType.startsWith('always_jackpot_') && hasHitTargetJackpot) {
       finalForceRateType = 'normal';
       finalSaltCount = 0;
   } else if (forceRateType === 'normal' && currentSaltCount === 0 && highestRewardNum >= 100) {
-      // กรณีถ้าเปิดได้แจ็กพอตใหญ่ด้วยเรตปกติและหมดรอบเกลือแล้ว ก็ให้เคลียร์ค่าความเกลือให้สะอาด
       finalSaltCount = 0;
   }
 
-  // อัปเดตข้อมูลแต้มและสถานะเรตกลับเป็นค่าปกติใน Database อัตโนมัติ
   await supabase
     .from('users')
     .update({ 
@@ -1198,7 +1197,6 @@ app.post("/admin/update-points", async (req, res) => {
   res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// 🎛️ ฟังก์ชันสำหรับให้แอดมินตั้งค่าเรตสุ่ม/เกลือรายบุคคล
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username, custom_salt_count, force_rate_type } = req.body;
@@ -1369,7 +1367,6 @@ async function renderAdminDashboard(req, res) {
             <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
           </form>
 
-          <!-- 🎛️ ฟอร์มลับตั้งค่าความเกลือและเรตส่วนตัวเฉพาะยูสนี้ -->
           <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; margin-top:4px; text-align:left;">
             <input type="hidden" name="username" value="${u.username}">
             <div style="font-size:11px; color:#ffd700; margin-bottom:2px;">🎛️ ตั้งค่าเรต/เกลือลับ:</div>
@@ -1381,7 +1378,10 @@ async function renderAdminDashboard(req, res) {
               <select name="force_rate_type" style="width:100%; font-size:11px; padding:2px;">
                 <option value="normal" ${rateTypeVal === 'normal' ? 'selected' : ''}>เรตปกติ (สุ่มตามดวง)</option>
                 <option value="always_salt" ${rateTypeVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
-                <option value="always_jackpot" ${rateTypeVal === 'always_jackpot' ? 'selected' : ''}>🔥 ล็อคแจ็คพอต (100)</option>
+                <option value="always_jackpot_100" ${rateTypeVal === 'always_jackpot_100' ? 'selected' : ''}>🔥 ล็อคแจ็คพอต 100 Robux</option>
+                <option value="always_jackpot_500" ${rateTypeVal === 'always_jackpot_500' ? 'selected' : ''}>💎 ล็อคแจ็คพอต 500 Robux</option>
+                <option value="always_jackpot_1000" ${rateTypeVal === 'always_jackpot_1000' ? 'selected' : ''}>👑 ล็อคแจ็คพอต 1,000 Robux</option>
+                <option value="always_jackpot_10000" ${rateTypeVal === 'always_jackpot_10000' ? 'selected' : ''}>🛸 ล็อคแจ็คพอต 10,000 Robux</option>
               </select>
             </div>
             <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกเรตยูสนี้</button>
