@@ -389,8 +389,12 @@ app.get("/lootbox", async (req, res) => {
               
               <!-- เมนูเลือกช่องทางเติมเงิน -->
               <div style="display:flex; gap:10px; margin-bottom:15px;">
-                  <button type="button" onclick="switchTopup('promptpay')" id="btn-pp" style="flex:1; background:#2ed573; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer;">🟢 พร้อมเพย์</button>
-                  <button type="button" onclick="switchTopup('wallet')" id="btn-tw" style="flex:1; background:#3d3d5c; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer;">🟠 ทรูมันนี่ วอเลท</button>
+                  <button type="button" onclick="switchTopup('promptpay')" id="btn-pp" style="flex:1; background:#2ed573; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                      <span>🟢</span> พร้อมเพย์ (PromptPay)
+                  </button>
+                  <button type="button" onclick="switchTopup('wallet')" id="btn-tw" style="flex:1; background:#3d3d5c; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                      <span style="background:#ff7f50; color:#fff; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;">T</span> ทรูมันนี่ วอเลท
+                  </button>
               </div>
 
               <!-- ฟอร์มพร้อมเพย์ -->
@@ -407,7 +411,15 @@ app.get("/lootbox", async (req, res) => {
 
               <!-- ฟอร์ม TrueMoney Wallet -->
               <div id="form-wallet" style="display:none;">
-                  <p style="font-size: 13px; color: #aaa; text-align: left;"><b>TrueMoney Wallet:</b> โอนเข้าเบอร์ <b>${MY_WALLET_NUMBER}</b> (${MY_ACCOUNT_NAME}) แล้วแนบสลิป</p>
+                  <div style="background: rgba(255, 127, 80, 0.1); border: 1px solid #ff7f50; padding: 10px; border-radius: 6px; margin-bottom: 10px; text-align: left;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                          <div style="background: #ff7f50; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">T</div>
+                          <b style="color: #ff7f50; font-size: 14px;">TrueMoney Wallet</b>
+                      </div>
+                      <p style="font-size: 13px; color: #ddd; margin: 0;">โอนเข้าเบอร์: <b style="color: #ffd700;">${MY_WALLET_NUMBER}</b></p>
+                      <p style="font-size: 13px; color: #ddd; margin: 2px 0 0 0;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+                  </div>
+
                   <form action="/create-topup" method="POST" style="text-align: left;">
                       <input type="hidden" name="username" value="${username}">
                       <input type="hidden" name="channel" value="TrueMoney Wallet">
@@ -677,10 +689,13 @@ app.post("/create-topup", (req, res) => {
       `;
   } else {
       displayBoxContent = `
-        <h2 style="color:#ff7f50; text-align:center;">🟠 ทรูมันนี่ วอเลท</h2>
-        <p style="font-size:13px; color:#aaa; text-align:center;">โอนเงินไปยังเบอร์วอเลท:<br><b style="color:#fff; font-size:16px;">${MY_WALLET_NUMBER}</b></p>
-        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
-        <div style="background:rgba(255,255,255,0.05); padding:15px; text-align:center; border-radius:8px; margin:10px 0; border:1px dashed #ff7f50;">
+        <div style="text-align: center; margin-bottom: 10px;">
+            <div style="background: #ff7f50; color: #fff; width: 45px; height: 45px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; box-shadow: 0 0 10px rgba(255,127,80,0.5);">T</div>
+            <h2 style="color:#ff7f50; margin: 8px 0 0 0;">TrueMoney Wallet</h2>
+        </div>
+        <p style="font-size: 13px; color: #aaa; text-align: center;">โอนเงินไปยังเบอร์วอเลท:<br><b style="color: #fff; font-size: 16px;">${MY_WALLET_NUMBER}</b></p>
+        <p style="font-size: 13px; color: #aaa; text-align: center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <div style="background:rgba(255,255,255,0.05); padding:12px; text-align:center; border-radius:8px; margin:10px 0; border:1px dashed #ff7f50;">
             <span style="font-size:13px; color:#ffd700;">ยอดที่ต้องโอนให้พอดี:</span>
             <h2 style="color:#ffd700; margin:5px 0;">${exactAmount} บาท</h2>
         </div>
