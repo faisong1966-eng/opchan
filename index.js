@@ -501,7 +501,7 @@ app.get("/lootbox", async (req, res) => {
                   .then(res => res.json())
                   .then(data => {
                       if (data.success) {
-                          alert("ส่งคำขอถอน " + accumulatedRobux + " Robux ไปยังแอดมินเรียบร้อยแล้ว!");
+                          alert("ส่งคำขอถอน Robux ไปยังแอดมินเรียบร้อยแล้ว!");
                           accumulatedRobux = 0;
                           document.getElementById("accumulated-robux").innerText = accumulatedRobux;
                           document.getElementById("withdraw-btn").disabled = true;
@@ -855,6 +855,18 @@ app.post("/admin/approve-topup", async (req, res) => {
   res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
+app.post("/admin/delete-topup", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { topup_id } = req.body;
+
+  await supabase
+    .from('pending_topup')
+    .delete()
+    .eq('id', topup_id);
+
+  res.send(`<script>alert("ลบรายการสลิปเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
@@ -901,39 +913,6 @@ app.post("/admin/delete-user", async (req, res) => {
   res.send(`<script>alert("ลบสมาชิก ${username} ออกจากระบบเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-app.get("/admin/user-detail", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const username = req.query.username;
-
-  const { data: rows } = await supabase
-    .from('history')
-    .select('*')
-    .eq('username', username)
-    .order('id', { ascending: false });
-
-  let historyList = "";
-  if (rows && rows.length > 0) {
-    rows.forEach(r => {
-      historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
-    });
-  } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
-  }
-
-  res.send(`
-    <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px; font-family:Arial;">
-      <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px; width:600px;">
-        <h2 style="color:#ffd700;">📦 ประวัติการสุ่มของ: ${username}</h2>
-        <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; margin-bottom:20px;">
-          <tr><th style="padding:8px;">ID</th><th style="padding:8px;">รางวัลที่ได้</th><th style="padding:8px;">เวลา</th></tr>
-          ${historyList}
-        </table>
-        <a href="/admin" style="background:#70a1ff; color:#fff; padding:10px 20px; border-radius:5px; text-decoration:none; font-weight:bold; display:inline-block;">⬅️ กลับหน้าแอดมินหลัก</a>
-      </div>
-    </body>
-  `);
-});
-
 async function renderAdminDashboard(req, res) {
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
@@ -962,12 +941,18 @@ async function renderAdminDashboard(req, res) {
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
         <td>${p.time}</td>
         <td>
-          <form action="/admin/approve-topup" method="POST" style="margin:0;">
-            <input type="hidden" name="topup_id" value="${p.id}">
-            <input type="hidden" name="username" value="${p.username}">
-            <input type="hidden" name="exact_amount" value="${p.exact_amount}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติแต้ม</button>
-          </form>
+          <div style="display:flex; gap:5px; justify-content:center;">
+            <form action="/admin/approve-topup" method="POST" style="margin:0;">
+              <input type="hidden" name="topup_id" value="${p.id}">
+              <input type="hidden" name="username" value="${p.username}">
+              <input type="hidden" name="exact_amount" value="${p.exact_amount}">
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
+            </form>
+            <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ต้องการลบสลิปนี้ใช่หรือไม่?');" style="margin:0;">
+              <input type="hidden" name="topup_id" value="${p.id}">
+              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบ</button>
+            </form>
+          </div>
         </td>
       </tr>`;
     });
