@@ -69,6 +69,7 @@ async function checkUserExpiration(username) {
                 await supabase.from('users').delete().eq('username', username);
                 await supabase.from('history').delete().eq('username', username);
                 await supabase.from('pending_topup').delete().eq('username', username);
+                await supabase.from('pending_withdraw').delete().eq('username', username);
                 return true; 
             }
         }
@@ -255,6 +256,21 @@ app.get("/lootbox", async (req, res) => {
       pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
     }
 
+    const { data: pendingWithdrawRows } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending');
+
+    let pendingWithdrawHtml = "";
+    if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
+      pendingWithdrawRows.forEach(pw => {
+        pendingWithdrawHtml += `<li style="color:#00d2d3;">ถอน <b>${pw.amount} Robux</b> (รอแอดมินอนุมัติโอน)</li>`;
+      });
+    } else {
+      pendingWithdrawHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการถอนที่รอดำเนินการ</span>`;
+    }
+
     res.send(`
       <!DOCTYPE html>
       <html lang="th">
@@ -269,6 +285,9 @@ app.get("/lootbox", async (req, res) => {
               
               .box-btn { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.2s; margin-top: 5px; }
               .box-btn:hover { transform: scale(1.02); background: linear-gradient(45deg, #ff6b81, #ff4757); }
+
+              .withdraw-btn { background: linear-gradient(45deg, #00d2d3, #01a3a4); color: #000; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(0,210,211,0.4); transition: 0.2s; margin-top: 10px; }
+              .withdraw-btn:hover { transform: scale(1.02); background: linear-gradient(45deg, #01a3a4, #00d2d3); }
               
               .select-group { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 10px; }
               .select-group button { flex: 1; background: #3d3d5c; color: #fff; border: 1px solid #555; padding: 8px 0; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
@@ -351,8 +370,11 @@ app.get("/lootbox", async (req, res) => {
                   <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
                   <div>🎯 ยอดสุ่มสะสม: <span id="spent">${totalSpent}</span> บาท</div>
               </div>
+
+              <!-- ปุ่มกดถอน Robux (ขั้นต่ำ 10 แต้ม) -->
+              <button class="withdraw-btn" onclick="withdrawPoints()">💎 ถอน Robux (ขั้นต่ำ 10 แต้ม)</button>
               
-              <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
+              <div style="text-align: left; font-size: 13px; color: #aaa; margin-top: 15px; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
               <div class="reward-showcase">
                   <span class="reward-item">0 Robux (เกลือ)</span>
                   <span class="reward-item">1 - 2 Robux</span>
@@ -394,6 +416,8 @@ app.get("/lootbox", async (req, res) => {
               <div style="text-align:left; margin-top:15px; background:rgba(0,0,0,0.3); padding:10px; border-radius:5px;">
                   <b style="font-size:13px; color:#ffd700;">📌 สถานะการเติมเงิน:</b>
                   <ul style="padding-left:15px; margin:5px 0;">${pendingHtml}</ul>
+                  <b style="font-size:13px; color:#ffd700; margin-top:10px; display:block;">📌 สถานะการถอน Robux:</b>
+                  <ul style="padding-left:15px; margin:5px 0;">${pendingWithdrawHtml}</ul>
               </div>
 
               <a href="/">ออกจากระบบ</a>
@@ -436,6 +460,33 @@ app.get("/lootbox", async (req, res) => {
 
               setInterval(updateCountdown, 1000);
               updateCountdown();
+
+              function withdrawPoints() {
+                  if (userPoints < 10) {
+                      alert("⚠️ แต้มของคุณยังไม่ถึง 10 แต้ม! ขั้นต่ำในการถอนคือ 10 แต้มขึ้นไปครับ");
+                      return;
+                  }
+                  if (!confirm("คุณต้องการถอน Robux จำนวน " + userPoints + " แต้ม ใช่หรือไม่? แต้มทั้งหมดของคุณจะถูกหักเหลือ 0 และส่งเรื่องให้แอดมินอนุมัติทันที")) {
+                      return;
+                  }
+
+                  fetch('/withdraw', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ username: '${username}' })
+                  }).then(res => res.json()).then(data => {
+                      if (data.success) {
+                          alert("ส่งคำขอถอนสำเร็จ! รอแอดมินตรวจสอบและโอน Robux ให้ครับ");
+                          userPoints = 0;
+                          document.getElementById("points").innerText = userPoints;
+                          location.reload();
+                      } else {
+                          alert("เกิดข้อผิดพลาด: " + data.message);
+                      }
+                  }).catch(err => {
+                      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+                  });
+              }
               
               function playSound(type) {
                   try {
@@ -490,7 +541,6 @@ app.get("/lootbox", async (req, res) => {
                   setTimeout(() => {
                       let totalRewardNum = 0;
                       let highestRewardNum = 0;
-                      let bestRewardText = "";
                       let historyBatch = [];
                       let summaryRewards = {};
 
@@ -568,6 +618,38 @@ app.get("/lootbox", async (req, res) => {
     `);
   } catch (err) {
     res.redirect("/login");
+  }
+});
+
+app.post("/withdraw", async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.json({ success: false, message: "ไม่พบชื่อผู้ใช้" });
+
+  try {
+    const { data: user } = await supabase
+      .from('users')
+      .select('points, roblox_img')
+      .eq('username', username)
+      .single();
+
+    if (!user || user.points < 10) {
+      return res.json({ success: false, message: "แต้มไม่ถึง 10 แต้ม" });
+    }
+
+    const pointsToWithdraw = user.points;
+
+    await supabase
+      .from('users')
+      .update({ points: 0 })
+      .eq('username', username);
+
+    await supabase
+      .from('pending_withdraw')
+      .insert([{ username, amount: pointsToWithdraw, roblox_img: user.roblox_img, status: 'pending' }]);
+
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, message: "เกิดข้อผิดพลาดในระบบ" });
   }
 });
 
@@ -761,6 +843,35 @@ app.post("/admin/approve-topup", async (req, res) => {
   res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
+app.post("/admin/delete-topup", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { topup_id } = req.body;
+
+  await supabase
+    .from('pending_topup')
+    .delete()
+    .eq('id', topup_id);
+
+  res.send(`<script>alert("ลบสลิปเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
+app.post("/admin/approve-withdraw", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { withdraw_id, username } = req.body;
+
+  await supabase
+    .from('pending_withdraw')
+    .update({ status: 'completed' })
+    .eq('id', withdraw_id);
+
+  await supabase
+    .from('history')
+    .delete()
+    .eq('username', username);
+
+  res.send(`<script>alert("อนุมัติการถอน Robux และเคลียร์ประวัติการสุ่มของ ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
 app.post("/admin/update-points", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username, points, action } = req.body;
@@ -790,6 +901,7 @@ app.post("/admin/delete-user", async (req, res) => {
   await supabase.from('users').delete().eq('username', username);
   await supabase.from('history').delete().eq('username', username);
   await supabase.from('pending_topup').delete().eq('username', username);
+  await supabase.from('pending_withdraw').delete().eq('username', username);
 
   res.send(`<script>alert("ลบสมาชิก ${username} ออกจากระบบเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
@@ -855,6 +967,7 @@ async function renderAdminDashboard(req, res) {
     .range(offset, offset + limit - 1);
 
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending').order('id', { ascending: false });
+  const { data: pendingWithdrawRows } = await supabase.from('pending_withdraw').select('*').eq('status', 'pending').order('id', { ascending: false });
   const { data: historyRows } = await supabase.from('history').select('username, roblox_img, reward_num');
 
   const summaryMap = {};
@@ -879,17 +992,45 @@ async function renderAdminDashboard(req, res) {
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
         <td>${p.time}</td>
         <td>
-          <form action="/admin/approve-topup" method="POST" style="margin:0;">
-            <input type="hidden" name="topup_id" value="${p.id}">
-            <input type="hidden" name="username" value="${p.username}">
-            <input type="hidden" name="exact_amount" value="${p.exact_amount}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติแต้ม</button>
-          </form>
+          <div style="display:flex; gap:5px; justify-content:center;">
+            <form action="/admin/approve-topup" method="POST" style="margin:0;">
+              <input type="hidden" name="topup_id" value="${p.id}">
+              <input type="hidden" name="username" value="${p.username}">
+              <input type="hidden" name="exact_amount" value="${p.exact_amount}">
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
+            </form>
+            <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ต้องการลบสลิปนี้ใช่หรือไม่?');" style="margin:0;">
+              <input type="hidden" name="topup_id" value="${p.id}">
+              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบสลิป</button>
+            </form>
+          </div>
         </td>
       </tr>`;
     });
   } else {
     pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
+  }
+
+  let pendingWithdrawHtml = "";
+  if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
+    pendingWithdrawRows.forEach(pw => {
+      pendingWithdrawHtml += `<tr>
+        <td>${pw.id}</td>
+        <td><b>${pw.username}</b></td>
+        <td><a href="${pw.roblox_img}" target="_blank"><img src="${pw.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;"></a></td>
+        <td style="color:#00d2d3; font-weight:bold;">${pw.amount} Robux</td>
+        <td>${pw.time}</td>
+        <td>
+          <form action="/admin/approve-withdraw" method="POST" onsubmit="return confirm('ยืนยันอนุมัติการถอนของ ${pw.username} และเคลียร์ประวัติการสุ่มอัตโนมัติ?');" style="margin:0;">
+            <input type="hidden" name="withdraw_id" value="${pw.id}">
+            <input type="hidden" name="username" value="${pw.username}">
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติโอน & เคลียร์ประวัติ</button>
+          </form>
+        </td>
+      </tr>`;
+    });
+  } else {
+    pendingWithdrawHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการถอน Robux ที่รออนุมัติ</td></tr>`;
   }
 
   let userHtml = "";
@@ -973,6 +1114,12 @@ async function renderAdminDashboard(req, res) {
           <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
       </div>
 
+      <h3 style="color:#00d2d3;">💎 รายการขอถอน Robux (รอแอดมินอนุมัติ)</h3>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวน Robux ที่ถอน</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
+        ${pendingWithdrawHtml}
+      </table>
+
       <h3 style="color:#ffd700;">📥 รายการสลิปรอตรวจสอบการเติมเงิน</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 750px; background:#2b2b40; border-color:#444;">
         <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">ยอดเงิน</th><th style="padding:8px;">รูปสลิป (คลิกดูภาพใหญ่)</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
@@ -988,7 +1135,7 @@ async function renderAdminDashboard(req, res) {
       <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ลบยูส / อายุ 30 วัน)</h3>
       <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
         <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px;">จัดการ</th></tr>
-        ${userHtml}
+        {userHtml}
       </table>
       ${paginationHtml}
     </body>
