@@ -629,7 +629,7 @@ app.get("/my-history", async (req, res) => {
       historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม (หรือถูกย้ายไปฝั่งแอดมินเพื่อรออนุมัติถอนแล้ว)</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
   }
 
   res.send(`
@@ -690,6 +690,9 @@ app.post("/request-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
+  // แปลงประวัติการสุ่มทั้งหมดให้อยู่ในรูป JSON String เก็บไว้ในฐานข้อมูล เพื่อให้แอดมินเปิดดูย้อนหลังได้ แม้ตาราง history จะถูกลบเคลียร์ไปแล้ว
+  const historyJsonStr = JSON.stringify(userHistory);
+
   await supabase
     .from('pending_withdraw')
     .insert([{
@@ -697,6 +700,7 @@ app.post("/request-withdraw", async (req, res) => {
       roblox_img: robloxImg,
       total_opens: totalOpens,
       total_robux: totalRobux,
+      history_backup: historyJsonStr, 
       status: 'pending'
     }]);
 
@@ -705,7 +709,7 @@ app.post("/request-withdraw", async (req, res) => {
     .delete()
     .eq('username', username);
 
-  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! ประวัติถูกส่งไปให้แอดมินตรวจสอบเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ!"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -925,19 +929,42 @@ app.get("/admin/user-detail", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const username = req.query.username;
 
-  const { data: rows } = await supabase
+  // 1. ค้นหาในประวัติปัจจุบันก่อน
+  let { data: rows } = await supabase
     .from('history')
     .select('*')
     .eq('username', username)
     .order('id', { ascending: false });
 
   let historyList = "";
+  
   if (rows && rows.length > 0) {
     rows.forEach(r => {
       historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม (อาจถูกย้ายไปขอถอนแล้ว)</td></tr>`;
+    // 2. ถ้าไม่พบใน history ให้ลองดึงข้อมูลสำรองจากตาราง pending_withdraw (กรณีที่ผู้เล่นกดขอถอนไปแล้ว)
+    const { data: withdrawRow } = await supabase
+      .from('pending_withdraw')
+      .select('history_backup')
+      .eq('username', username)
+      .eq('status', 'pending')
+      .single();
+
+    if (withdrawRow && withdrawRow.history_backup) {
+      try {
+        const backupData = JSON.parse(withdrawRow.history_backup);
+        if (backupData && backupData.length > 0) {
+          backupData.forEach((r, idx) => {
+            historyList += `<tr><td>${idx + 1}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time || '-'}</td></tr>`;
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!historyList) {
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่มในระบบ</td></tr>`;
   }
 
   res.send(`
@@ -1001,7 +1028,6 @@ async function renderAdminDashboard(req, res) {
     pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
   }
 
-  // เพิ่มปุ่ม "🔍 ดูประวัติ" ในตารางขอถอน Robux ฝั่งแอดมิน
   let withdrawHtml = "";
   if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
     pendingWithdrawRows.forEach(w => {
