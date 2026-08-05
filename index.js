@@ -241,6 +241,13 @@ app.get("/lootbox", async (req, res) => {
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
 
+    const { data: histRows } = await supabase
+      .from('history')
+      .select('reward_num')
+      .eq('username', username);
+
+    const userTotalRobux = histRows ? histRows.reduce((acc, cur) => acc + (cur.reward_num || 0), 0) : 0;
+
     const { data: pendingRows } = await supabase
       .from('pending_topup')
       .select('*')
@@ -355,6 +362,8 @@ app.get("/lootbox", async (req, res) => {
                   <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
                   <div>🎯 ยอดสุ่มสะสม: <span id="spent">${totalSpent}</span> บาท</div>
               </div>
+
+              <div style="text-align: left; font-size: 13px; color: #00d2d3; margin-bottom: 10px;">💎 Robux สะสมจากการสุ่มปัจจุบัน: <b id="user-total-robux">${userTotalRobux}</b> Robux</div>
               
               <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
               <div class="reward-showcase">
@@ -407,6 +416,7 @@ app.get("/lootbox", async (req, res) => {
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
+              let currentUserRobux = ${userTotalRobux};
               let selectedCount = 1;
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
@@ -442,44 +452,9 @@ app.get("/lootbox", async (req, res) => {
               setInterval(updateCountdown, 1000);
               updateCountdown();
               
-              function playSound(type) {
-                  try {
-                      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                      let notes = [];
-                      let duration = 0.15;
-
-                      if (type === 'ufo_ultimate') {
-                          notes = [300, 450, 600, 900, 1200, 1500, 1800, 2400, 3000];
-                          duration = 0.1;
-                      } else if (type === 'god_jackpot') {
-                          notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
-                          duration = 0.2;
-                      } else if (type === 'jackpot') {
-                          notes = [523.25, 659.25, 783.99, 1046.50];
-                      } else if (type === 'normal') {
-                          notes = [400, 600];
-                      } else {
-                          notes = [220, 196, 164, 130];
-                          duration = 0.3;
-                      }
-
-                      notes.forEach((freq, index) => {
-                          let o = audioCtx.createOscillator();
-                          let g = audioCtx.createGain();
-                          o.connect(g);
-                          g.connect(audioCtx.destination);
-                          o.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * duration));
-                          g.gain.setValueAtTime(0.2, audioCtx.currentTime + (index * duration));
-                          g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + (index * duration) + duration);
-                          o.start(audioCtx.currentTime + (index * duration));
-                          o.stop(audioCtx.currentTime + (index * duration) + duration);
-                      });
-                  } catch(e) {}
-              }
-
               function openBox() {
                   if (userPoints < selectedCount) {
-                      alert("แต้มของคุณไม่พอใช้งานสำหรับ " + selectedCount + " ครั้ง! กรุณาเติมเงินก่อนครับ");
+                      alert("❌ แต้มของคุณไม่พอใช้งานสำหรับ " + selectedCount + " ครั้ง! กรุณาเติมเงินก่อนครับ");
                       return;
                   }
 
@@ -495,7 +470,6 @@ app.get("/lootbox", async (req, res) => {
                   setTimeout(() => {
                       let totalRewardNum = 0;
                       let highestRewardNum = 0;
-                      let bestRewardText = "";
                       let historyBatch = [];
                       let summaryRewards = {};
 
@@ -523,29 +497,26 @@ app.get("/lootbox", async (req, res) => {
 
                           if (rewardNum > highestRewardNum) {
                               highestRewardNum = rewardNum;
-                              bestRewardText = reward;
                           }
 
                           historyBatch.push({ username: '${username}', reward: reward, reward_num: rewardNum });
                       }
 
+                      currentUserRobux += totalRewardNum;
+                      document.getElementById("user-total-robux").innerText = currentUserRobux;
+
                       let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: บันทึกประวัติเรียบร้อย กรุณารอแอดมินตรวจสอบจัดส่ง Robux</span>";
 
                       if (highestRewardNum >= 10000) {
-                          playSound('ufo_ultimate');
                           resBox.className = "ufo-galaxy-flash popup-animation";
                       } else if (highestRewardNum >= 500) {
-                          playSound('god_jackpot');
                           resBox.className = "epic-glow rainbow-flash popup-animation";
                       } else if (highestRewardNum >= 100) {
-                          playSound('jackpot');
                           resBox.className = "epic-glow popup-animation";
                       } else if (highestRewardNum >= 1) {
-                          playSound('normal');
                           resBox.className = "popup-animation";
                           resBox.style.color = "#2ed573";
                       } else {
-                          playSound('sad');
                           resBox.className = "popup-animation";
                           resBox.style.color = "#ff4757";
                       }
@@ -569,6 +540,11 @@ app.get("/lootbox", async (req, res) => {
               }
 
               function requestWithdraw() {
+                  if (currentUserRobux < 10) {
+                      alert("❌ ไม่สามารถถอนได้! ยอดสะสม Robux จากการสุ่มของคุณยังไม่ถึง 10 Robux (ยอดปัจจุบันของคุณคือ " + currentUserRobux + " Robux)");
+                      return;
+                  }
+
                   fetch('/request-withdraw', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -610,9 +586,8 @@ app.post("/request-withdraw", async (req, res) => {
     let totalOpens = hist ? hist.length : 0;
     let totalRobux = hist ? hist.reduce((acc, cur) => acc + (cur.reward_num || 0), 0) : 0;
 
-    // เช็คเงื่อนไขบังคับว่า ยอดรวม Robux จากการสุ่มต้องถึง 10 Robux ขึ้นไปเท่านั้น ถึงจะถอนได้
     if (totalRobux < 10) {
-      return res.json({ success: false, message: "❌ ไม่สามารถถอนได้! ยอดสะสม Robux จากการสุ่มของคุณยังไม่ถึง 10 Robux (ยอดปัจจุบันของคุณคือ " + totalRobux + " Robux)" });
+      return res.json({ success: false, message: "❌ ไม่สามารถถอนได้! ยอดสะสม Robux จากการสุ่มของคุณยังไม่ถึง 10 Robux (ยอดปัจจุบันคือ " + totalRobux + " Robux)" });
     }
 
     const { data: existing } = await supabase
@@ -829,6 +804,18 @@ app.post("/admin/approve-topup", async (req, res) => {
   res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
+app.post("/admin/delete-topup", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { topup_id } = req.body;
+
+  await supabase
+    .from('pending_topup')
+    .delete()
+    .eq('id', topup_id);
+
+  res.send(`<script>alert("ลบสลิป/รายการเติมเงินนี้ออกเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
@@ -966,12 +953,18 @@ async function renderAdminDashboard(req, res) {
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
         <td>${p.time}</td>
         <td>
-          <form action="/admin/approve-topup" method="POST" style="margin:0;">
-            <input type="hidden" name="topup_id" value="${p.id}">
-            <input type="hidden" name="username" value="${p.username}">
-            <input type="hidden" name="exact_amount" value="${p.exact_amount}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติแต้ม</button>
-          </form>
+          <div style="display:flex; gap:5px; justify-content:center; align-items:center;">
+            <form action="/admin/approve-topup" method="POST" style="margin:0;">
+              <input type="hidden" name="topup_id" value="${p.id}">
+              <input type="hidden" name="username" value="${p.username}">
+              <input type="hidden" name="exact_amount" value="${p.exact_amount}">
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติแต้ม</button>
+            </form>
+            <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ยืนยันลบสลิปนี้ (สลิปปลอม/สแปม)?');" style="margin:0;">
+              <input type="hidden" name="topup_id" value="${p.id}">
+              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบสลิป</button>
+            </form>
+          </div>
         </td>
       </tr>`;
     });
