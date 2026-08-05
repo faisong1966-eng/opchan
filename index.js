@@ -663,12 +663,13 @@ app.get("/my-history", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
-  const { data: userHistory } = await supabase
+  // 1. ดึงข้อมูลประวัติการสุ่มทั้งหมดของผู้ใช้นี้ออกมาก่อน
+  const { data: userHistory, error: fetchError } = await supabase
     .from('history')
     .select('*')
     .eq('username', username);
 
-  if (!userHistory || userHistory.length === 0) {
+  if (fetchError || !userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
@@ -682,6 +683,7 @@ app.post("/request-withdraw", async (req, res) => {
     return res.send(`<script>alert("แต้ม Robux สะสมยังไม่ถึง 10 Robux ไม่สามารถถอนได้!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
+  // 2. ดึงรูปโปรไฟล์ Roblox ของผู้ใช้
   const { data: userData } = await supabase
     .from('users')
     .select('roblox_img')
@@ -690,10 +692,11 @@ app.post("/request-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
-  // แปลงประวัติการสุ่มทั้งหมดให้อยู่ในรูป JSON String เก็บไว้ในฐานข้อมูล เพื่อให้แอดมินเปิดดูย้อนหลังได้ แม้ตาราง history จะถูกลบเคลียร์ไปแล้ว
+  // 3. แปลงข้อมูลประวัติทั้งหมดเป็น JSON String เก็บสำรองไว้ทันที
   const historyJsonStr = JSON.stringify(userHistory);
 
-  await supabase
+  // 4. บันทึกลงตาราง pending_withdraw พร้อมตัวสำรอง
+  const { error: insertError } = await supabase
     .from('pending_withdraw')
     .insert([{
       username: username,
@@ -704,6 +707,12 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending'
     }]);
 
+  if (insertError) {
+    console.error("Insert Withdraw Error:", insertError);
+    return res.send(`<script>alert("เกิดข้อผิดพลาดในการบันทึกคำขอถอน"); window.location.href="/lootbox?username=${username}";</script>`);
+  }
+
+  // 5. หลังจากสำรองข้อมูลลงตารางถอนเรียบร้อยแล้วค่อยลบออกจาก history จริง
   await supabase
     .from('history')
     .delete()
