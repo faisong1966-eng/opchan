@@ -69,7 +69,6 @@ async function checkUserExpiration(username) {
                 await supabase.from('users').delete().eq('username', username);
                 await supabase.from('history').delete().eq('username', username);
                 await supabase.from('pending_topup').delete().eq('username', username);
-                await supabase.from('pending_withdraw').delete().eq('username', username);
                 return true; 
             }
         }
@@ -241,15 +240,21 @@ app.get("/lootbox", async (req, res) => {
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
 
+    // คำนวณ Robux ที่สะสมเฉพาะรายการปกติ (ที่ยังไม่ได้แจ้งถอน)
     const { data: historyRows } = await supabase
       .from('history')
-      .select('reward_num')
+      .select('reward_num, status')
       .eq('username', username);
 
     let accumulatedRobux = 0;
+    let hasPendingWithdraw = false;
     if (historyRows) {
         historyRows.forEach(h => {
-            accumulatedRobux += (h.reward_num || 0);
+            if (h.status === 'pending_withdraw') {
+                hasPendingWithdraw = true;
+            } else if (!h.status || h.status === 'normal') {
+                accumulatedRobux += (h.reward_num || 0);
+            }
         });
     }
 
@@ -266,6 +271,13 @@ app.get("/lootbox", async (req, res) => {
       });
     } else {
       pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
+    }
+
+    let withdrawBtnHtml = "";
+    if (hasPendingWithdraw) {
+        withdrawBtnHtml = `<button type="button" class="withdraw-btn" disabled style="background:#555; color:#ffd700;">⏳ มีรายการรอแอดมินโอนอยู่ (กำลังตรวจสอบ)</button>`;
+    } else {
+        withdrawBtnHtml = `<button type="button" class="withdraw-btn" id="withdraw-btn" ${accumulatedRobux < 10 ? 'disabled' : ''} onclick="requestWithdraw()">💸 กดแจ้งถอน Robux</button>`;
     }
 
     res.send(`
@@ -360,7 +372,7 @@ app.get("/lootbox", async (req, res) => {
               <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #444; text-align: center;">
                   <div style="font-size: 14px; margin-bottom: 5px;">💎 ยอด Robux สะสมรอถอน: <b id="accumulated-robux" style="color:#ffd700; font-size: 18px;">${accumulatedRobux}</b> Robux</div>
                   <div style="font-size: 11px; color: #aaa; margin-bottom: 8px;">*(เงื่อนไข: ต้องสะสมให้ครบ 10 Robux ขึ้นไปจึงจะสามารถกดถอนได้)*</div>
-                  <button type="button" class="withdraw-btn" id="withdraw-btn" ${accumulatedRobux < 10 ? 'disabled' : ''} onclick="requestWithdraw()">💸 กดแจ้งถอน Robux</button>
+                  ${withdrawBtnHtml}
               </div>
               
               <div style="text-align: left; font-size: 13px; color: #aaa; margin-bottom: 5px;">🏆 ของรางวัลในกล่อง:</div>
@@ -502,9 +514,7 @@ app.get("/lootbox", async (req, res) => {
                   .then(data => {
                       if (data.success) {
                           alert("ส่งคำขอถอน Robux ไปยังแอดมินเรียบร้อยแล้ว!");
-                          accumulatedRobux = 0;
-                          document.getElementById("accumulated-robux").innerText = accumulatedRobux;
-                          document.getElementById("withdraw-btn").disabled = true;
+                          location.reload();
                       } else {
                           alert("เกิดข้อผิดพลาด: " + data.message);
                       }
@@ -630,7 +640,8 @@ app.get("/my-history", async (req, res) => {
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach(r => {
-      historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
+      let statusBadge = r.status === 'pending_withdraw' ? '<span style="color:#ffd700;">(⏳ รอถอน)</span>' : (r.status === 'completed' ? '<span style="color:#2ed573;">(✅ ถอนแล้ว)</span>' : '');
+      historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b> ${statusBadge}</td><td style="padding:8px;">${r.time}</td></tr>`;
     });
   } else {
     historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
@@ -669,16 +680,12 @@ app.post("/request-withdraw", async (req, res) => {
     if (!username) return res.json({ success: false, message: "ไม่พบชื่อผู้ใช้" });
 
     try {
-        const { data: user } = await supabase
-            .from('users')
-            .select('roblox_img')
-            .eq('username', username)
-            .single();
-
+        // ค้นหารายการทั้งหมดที่ยังปกติอยู่
         const { data: historyRows } = await supabase
             .from('history')
             .select('*')
-            .eq('username', username);
+            .eq('username', username)
+            .or('status.is.null,status.eq.normal');
 
         let totalRobux = 0;
         if (historyRows) {
@@ -691,25 +698,17 @@ app.post("/request-withdraw", async (req, res) => {
             return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux" });
         }
 
-        const { error: insertError } = await supabase
-            .from('pending_withdraw')
-            .insert([{
-                username: username,
-                roblox_img: user ? user.roblox_img : '',
-                total_robux: totalRobux,
-                history_snapshot: JSON.stringify(historyRows || []),
-                status: 'pending'
-            }]);
-
-        if (insertError) {
-            console.error("Insert Withdraw Error:", insertError);
-            return res.json({ success: false, message: "บันทึกข้อมูลถอนไม่สำเร็จ (เช็คตาราง pending_withdraw ใน Supabase)" });
-        }
-
-        await supabase
+        // เปลี่ยนสถานะของประวัติทุกแถวนี้ให้เป็น pending_withdraw (รอแอดมินอนุมัติ)
+        const rowIds = historyRows.map(h => h.id);
+        const { error: updateError } = await supabase
             .from('history')
-            .delete()
-            .eq('username', username);
+            .update({ status: 'pending_withdraw' })
+            .in('id', rowIds);
+
+        if (updateError) {
+            console.error("Update Withdraw Error:", updateError);
+            return res.json({ success: false, message: "แจ้งถอนไม่สำเร็จ" });
+        }
 
         res.json({ success: true });
     } catch (err) {
@@ -720,30 +719,24 @@ app.post("/request-withdraw", async (req, res) => {
 
 app.get("/admin/view-withdraw-history", async (req, res) => {
     if (!req.session.isAdmin) return res.redirect("/admin");
-    const id = req.query.id;
+    const username = req.query.username;
 
-    const { data: withdrawItem } = await supabase
-        .from('pending_withdraw')
+    const { data: historyRows } = await supabase
+        .from('history')
         .select('*')
-        .eq('id', id)
-        .single();
+        .eq('username', username)
+        .eq('status', 'pending_withdraw')
+        .order('id', { ascending: false });
 
-    if (!withdrawItem) {
-        return res.send(`<script>alert("ไม่พบข้อมูลคำขอนี้"); window.location.href="/admin";</script>`);
-    }
-
+    let totalRobux = 0;
     let historyList = "";
-    try {
-        const snapshot = JSON.parse(withdrawItem.history_snapshot || '[]');
-        if (snapshot.length > 0) {
-            snapshot.forEach(r => {
-                historyList += `<tr><td style="padding:8px;">${r.id || '-'}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
-            });
-        } else {
-            historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่มในรอบนี้</td></tr>`;
-        }
-    } catch (e) {
-        historyList = `<tr><td colspan="3" style="padding:15px; color:#ff4757;">เกิดข้อผิดพลาดในการโหลดข้อมูลประวัติ</td></tr>`;
+    if (historyRows && historyRows.length > 0) {
+        historyRows.forEach(r => {
+            totalRobux += (r.reward_num || 0);
+            historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
+        });
+    } else {
+        historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่มในรอบนี้</td></tr>`;
     }
 
     res.send(`
@@ -763,7 +756,7 @@ app.get("/admin/view-withdraw-history", async (req, res) => {
       <body>
           <div class="container">
               <h2 style="color:#ffd700;">🔍 ตรวจสอบประวัติการสุ่ม</h2>
-              <p style="font-size:14px; color:#aaa;">ผู้เล่น: <b>${withdrawItem.username}</b> | ยอดขอถอน: <b style="color:#2ed573;">${withdrawItem.total_robux} Robux</b></p>
+              <p style="font-size:14px; color:#aaa;">ผู้เล่น: <b>${username}</b> | ยอดขอถอน: <b style="color:#2ed573;">${totalRobux} Robux</b></p>
               <table border="1">
                   <tr><th>ID</th><th>รางวัลที่ได้</th><th>เวลาที่สุ่ม</th></tr>
                   ${historyList}
@@ -847,7 +840,8 @@ app.post("/save-history-batch", async (req, res) => {
       username: username,
       roblox_img: user.roblox_img,
       reward: item.reward,
-      reward_num: item.reward_num || 0
+      reward_num: item.reward_num || 0,
+      status: 'normal'
     }));
 
     await supabase
@@ -932,14 +926,16 @@ app.post("/admin/delete-topup", async (req, res) => {
 
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id } = req.body;
+  const { username } = req.body;
 
+  // อัปเดตสถานะประวัติของยูสเซอร์นี้จาก pending_withdraw เป็น completed
   await supabase
-    .from('pending_withdraw')
+    .from('history')
     .update({ status: 'completed' })
-    .eq('id', withdraw_id);
+    .eq('username', username)
+    .eq('status', 'pending_withdraw');
 
-  res.send(`<script>alert("อนุมัติการถอน Robux เรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติการถอน Robux ของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/update-points", async (req, res) => {
@@ -971,7 +967,6 @@ app.post("/admin/delete-user", async (req, res) => {
   await supabase.from('users').delete().eq('username', username);
   await supabase.from('history').delete().eq('username', username);
   await supabase.from('pending_topup').delete().eq('username', username);
-  await supabase.from('pending_withdraw').delete().eq('username', username);
 
   res.send(`<script>alert("ลบสมาชิก ${username} ออกจากระบบเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
@@ -992,7 +987,28 @@ async function renderAdminDashboard(req, res) {
     .range(offset, offset + limit - 1);
 
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending').order('id', { ascending: false });
-  const { data: withdrawRows } = await supabase.from('pending_withdraw').select('*').eq('status', 'pending').order('id', { ascending: false });
+
+  // ดึงรายการที่รอดำเนินการถอนจากตาราง history โดยจัดกลุ่มตาม username
+  const { data: withdrawHistoryRows } = await supabase
+    .from('history')
+    .select('*')
+    .eq('status', 'pending_withdraw');
+
+  let withdrawMap = {};
+  if (withdrawHistoryRows) {
+      withdrawHistoryRows.forEach(h => {
+          if (!withdrawMap[h.username]) {
+              withdrawMap[h.username] = {
+                  username: h.username,
+                  roblox_img: h.roblox_img,
+                  total_robux: 0,
+                  time: h.time
+              };
+          }
+          withdrawMap[h.username].total_robux += (h.reward_num || 0);
+      });
+  }
+  const withdrawRows = Object.values(withdrawMap);
 
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
@@ -1024,19 +1040,19 @@ async function renderAdminDashboard(req, res) {
   }
 
   let withdrawHtml = "";
-  if (withdrawRows && withdrawRows.length > 0) {
-    withdrawRows.forEach(w => {
+  if (withdrawRows.length > 0) {
+    withdrawRows.forEach((w, index) => {
       withdrawHtml += `<tr>
-        <td>${w.id}</td>
+        <td>${index + 1}</td>
         <td><b>${w.username}</b></td>
         <td><a href="${w.roblox_img}" target="_blank"><img src="${w.roblox_img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #ffd700;"></a></td>
         <td style="color:#2ed573; font-size:16px; font-weight:bold;">${w.total_robux} Robux</td>
         <td>${w.time}</td>
         <td>
           <div style="display:flex; flex-direction:column; gap:5px; align-items:center;">
-            <a href="/admin/view-withdraw-history?id=${w.id}" target="_blank" style="background:#00d2d3; color:#000; padding:5px 8px; border-radius:4px; text-decoration:none; font-weight:bold; font-size:12px; display:block; width:100%;">📜 ดูประวัติการสุ่ม</a>
+            <a href="/admin/view-withdraw-history?username=${w.username}" target="_blank" style="background:#00d2d3; color:#000; padding:5px 8px; border-radius:4px; text-decoration:none; font-weight:bold; font-size:12px; display:block; width:100%;">📜 ดูประวัติการสุ่ม</a>
             <form action="/admin/approve-withdraw" method="POST" onsubmit="return confirm('ยืนยันว่าได้โอน Robux ให้ ${w.username} เรียบร้อยแล้ว?');" style="margin:0; width:100%;">
-              <input type="hidden" name="withdraw_id" value="${w.id}">
+              <input type="hidden" name="username" value="${w.username}">
               <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%;">🎁 อนุมัติการถอน</button>
             </form>
           </div>
@@ -1115,7 +1131,7 @@ async function renderAdminDashboard(req, res) {
 
       <h3 style="color:#ffd700;">🎁 รายการคำขอถอน Robux (รอแอดมินโอน)</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวน Robux ที่ขอถอน</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ / ตรวจสอบ</th></tr>
+        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวน Robux ที่ขอถอน</th><th style="padding:8px;">เวลาที่ขอ</th><th style="padding:8px;">จัดการ / ตรวจสอบ</th></tr>
         ${withdrawHtml}
       </table>
 
