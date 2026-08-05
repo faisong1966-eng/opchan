@@ -371,10 +371,10 @@ app.get("/lootbox", async (req, res) => {
               <div style="background: rgba(255, 159, 67, 0.15); border: 1px solid #ff9f43; padding: 12px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                       <span style="color: #ff9f43; font-weight: bold; font-size: 14px;">📦 Robux ที่สะสมได้:</span>
-                      <span style="color: #ffd700; font-size: 16px; font-weight: bold;" id="pending-robux-display">${hasPendingWithdraw ? '0' : pendingRobuxSum} Robux</span>
+                      <span style="color: #ffd700; font-size: 16px; font-weight: bold;" id="pending-robux-display">[cite: 1] ${hasPendingWithdraw ? '0' : pendingRobuxSum} Robux</span>
                   </div>
                   <p style="font-size: 11px; color: #ddd; line-height: 1.4; margin: 5px 0 10px 0;">
-                      ⚠️ <b>เงื่อนไขสำคัญ:</b> กรุณาสแกนใบหน้าในเกม Roblox ก่อน สำหรับคนที่อายุ 16 ปีขึ้นไป ใครที่อายุไม่ถึง ให้คนที่มีอายุ 16 ปีขึ้นไปสแกนใบหน้าให้ ไม่งั้นจะรับ Robux ในเกมไม่ได้ และยอดสะสมต้องถึง <b>10 Robux ขึ้นไป</b> ถึงจะกดแจ้งถอนได้
+                      ⚠️ <b>เงื่อนไขสำคัญ:</b> กรุณาสแกนใบหน้าในเกม Roblox ก่อน สำหรับคนที่อายุ 16 ปีขึ้นไป ใครที่อายุไม่ถึง ให้คนที่มีอายุ 16 ปีขึ้นไปสแกนใบหน้าให้ ไม่งั้นจะรับ Robux ในเกมไม่ได้ และยอดสะสมต้องถึง <b>10 Robux ขึ้นไป</b> ถึงจะกดแจ้งถอนได้[cite: 1]
                   </p>
 
                   <div id="withdraw-container">
@@ -432,7 +432,7 @@ app.get("/lootbox", async (req, res) => {
                       <span>🟢</span> พร้อมเพย์ (PromptPay)
                   </button>
                   <button type="button" onclick="switchTopup('wallet')" id="btn-tw" style="flex:1; background:#3d3d5c; color:#fff; border:none; padding:8px; border-radius:5px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-                      <span style="background:#ff7f50; color:#fff; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;">T</span> ทรูมันนี่ วอเลท
+                      <span style="background:#ff7f50; color:#fff; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;">T</span>[cite: 1] ทรูมันนี่ วอเลท
                   </button>
               </div>
 
@@ -453,8 +453,8 @@ app.get("/lootbox", async (req, res) => {
                           <div style="background: #ff7f50; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">T</div>
                           <b style="color: #ff7f50; font-size: 14px;">TrueMoney Wallet</b>
                       </div>
-                      <p style="font-size: 13px; color: #ddd; margin: 0;">โอนเข้าเบอร์: <b style="color: #ffd700;">${MY_WALLET_NUMBER}</b></p>
-                      <p style="font-size: 13px; color: #ddd; margin: 2px 0 0 0;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+                      <p style="font-size: 13px; color: #ddd; margin: 0;">โอนเข้าเบอร์: <b style="color: #ffd700;">${MY_WALLET_NUMBER}</b>[cite: 1]</p>
+                      <p style="font-size: 13px; color: #ddd; margin: 2px 0 0 0;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b>[cite: 1]</p>
                   </div>
 
                   <form action="/create-topup" method="POST" style="text-align: left;">
@@ -680,7 +680,6 @@ app.get("/lootbox", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
     const { username } = req.body;
     
-    // ดึงประวัติทั้งหมดของผู้เล่นมาคำนวณยอด
     const { data: historyRows } = await supabase
       .from('history')
       .select('reward_num')
@@ -692,10 +691,8 @@ app.post("/request-withdraw", async (req, res) => {
     }
 
     if (totalRobux >= 10) {
-        // ดึงรูปโปรไฟล์ Roblox ของผู้เล่น
         const { data: user } = await supabase.from('users').select('roblox_img').eq('username', username).single();
         
-        // 1. บันทึกลงตาราง pending_withdraw ส่งตรงไปหน้าแอดมิน
         await supabase.from('pending_withdraw').insert([{
             username: username,
             roblox_img: user ? user.roblox_img : '',
@@ -703,7 +700,6 @@ app.post("/request-withdraw", async (req, res) => {
             status: 'pending'
         }]);
 
-        // 2. ลบประวัติสุ่มเก่าออก เพื่อล้างยอดฝั่งผู้เล่นให้หายไป (ยอดจะกลายเป็น 0 ทันที)
         await supabase.from('history').delete().eq('username', username);
     }
 
@@ -780,8 +776,8 @@ app.post("/create-topup", (req, res) => {
             <div style="background: #ff7f50; color: #fff; width: 45px; height: 45px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; box-shadow: 0 0 10px rgba(255,127,80,0.5);">T</div>
             <h2 style="color:#ff7f50; margin: 8px 0 0 0;">TrueMoney Wallet</h2>
         </div>
-        <p style="font-size: 13px; color: #aaa; text-align: center;">โอนเงินไปยังเบอร์วอเลท:<br><b style="color: #fff; font-size: 16px;">${MY_WALLET_NUMBER}</b></p>
-        <p style="font-size: 13px; color: #aaa; text-align: center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <p style="font-size: 13px; color: #aaa; text-align: center;">โอนเงินไปยังเบอร์วอเลท:<br><b style="color: #fff; font-size: 16px;">${MY_WALLET_NUMBER}</b>[cite: 1]</p>
+        <p style="font-size: 13px; color: #aaa; text-align: center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b>[cite: 1]</p>
         <div style="background:rgba(255,255,255,0.05); padding:12px; text-align:center; border-radius:8px; margin:10px 0; border:1px dashed #ff7f50;">
             <span style="font-size:13px; color:#ffd700;">ยอดที่ต้องโอนให้พอดี:</span>
             <h2 style="color:#ffd700; margin:5px 0;">${exactAmount} บาท</h2>
@@ -805,8 +801,9 @@ app.post("/create-topup", (req, res) => {
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="channel" value="${payChannel}">
             
-            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน (${payChannel}):</label>
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน (${payChannel})[cite: 1]:</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
+            <p style="font-size:11px; color:#aaa; margin-top:4px;">*รองรับทุกรูปแบบ เช่น สลิปจากตู้บุญเติม หรือ 7-Eleven ขอให้เห็นตัวเลขชัดเจน[cite: 1]</p>
             
             <button type="submit" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
@@ -931,7 +928,6 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
 
-  // เปลี่ยนสถานะคำขอถอนเป็น completed (เนื่องจากประวัติถูกย้ายตอนกดถอนไปแล้ว)
   await supabase.from('pending_withdraw').update({ status: 'completed' }).eq('id', withdraw_id);
 
   res.send(`<script>alert("อนุมัติการถอน Robux เรียบร้อย!"); window.location.href="/admin";</script>`);
