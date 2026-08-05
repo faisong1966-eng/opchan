@@ -961,10 +961,10 @@ app.post("/open-lootbox", async (req, res) => {
       else if (rand < 1.5) { reward = "15 Robux"; rewardNum = 15; }
       else if (rand < 2.5) { reward = "10 Robux"; rewardNum = 10; }
       else if (rand < 3.5) { reward = "5 Robux"; rewardNum = 5; }
-      else if (rand < 7.0) { reward = "4 Robux"; rewardNum = 4; }
-      else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
-      else if (rand < 15.0) { reward = "2 Robux"; rewardNum = 2; }
-      else if (rand < 30.0) { reward = "1 Robux"; rewardNum = 1; }
+      else if (rand < 4.0) { reward = "4 Robux"; rewardNum = 4; }
+      else if (rand < 5.0) { reward = "3 Robux"; rewardNum = 3; }
+      else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
+      else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
       else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
 
       totalRewardNum += rewardNum;
