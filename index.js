@@ -700,8 +700,6 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending'
     }]);
 
-  // [ปรับแก้] เอาคำสั่งลบ history ออกจากตรงนี้แล้ว เพื่อให้ประวัติยังอยู่ให้แอดมินตรวจ
-
   res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! ประวัติถูกส่งไปให้แอดมินตรวจสอบเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
@@ -728,33 +726,54 @@ app.post("/create-topup", (req, res) => {
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-        <form action="/upload-slip" method="POST" enctype="multipart/form-data">
+        <!-- [ปรับปรุง] เพิ่มฟังก์ชัน JavaScript ดักตอนกดส่ง เพื่อแสดงข้อความกำลังอัปโหลด และป้องกันการกดซ้ำ -->
+        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             
             <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
-            <button type="submit" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
+            <button type="submit" id="submit-btn" style="width:100%; background:#2ed573; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
 
+        <div id="loading-text" style="display:none; text-align:center; margin-top:10px; color:#ffd700; font-size:13px; font-weight:bold;">
+            ⏳ กำลังอัปโหลดสลิปและบันทึกข้อมูล กรุณารอ...
+        </div>
+
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
-    </div></body></html>
+    </div>
+    <script>
+        function handleUpload(form) {
+            const btn = document.getElementById('submit-btn');
+            const loading = document.getElementById('loading-text');
+            btn.disabled = true;
+            btn.style.background = '#555';
+            btn.innerText = 'กำลังส่งข้อมูล...';
+            loading.style.display = 'block';
+        }
+    </script>
+    </body></html>
   `);
 });
 
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount } = req.body;
-  const slipImg = await uploadToSupabaseStorage(req.file);
+  
+  try {
+    const slipImg = await uploadToSupabaseStorage(req.file);
 
-  const { error } = await supabase
-    .from('pending_topup')
-    .insert([{ username, exact_amount: parseFloat(exact_amount), slip_img: slipImg, status: 'pending' }]);
+    const { error } = await supabase
+      .from('pending_topup')
+      .insert([{ username, exact_amount: parseFloat(exact_amount), slip_img: slipImg, status: 'pending' }]);
 
-  if (error) {
-    return res.send(`<script>alert("เกิดข้อผิดพลาด กรุณาลองใหม่"); window.location.href="/lootbox?username=${username}";</script>`);
+    if (error) {
+      return res.send(`<script>alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"); window.location.href="/lootbox?username=${username}";</script>`);
+    }
+    res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
+  } catch (err) {
+    res.send(`<script>alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์"); window.location.href="/lootbox?username=${username}";</script>`);
   }
-  res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/save-history-batch", async (req, res) => {
@@ -869,7 +888,6 @@ app.post("/admin/approve-withdraw", async (req, res) => {
     .update({ status: 'completed' })
     .eq('id', withdraw_id);
 
-  // [ปรับแก้] พึ่งมาสั่งลบประวัติ history ของยูสเซอร์นี้ทิ้งเมื่อแอดมินกดอนุมัติการถอนแล้ว
   await supabase
     .from('history')
     .delete()
@@ -893,7 +911,6 @@ app.post("/admin/delete-withdraw", async (req, res) => {
     .delete()
     .eq('id', withdraw_id);
 
-  // [ปรับแก้] หากแอดมินกดเคลียร์/ลบคำขอถอน ให้ลบประวัติ history ทิ้งด้วย
   if (withdrawData) {
     await supabase
       .from('history')
