@@ -18,10 +18,8 @@ const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงค�
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// ใช้ memoryStorage เพื่อพักไฟล์ชั่วคราวแล้วส่งขึ้น Supabase Storage โดยตรง
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ฟังก์ชันอัปโหลดไฟล์ขึ้น Supabase Storage ถาวร (ไม่หายเวลา Deploy ใหม่)
 async function uploadToSupabaseStorage(file) {
     if (!file) return "";
     const fileExt = path.extname(file.originalname);
@@ -53,6 +51,32 @@ app.use(session({
     saveUninitialized: false,
     cookie: { maxAge: 600000 }
 }));
+
+// ฟังก์ชันตรวจสอบอายุสมาชิก 30 วัน (ลบอัตโนมัติหากเกินกำหนด)
+async function checkUserExpiration(username) {
+    try {
+        const { data: user } = await supabase
+            .from('users')
+            .select('created_at, username')
+            .eq('username', username)
+            .single();
+
+        if (user && user.created_at) {
+            const createdTime = new Date(user.created_at).getTime();
+            const now = new Date().getTime();
+            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+            if (now - createdTime > thirtyDaysMs) {
+                // ครบ 30 วันแล้ว ทำการลบข้อมูลผู้ใช้ออกจากระบบ
+                await supabase.from('users').delete().eq('username', username);
+                await supabase.from('history').delete().eq('username', username);
+                await supabase.from('pending_topup').delete().eq('username', username);
+                return true; // หมดอายุ
+            }
+        }
+    } catch (e) {}
+    return false; // ยังไม่หมดอายุ
+}
 
 app.get("/", (req, res) => {
   res.send(`
@@ -101,6 +125,7 @@ app.get("/register", (req, res) => {
     <body>
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
+            <p style="font-size:12px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
             <form action="/register" method="POST" enctype="multipart/form-data">
                 <label>Username (สำหรับเข้าเว็บ):</label>
                 <input type="text" name="username" required>
@@ -129,7 +154,7 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
     if (error) {
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
     }
-    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
+    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! บัญชีใช้งานได้ 30 วัน กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
   } catch (err) {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล"); window.location.href="/register";</script>`);
   }
@@ -171,6 +196,13 @@ app.get("/login", (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
+  
+  // ตรวจสอบว่าหมดอายุ 30 วันหรือยังก่อนล็อกอิน
+  const isExpired = await checkUserExpiration(username);
+  if (isExpired) {
+      return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งาน 30 วันแล้ว ถูกลบออกจากระบบอัตโนมัติครับ!"); window.location.href="/login";</script>`);
+  }
+
   try {
     const { data: row, error } = await supabase
       .from('users')
@@ -192,6 +224,12 @@ app.post("/login", async (req, res) => {
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
+
+  // ตรวจสอบอายุ 30 วันระหว่างใช้งาน
+  const isExpired = await checkUserExpiration(username);
+  if (isExpired) {
+      return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
+  }
 
   try {
     const { data: row } = await supabase
@@ -563,7 +601,7 @@ app.post("/save-history", async (req, res) => {
 
 app.get("/admin", async (req, res) => {
   if (req.session.isAdmin) {
-    return renderAdminDashboard(res);
+    return renderAdminDashboard(req, res);
   }
 
   res.send(`
@@ -644,6 +682,18 @@ app.post("/admin/update-points", async (req, res) => {
   res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
+// ฟังก์ชันลบสมาชิกจากหลังบ้านแอดมิน
+app.post("/admin/delete-user", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { username } = req.body;
+
+  await supabase.from('users').delete().eq('username', username);
+  await supabase.from('history').delete().eq('username', username);
+  await supabase.from('pending_topup').delete().eq('username', username);
+
+  res.send(`<script>alert("ลบสมาชิก ${username} ออกจากระบบเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
 app.get("/admin/user-detail", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const username = req.query.username;
@@ -689,8 +739,22 @@ app.post("/admin/clear-user-history", async (req, res) => {
   res.send(`<script>alert("ล้างประวัติการสุ่มของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
-async function renderAdminDashboard(res) {
-  const { data: usersRows } = await supabase.from('users').select('*');
+async function renderAdminDashboard(req, res) {
+  // ระบบแบ่งหน้า (Pagination) แสดงหน้าละ 10 คน
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  const { data: allUsers } = await supabase.from('users').select('*');
+  const totalUsers = allUsers ? allUsers.length : 0;
+  const totalPages = Math.ceil(totalUsers / limit) || 1;
+
+  const { data: usersRows } = await supabase
+    .from('users')
+    .select('*')
+    .order('id', { ascending: false })
+    .range(offset, offset + limit - 1);
+
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending').order('id', { ascending: false });
   const { data: historyRows } = await supabase.from('history').select('username, roblox_img, reward_num');
 
@@ -730,24 +794,55 @@ async function renderAdminDashboard(res) {
   }
 
   let userHtml = "";
-  if (usersRows) {
+  if (usersRows && usersRows.length > 0) {
     usersRows.forEach(u => {
+      // คำนวณวันหมดอายุเหลืออีกกี่วัน
+      let daysLeft = "-";
+      if (u.created_at) {
+          const createdTime = new Date(u.created_at).getTime();
+          const now = new Date().getTime();
+          const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+          const diffDays = Math.ceil((thirtyDaysMs - (now - createdTime)) / (1000 * 60 * 60 * 24));
+          daysLeft = diffDays > 0 ? `${diffDays} วัน` : `หมดอายุ`;
+      }
+
       userHtml += `<tr>
         <td>${u.id}</td>
         <td><b>${u.username}</b></td>
         <td><a href="${u.roblox_img}" target="_blank"><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;" title="คลิกเพื่อดูรูปใหญ่"></a></td>
         <td>${u.points} แต้ม</td>
         <td>${u.total_spent || 0} บาท</td>
+        <td style="color:#ffd700; font-size:13px;">${daysLeft}</td>
         <td>
-          <form action="/admin/update-points" method="POST" style="display:inline-flex; gap:5px; align-items:center; margin:0;">
+          <form action="/admin/update-points" method="POST" style="display:inline-flex; gap:3px; align-items:center; margin:0; margin-bottom:4px;">
             <input type="hidden" name="username" value="${u.username}">
-            <input type="number" name="points" value="1" min="1" style="width:50px; padding:4px; text-align:center; border-radius:4px; border:none;">
-            <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold;" title="เพิ่มแต้ม">➕</button>
-            <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
+            <input type="number" name="points" value="1" min="1" style="width:40px; padding:3px; text-align:center; border-radius:3px; border:none;">
+            <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="เพิ่มแต้ม">➕</button>
+            <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
+          </form>
+          <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin:0;">
+            <input type="hidden" name="username" value="${u.username}">
+            <button type="submit" style="background:#c0392b; color:#fff; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">🗑️ ลบยูส</button>
           </form>
         </td>
       </tr>`;
     });
+  } else {
+    userHtml = `<tr><td colspan="7" style="padding:15px; color:#aaa;">ยังไม่มีสมาชิกในระบบ</td></tr>`;
+  }
+
+  // สร้างปุ่มเปลี่ยนหน้า (Pagination Buttons)
+  let paginationHtml = "";
+  if (totalPages > 1) {
+      paginationHtml += `<div style="margin: 15px 0;">`;
+      if (page > 1) {
+          paginationHtml += `<a href="/admin?page=${page - 1}" style="background:#3d3d5c; color:#fff; padding:6px 12px; margin:0 3px; border-radius:4px; text-decoration:none; font-weight:bold;">⬅️ หน้าก่อนหน้า</a>`;
+      }
+      paginationHtml += `<span style="margin:0 10px; color:#ffd700; font-weight:bold;">หน้า ${page} / ${totalPages}</span>`;
+      if (page < totalPages) {
+          paginationHtml += `<a href="/admin?page=${page + 1}" style="background:#3d3d5c; color:#fff; padding:6px 12px; margin:0 3px; border-radius:4px; text-decoration:none; font-weight:bold;">หน้าถัดไป ➡️</a>`;
+      }
+      paginationHtml += `</div>`;
   }
 
   let summaryHtml = "";
@@ -791,11 +886,12 @@ async function renderAdminDashboard(res) {
         ${summaryHtml}
       </table>
 
-      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้มด่วนหลังชื่อ)</h3>
-      <table border="1" style="margin: 0 auto 50px auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox (คลิกซูมดูภาพ)</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่ายสะสม</th><th style="padding:8px;">จัดการแต้ม (+/-)</th></tr>
+      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ลบยูส / อายุ 30 วัน)</h3>
+      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px;">จัดการ</th></tr>
         ${userHtml}
       </table>
+      ${paginationHtml}
     </body>
   `);
 }
