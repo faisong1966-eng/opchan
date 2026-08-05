@@ -610,8 +610,9 @@ app.post("/request-withdraw", async (req, res) => {
     let totalOpens = hist ? hist.length : 0;
     let totalRobux = hist ? hist.reduce((acc, cur) => acc + (cur.reward_num || 0), 0) : 0;
 
+    // เช็คเงื่อนไขบังคับว่า ยอดรวม Robux จากการสุ่มต้องถึง 10 Robux ขึ้นไปเท่านั้น ถึงจะถอนได้
     if (totalRobux < 10) {
-      return res.json({ success: false, message: "ยอดสะสมของคุณยังไม่ถึง 10 Robux ไม่สามารถกดถอนได้!" });
+      return res.json({ success: false, message: "❌ ไม่สามารถถอนได้! ยอดสะสม Robux จากการสุ่มของคุณยังไม่ถึง 10 Robux (ยอดปัจจุบันของคุณคือ " + totalRobux + " Robux)" });
     }
 
     const { data: existing } = await supabase
@@ -632,7 +633,7 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending'
     }]);
 
-    res.json({ success: true, message: "ส่งคำขอถอน Robux สำเร็จ! ประวัติถูกส่งไปให้แอดมินตรวจสอบเรียบร้อย" });
+    res.json({ success: true, message: "✅ ส่งคำขอถอน Robux สำเร็จ! ประวัติถูกส่งไปให้แอดมินตรวจสอบเรียบร้อย" });
   } catch (e) {
     res.json({ success: false, message: "เกิดข้อผิดพลาดของระบบเซิร์ฟเวอร์" });
   }
