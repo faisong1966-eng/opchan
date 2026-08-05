@@ -457,13 +457,13 @@ app.get("/lootbox", async (req, res) => {
                       const rand = Math.random() * 100;
                       if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน โคตรอลังการ!)"; rewardNum = 1000; }
                       else if (rand < 0.004) { reward = "500 Robux (💎 แจ็คพอตใหญ่ แสงพุ่งสุดยอด!)"; rewardNum = 500; }
-                      else if (rand < 1.0) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
-                      else if (rand < 5.05) { reward = "20 Robux"; rewardNum = 20; }
-                      else if (rand < 7.15) { reward = "15 Robux"; rewardNum = 15; }
-                      else if (rand < 9.5) { reward = "10 Robux"; rewardNum = 10; }
-                      else if (rand < 11.5) { reward = "5 Robux"; rewardNum = 5; }
-                      else if (rand < 13.0) { reward = "4 Robux"; rewardNum = 4; }
-                      else if (rand < 15.0) { reward = "3 Robux"; rewardNum = 3; }
+                      else if (rand < 0.5) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
+                      else if (rand < 1.5) { reward = "20 Robux"; rewardNum = 20; }
+                      else if (rand < 2.5) { reward = "15 Robux"; rewardNum = 15; }
+                      else if (rand < 3.5) { reward = "10 Robux"; rewardNum = 10; }
+                      else if (rand < 7.5) { reward = "5 Robux"; rewardNum = 5; }
+                      else if (rand < 6.0) { reward = "4 Robux"; rewardNum = 4; }
+                      else if (rand < 10.0) { reward = "3 Robux"; rewardNum = 3; }
                       else if (rand < 25.0) { reward = "2 Robux"; rewardNum = 2; }
                       else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
                       else { reward = "0 Robux (😢 เกลือสนั่น กินเกลือไปก่อนนะ)"; rewardNum = 0; }
