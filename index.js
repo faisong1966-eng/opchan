@@ -241,7 +241,6 @@ app.get("/lootbox", async (req, res) => {
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
 
-    // คำนวณแต้มสะสม Robux ที่ผู้เล่นสุ่มได้ทั้งหมดจาก history ของตนเอง
     const { data: userHistoryRows } = await supabase
       .from('history')
       .select('reward_num')
@@ -254,7 +253,6 @@ app.get("/lootbox", async (req, res) => {
       });
     }
 
-    // ตรวจสอบว่ามีคำขอถอนที่กำลังรอแอดมินอนุมัติอยู่ไหม
     const { data: pendingWithdrawRow } = await supabase
       .from('pending_withdraw')
       .select('*')
@@ -407,7 +405,6 @@ app.get("/lootbox", async (req, res) => {
                   <span class="reward-item reward-ufo">10,000 Robux 🛸 (ใหม่!)</span>
               </div>
 
-              <!-- เลือกจำนวนครั้งในการสุ่ม -->
               <div style="text-align: left; font-size: 13px; color: #ffd700; margin-bottom: 5px;">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
               <div class="select-group">
                   <button type="button" class="active" onclick="setCount(1, this)">1 ครั้ง</button>
@@ -663,11 +660,9 @@ app.get("/my-history", async (req, res) => {
   `);
 });
 
-// ระบบสมาชิกกดขอถอน Robux (ย้ายประวัติและข้อมูลไปฝั่งแอดมิน)
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
-  // คำนวณยอดรวม Robux ของผู้ใช้จาก history
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
@@ -695,7 +690,6 @@ app.post("/request-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
-  // บันทึกลงตาราง pending_withdraw (ฝั่งแอดมิน)
   await supabase
     .from('pending_withdraw')
     .insert([{
@@ -706,7 +700,6 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending'
     }]);
 
-  // ลบประวัติฝั่งสมาชิกออกทันทีตามเงื่อนไข (ย้ายไปฝั่ง Admin)
   await supabase
     .from('history')
     .delete()
@@ -858,7 +851,6 @@ app.post("/admin/approve-topup", async (req, res) => {
   res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
-// เพิ่มเมนูระบบกันป่วน: ลบสลิปปลอม
 app.post("/admin/delete-topup", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { topup_id } = req.body;
@@ -871,7 +863,6 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// อนุมัติคำขอถอน Robux ของสมาชิก
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
@@ -884,7 +875,6 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
-// ลบรายการถอน (กรณีปฏิเสธ/เคลียร์)
 app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
@@ -1011,7 +1001,7 @@ async function renderAdminDashboard(req, res) {
     pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
   }
 
-  // ตารางแสดงคำขอถอน Robux ของสมาชิก (ย้ายมาฝั่ง Admin)
+  // เพิ่มปุ่ม "🔍 ดูประวัติ" ในตารางขอถอน Robux ฝั่งแอดมิน
   let withdrawHtml = "";
   if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
     pendingWithdrawRows.forEach(w => {
@@ -1023,15 +1013,16 @@ async function renderAdminDashboard(req, res) {
         <td style="color:#ffd700; font-size:15px; font-weight:bold;">${w.total_robux} Robux</td>
         <td>${w.time}</td>
         <td>
-          <div style="display:flex; gap:4px; justify-content:center;">
+          <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+            <a href="/admin/user-detail?username=${w.username}" target="_blank" style="background:#70a1ff; color:#fff; padding:6px 10px; border-radius:4px; font-weight:bold; text-decoration:none; font-size:12px;" title="เช็คประวัติการสุ่ม">🔍 ดูประวัติ</a>
             <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
               <input type="hidden" name="username" value="${w.username}">
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติโอน</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">✅ อนุมัติโอน</button>
             </form>
             <form action="/admin/delete-withdraw" method="POST" onsubmit="return confirm('เคลียร์คำขอถอนของ ${w.username} ใช่ไหม?');" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
-              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบ/เคลียร์</button>
+              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">🗑️ ลบ/เคลียร์</button>
             </form>
           </div>
         </td>
