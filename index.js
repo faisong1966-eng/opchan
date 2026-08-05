@@ -371,7 +371,7 @@ app.get("/lootbox", async (req, res) => {
               <div style="background: rgba(255, 159, 67, 0.15); border: 1px solid #ff9f43; padding: 12px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                       <span style="color: #ff9f43; font-weight: bold; font-size: 14px;">📦 Robux ที่สะสมได้:</span>
-                      <span style="color: #ffd700; font-size: 16px; font-weight: bold;" id="pending-robux-display">${pendingRobuxSum} Robux</span>
+                      <span style="color: #ffd700; font-size: 16px; font-weight: bold;" id="pending-robux-display">${hasPendingWithdraw ? '0' : pendingRobuxSum} Robux</span>
                   </div>
                   <p style="font-size: 11px; color: #ddd; line-height: 1.4; margin: 5px 0 10px 0;">
                       ⚠️ <b>เงื่อนไขสำคัญ:</b> กรุณาสแกนใบหน้าในเกม Roblox ก่อน สำหรับคนที่อายุ 16 ปีขึ้นไป ใครที่อายุไม่ถึง ให้คนที่มีอายุ 16 ปีขึ้นไปสแกนใบหน้าให้ ไม่งั้นจะรับ Robux ในเกมไม่ได้ และยอดสะสมต้องถึง <b>10 Robux ขึ้นไป</b> ถึงจะกดแจ้งถอนได้
@@ -477,7 +477,7 @@ app.get("/lootbox", async (req, res) => {
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
-              let currentPendingRobux = ${pendingRobuxSum};
+              let currentPendingRobux = ${hasPendingWithdraw ? 0 : pendingRobuxSum};
               let selectedCount = 1;
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
@@ -680,6 +680,7 @@ app.get("/lootbox", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
     const { username } = req.body;
     
+    // ดึงประวัติทั้งหมดของผู้เล่นมาคำนวณยอด
     const { data: historyRows } = await supabase
       .from('history')
       .select('reward_num')
@@ -691,14 +692,19 @@ app.post("/request-withdraw", async (req, res) => {
     }
 
     if (totalRobux >= 10) {
+        // ดึงรูปโปรไฟล์ Roblox ของผู้เล่น
         const { data: user } = await supabase.from('users').select('roblox_img').eq('username', username).single();
         
+        // 1. บันทึกลงตาราง pending_withdraw ส่งตรงไปหน้าแอดมิน
         await supabase.from('pending_withdraw').insert([{
             username: username,
             roblox_img: user ? user.roblox_img : '',
             amount: totalRobux,
             status: 'pending'
         }]);
+
+        // 2. ลบประวัติสุ่มเก่าออก เพื่อล้างยอดฝั่งผู้เล่นให้หายไป (ยอดจะกลายเป็น 0 ทันที)
+        await supabase.from('history').delete().eq('username', username);
     }
 
     res.redirect(`/lootbox?username=${username}`);
@@ -720,7 +726,7 @@ app.get("/my-history", async (req, res) => {
       historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม (ยอดถูกดึงไปแจ้งถอนแล้ว)</td></tr>`;
   }
 
   res.send(`
@@ -923,12 +929,12 @@ app.post("/admin/approve-topup", async (req, res) => {
 
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id, username } = req.body;
+  const { withdraw_id } = req.body;
 
-  await supabase.from('history').delete().eq('username', username);
+  // เปลี่ยนสถานะคำขอถอนเป็น completed (เนื่องจากประวัติถูกย้ายตอนกดถอนไปแล้ว)
   await supabase.from('pending_withdraw').update({ status: 'completed' }).eq('id', withdraw_id);
 
-  res.send(`<script>alert("อนุมัติการถอน Robux ของ ${username} เรียบร้อย (เคลียร์ยอดสะสมเป็น 0 แล้ว)!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติการถอน Robux เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/update-points", async (req, res) => {
@@ -981,7 +987,7 @@ app.get("/admin/user-detail", async (req, res) => {
       historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม (อาจถูกกดถอนยอดไปแล้ว)</td></tr>`;
   }
 
   res.send(`
@@ -1050,9 +1056,8 @@ async function renderAdminDashboard(req, res) {
         <td style="color:#ffd700; font-size:16px; font-weight:bold;">${w.amount} Robux</td>
         <td>${w.time}</td>
         <td>
-          <form action="/admin/approve-withdraw" method="POST" onsubmit="return confirm('ยืนยันการถอน Robux ของ ${w.username} จำนวน ${w.amount} Robux แล้วใช่หรือไม่? (ระบบจะเคลียร์ยอดสะสมเป็น 0)');" style="margin:0;">
+          <form action="/admin/approve-withdraw" method="POST" onsubmit="return confirm('ยืนยันการอนุมัติการถอนของ ${w.username} จำนวน ${w.amount} Robux?');" style="margin:0;">
             <input type="hidden" name="withdraw_id" value="${w.id}">
-            <input type="hidden" name="username" value="${w.username}">
             <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">🎁 อนุมัติถอน (แจกแล้ว)</button>
           </form>
         </td>
