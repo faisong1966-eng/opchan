@@ -18,6 +18,9 @@ const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงค�
 const MY_TRUEMONEY_NUMBER = "0643399170";
 const MY_TRUEMONEY_NAME = "ธีรวัฒน์ คำมุงคุณ";
 
+// ⚙️ ตั้งค่าระบบการันตี (Pity System): เกลือติดต่อกันกี่ครั้ง จะการันตีแจ็กพอตในครั้งถัดไป
+const PITY_THRESHOLD = 10; 
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -151,7 +154,7 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
   try {
     const { error } = await supabase
       .from('users')
-      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0 }]);
+      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0, pity_count: 0 }]);
 
     if (error) {
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
@@ -243,6 +246,7 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
+    const pityCount = row.pity_count || 0;
 
     const { data: userHistoryRows } = await supabase
       .from('history')
@@ -307,7 +311,7 @@ app.get("/lootbox", async (req, res) => {
               body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 20px; }
               .container { background: #2b2b40; padding: 25px; border-radius: 10px; display: inline-block; width: 480px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
               h1 { color: #ffd700; font-size: 24px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
-              .wallet { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 16px; display: flex; justify-content: space-around; }
+              .wallet { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 15px; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 5px; }
               
               .box-btn { background: linear-gradient(45deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.2s; margin-top: 5px; }
               .box-btn:hover { transform: scale(1.02); background: linear-gradient(45deg, #ff6b81, #ff4757); }
@@ -388,8 +392,12 @@ app.get("/lootbox", async (req, res) => {
                   </div>
               </div>
 
-              <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
+              <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
                   ⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...
+              </div>
+
+              <div style="background: rgba(255,71,87,0.15); border: 1px solid #ff4757; padding: 6px; border-radius: 6px; margin-bottom: 15px; font-size: 12px; color: #ff6b81; text-align: center; font-weight: bold;">
+                  🛡️ แต้มการันตีเกลือ (Pity): <span style="color:#ffd700;">${pityCount} / ${PITY_THRESHOLD}</span> ครั้ง (ครบกำหนดการันตีแจ็กพอตทันที!)
               </div>
               
               <div class="wallet">
@@ -542,7 +550,6 @@ app.get("/lootbox", async (req, res) => {
                   resBox.className = "";
                   resBox.innerText = \`🌀 ส่งคำขอเปิดกล่องรัวๆ \${selectedCount} ครั้ง ไปยัง Server...\`;
 
-                  // ส่งข้อมูลไปประมวลผลการสุ่มที่ปลอดภัยบน Server
                   fetch('/open-lootbox', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -918,7 +925,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// 🔒 ระบบสุ่มปลอดภัย 100% ประมวลผลและสุ่มที่ Server ฝั่งผู้เล่นแก้เรตไม่ได้
+// 🔒 ระบบสุ่มปลอดภัยพร้อมระบบการันตี (Pity System) บน Server
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
   const selectedCount = parseInt(count) || 1;
@@ -927,7 +934,6 @@ app.post("/open-lootbox", async (req, res) => {
     return res.json({ success: false, message: "ข้อมูลไม่ถูกต้อง" });
   }
 
-  // ดึงข้อมูลผู้ใช้จากฐานข้อมูลเพื่อเช็คแต้มจริง
   const { data: user, error: userError } = await supabase
     .from('users')
     .select('*')
@@ -946,26 +952,48 @@ app.post("/open-lootbox", async (req, res) => {
   let highestRewardNum = 0;
   let historyBatch = [];
   let summaryRewards = {};
+  let currentPity = user.pity_count || 0;
 
-  // ทำการสุ่มบน Server
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
 
-      const rand = Math.random() * 100;
-      if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
-      else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
-      else if (rand < 0.0001) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
-      else if (rand < 0.001) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
-      else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
-      else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
-      else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
-      else if (rand < 0.2) { reward = "5 Robux"; rewardNum = 5; }
-      else if (rand < 0.3) { reward = "4 Robux"; rewardNum = 4; }
-      else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
-      else if (rand < 1.0) { reward = "2 Robux"; rewardNum = 2; }
-      else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
-      else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
+      // ตรวจสอบระบบการันตี (Pity System)
+      if (currentPity >= PITY_THRESHOLD) {
+          // บังคับออกรางวัลใหญ่ (การันตีสุ่มได้ 10 Robux ขึ้นไป)
+          const pityRand = Math.random() * 100;
+          if (pityRand < 1.0) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+          else if (pityRand < 30.0) { reward = "20 Robux"; rewardNum = 20; }
+          else if (pityRand < 65.0) { reward = "15 Robux"; rewardNum = 15; }
+          else { reward = "10 Robux"; rewardNum = 10; }
+          
+          currentPity = 0; // รีเซ็ตแต้มเกลือเมื่อหลุดเรตการันตี
+      } else {
+          // สุ่มปกติ
+          const rand = Math.random() * 100;
+          if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+          else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+          else if (rand < 0.0001) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
+          else if (rand < 0.001) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+          else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
+          else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
+          else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
+          else if (rand < 0.2) { reward = "5 Robux"; rewardNum = 5; }
+          else if (rand < 0.3) { reward = "4 Robux"; rewardNum = 4; }
+          else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
+          else if (rand < 1.0) { reward = "2 Robux"; rewardNum = 2; }
+          else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+          else { 
+              reward = "0 Robux (😢 เกลือ)"; 
+              rewardNum = 0; 
+              currentPity += 1; // สะสมแต้มเกลือเพิ่ม
+          }
+
+          // ถ้ารอบนี้ฟลุกสุ่มได้รางวัลใหญ่เอง ให้รีเซ็ตแต้มเกลือด้วย
+          if (rewardNum >= 10) {
+              currentPity = 0;
+          }
+      }
 
       totalRewardNum += rewardNum;
       summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
@@ -982,21 +1010,22 @@ app.post("/open-lootbox", async (req, res) => {
       });
   }
 
-  // หักแต้มและบวกยอดใช้จ่ายจริงในฐานข้อมูล Supabase
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
   await supabase
     .from('users')
-    .update({ points: newPoints, total_spent: newSpent })
+    .update({ 
+        points: newPoints, 
+        total_spent: newSpent,
+        pity_count: currentPity 
+    })
     .eq('username', username);
 
-  // บันทึกประวัติลงตาราง history
   await supabase
     .from('history')
     .insert(historyBatch);
 
-  // ส่งผลลัพธ์ที่ปลอดภัยกลับไปแสดงที่หน้าจอ
   return res.json({
       success: true,
       newPoints: newPoints,
