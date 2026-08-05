@@ -948,6 +948,9 @@ app.post("/open-lootbox", async (req, res) => {
   let currentSaltCount = user.custom_salt_count || 0;
   let forceRateType = user.force_rate_type || 'normal';
 
+  // ตัวแปรสำหรับเช็คว่าในรอบการสุ่มชุดนี้ ผู้เล่นได้แจ็กพอตตามที่แอดมินล็อกไว้หรือยัง
+  let hasHitTargetJackpot = false;
+
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
@@ -961,6 +964,7 @@ app.post("/open-lootbox", async (req, res) => {
           // บังคับออกแจ็กพอต 100 Robux
           reward = "100 Robux (🔥 แจ็คพอตแตก)";
           rewardNum = 100;
+          hasHitTargetJackpot = true; // ทำเครื่องหมายว่าได้แจ็กพอตแล้ว
       } else {
           // โหมดปกติ แต่เช็คว่าแอดมินตั้งให้ยูสนี้เกลือกี่รอบติดก่อนหน้านี้ไหม
           if (currentSaltCount > 0) {
@@ -970,10 +974,26 @@ app.post("/open-lootbox", async (req, res) => {
           } else {
               // สุ่มตามเรตปกติ
               const rand = Math.random() * 100;
-              if (rand < 0.0001) { reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
-              else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
-              else if (rand < 0.0001) { reward = "500 Robux (💎 แจ็คพอตใหญ่)"; rewardNum = 500; }
-              else if (rand < 0.001) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+              if (rand < 0.0001) { 
+                  reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; 
+                  rewardNum = 10000; 
+                  if (forceRateType === 'always_jackpot') hasHitTargetJackpot = true;
+              }
+              else if (rand < 0.0005) { 
+                  reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; 
+                  rewardNum = 1000; 
+                  if (forceRateType === 'always_jackpot') hasHitTargetJackpot = true;
+              }
+              else if (rand < 0.0001) { 
+                  reward = "500 Robux (💎 แจ็คพอตใหญ่)"; 
+                  rewardNum = 500; 
+                  if (forceRateType === 'always_jackpot') hasHitTargetJackpot = true;
+              }
+              else if (rand < 0.001) { 
+                  reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
+                  rewardNum = 100; 
+                  hasHitTargetJackpot = true; // ถือว่าได้แจ็กพอตแล้วเช่นกัน
+              }
               else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
               else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
               else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
@@ -1004,13 +1024,26 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
-  // อัปเดตข้อมูลแต้มและลดจำนวนรอบเกลือค้างท่อใน Database
+  // 🔄 ตรวจสอบเงื่อนไขการรีเซ็ต: หากผู้เล่นได้แจ็กพอตตามที่แอดมินตั้งไว้แล้ว ให้รีเซ็ตค่ากลับเป็นปกติทันทีอัตโนมัติ
+  let finalForceRateType = forceRateType;
+  let finalSaltCount = currentSaltCount;
+
+  if (forceRateType === 'always_jackpot' && hasHitTargetJackpot) {
+      finalForceRateType = 'normal';
+      finalSaltCount = 0;
+  } else if (forceRateType === 'normal' && currentSaltCount === 0 && highestRewardNum >= 100) {
+      // กรณีถ้าเปิดได้แจ็กพอตใหญ่ด้วยเรตปกติและหมดรอบเกลือแล้ว ก็ให้เคลียร์ค่าความเกลือให้สะอาด
+      finalSaltCount = 0;
+  }
+
+  // อัปเดตข้อมูลแต้มและสถานะเรตกลับเป็นค่าปกติใน Database อัตโนมัติ
   await supabase
     .from('users')
     .update({ 
         points: newPoints, 
         total_spent: newSpent,
-        custom_salt_count: currentSaltCount 
+        custom_salt_count: finalSaltCount,
+        force_rate_type: finalForceRateType
     })
     .eq('username', username);
 
