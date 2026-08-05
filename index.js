@@ -240,7 +240,6 @@ app.get("/lootbox", async (req, res) => {
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
 
-    // ดึงประวัติทั้งหมดของยูสเซอร์นี้มาคำนวณ
     const { data: historyRows } = await supabase
       .from('history')
       .select('reward_num, status')
@@ -252,9 +251,9 @@ app.get("/lootbox", async (req, res) => {
         historyRows.forEach(h => {
             if (h.status === 'pending_withdraw') {
                 hasPendingWithdraw = true;
-                accumulatedRobux += (h.reward_num || 0); // ถ้ารอดำเนินการ ก็นำมารวมโชว์ด้วย
-            } else if (!h.status || h.status === 'normal') {
-                accumulatedRobux += (h.reward_num || 0);
+                accumulatedRobux += Number(h.reward_num || 0);
+            } else if (h.status !== 'completed') {
+                accumulatedRobux += Number(h.reward_num || 0);
             }
         });
     }
@@ -681,58 +680,41 @@ app.post("/request-withdraw", async (req, res) => {
     if (!username) return res.json({ success: false, message: "ไม่พบชื่อผู้ใช้" });
 
     try {
-        // ดึงประวัติที่ยังไม่ได้ถอนหรือปกติทั้งหมด
-        const { data: historyRows } = await supabase
+        const { data: historyRows, error: fetchError } = await supabase
             .from('history')
             .select('*')
-            .eq('username', username)
-            .is('status', null);
+            .eq('username', username);
+
+        if (fetchError || !historyRows) {
+            return res.json({ success: false, message: "ไม่พบประวัติการสุ่มในระบบ" });
+        }
 
         let totalRobux = 0;
         let rowIds = [];
         
-        if (historyRows) {
-            historyRows.forEach(h => {
-                totalRobux += (h.reward_num || 0);
+        historyRows.forEach(h => {
+            if (h.status !== 'completed' && h.status !== 'pending_withdraw') {
+                totalRobux += Number(h.reward_num || 0);
                 rowIds.push(h.id);
-            });
-        }
-
-        // เผื่อกรณีก่อนหน้ามีค้าง status เป็น normal ด้วย
-        const { data: normalRows } = await supabase
-            .from('history')
-            .select('*')
-            .eq('username', username)
-            .eq('status', 'normal');
-
-        if (normalRows) {
-            normalRows.forEach(h => {
-                totalRobux += (h.reward_num || 0);
-                if (!rowIds.includes(h.id)) {
-                    rowIds.push(h.id);
-                }
-            });
-        }
+            }
+        });
 
         if (totalRobux < 10 || rowIds.length === 0) {
-            return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux หรือไม่มีรายการให้ถอน" });
+            return res.json({ success: false, message: "ยอดสะสมไม่ถึง 10 Robux หรือไม่มีรายการให้ถอน (ยอดปัจจุบันที่มี: " + totalRobux + ")" });
         }
 
-        // เปลี่ยนสถานะเป็น pending_withdraw
         const { error: updateError } = await supabase
             .from('history')
             .update({ status: 'pending_withdraw' })
             .in('id', rowIds);
 
         if (updateError) {
-            console.error("Update Withdraw Error:", updateError);
-            return res.json({ success: false, message: "แจ้งถอนไม่สำเร็จ" });
+            return res.json({ success: false, message: "แจ้งถอนไม่สำเร็จ: บันทึกข้อมูลฐานข้อมูลล้มเหลว" });
         }
 
         res.json({ success: true });
     } catch (err) {
-        console.error("Withdraw Error:", err);
-        res.json({ success: false, message: "เกิดข้อผิดพลาดในระบบ" });
+        res.json({ success: false, message: "เกิดข้อผิดพลาดรุนแรงในระบบเซิร์ฟเวอร์" });
     }
 });
 
@@ -751,7 +733,7 @@ app.get("/admin/view-withdraw-history", async (req, res) => {
     let historyList = "";
     if (historyRows && historyRows.length > 0) {
         historyRows.forEach(r => {
-            totalRobux += (r.reward_num || 0);
+            totalRobux += Number(r.reward_num || 0);
             historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
         });
     } else {
@@ -1006,7 +988,6 @@ async function renderAdminDashboard(req, res) {
 
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending').order('id', { ascending: false });
 
-  // ดึงรายการรอถอนจาก history มาจัดกลุ่ม
   const { data: withdrawHistoryRows } = await supabase
     .from('history')
     .select('*')
@@ -1023,7 +1004,7 @@ async function renderAdminDashboard(req, res) {
                   time: h.time
               };
           }
-          withdrawMap[h.username].total_robux += (h.reward_num || 0);
+          withdrawMap[h.username].total_robux += Number(h.reward_num || 0);
       });
   }
   const withdrawRows = Object.values(withdrawMap);
