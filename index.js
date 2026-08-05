@@ -379,7 +379,10 @@ app.get("/lootbox", async (req, res) => {
                       <img src="${robloxImg}" class="profile-img">
                       <span>ผู้ใช้งาน: <b>${username}</b></span>
                   </div>
-                  <a href="/my-history?username=${username}" style="background:#00d2d3; color:#000; padding:6px 12px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-top:0;">📜 ประวัติการสุ่ม</a>
+                  <div>
+                      <a href="/my-history?username=${username}" style="background:#00d2d3; color:#000; padding:5px 10px; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold; margin-top:0; margin-bottom:4px; text-align:center;">📜 ประวัติการสุ่ม</a>
+                      <a href="/edit-profile?username=${username}" style="background:#ffa502; color:#000; padding:5px 10px; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold; margin-top:0; text-align:center;" title="เปลี่ยนรูปโปรไฟล์ Roblox">🔄 เปลี่ยนรูปโปรไฟล์</a>
+                  </div>
               </div>
 
               <div id="countdown-box" style="background: rgba(255,215,0,0.15); border: 1px solid #ffd700; padding: 8px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #ffd700; text-align: center; font-weight: bold;">
@@ -660,6 +663,75 @@ app.get("/my-history", async (req, res) => {
   `);
 });
 
+// [เพิ่มใหม่] หน้าแก้ไขโปรไฟล์ / เปลี่ยนรูป Roblox
+app.get("/edit-profile", async (req, res) => {
+  const username = req.query.username;
+  if (!username) return res.redirect("/login");
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('roblox_img')
+    .eq('username', username)
+    .single();
+
+  const currentImg = user ? user.roblox_img : "";
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+        <meta charset="UTF-8">
+        <title>เปลี่ยนรูปโปรไฟล์ Roblox</title>
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            h2 { color: #ffa502; text-align: center; }
+            label { display: block; margin-top: 10px; font-size: 14px; }
+            input { width: 100%; padding: 8px; margin-top: 5px; border-radius: 4px; border: none; box-sizing: border-box; }
+            button { width: 100%; background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
+            .current-img { display: block; margin: 0 auto 15px auto; width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>🔄 เปลี่ยนรูปโปรไฟล์ Roblox</h2>
+            <p style="font-size:12px; color:#aaa; text-align:center;">อัปเดตรูปใหม่ได้ตลอด หากต้องการเปลี่ยนบัญชีหรือตั้งค่าอายุใหม่</p>
+            <img src="${currentImg}" class="current-img">
+            <form action="/edit-profile" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="username" value="${username}">
+                <label>อัปโหลดรูปโปรไฟล์ Roblox ใหม่:</label>
+                <input type="file" name="roblox_img" accept="image/*" required style="background:white; color:black; padding:5px;">
+                <button type="submit">บันทึกการเปลี่ยนแปลง</button>
+            </form>
+            <a href="/lootbox?username=${username}">⬅️ กลับหน้าสุ่มกล่อง</a>
+        </div>
+    </body>
+    </html>
+  `);
+});
+
+app.post("/edit-profile", upload.single('roblox_img'), async (req, res) => {
+  const { username } = req.body;
+  const newRobloxImg = await uploadToSupabaseStorage(req.file);
+
+  if (newRobloxImg) {
+    await supabase
+      .from('users')
+      .update({ roblox_img: newRobloxImg })
+      .eq('username', username);
+
+    // อัปเดตตาราง history ด้วยเพื่อให้รูปโปรไฟล์ในประวัติซิงค์กัน
+    await supabase
+      .from('history')
+      .update({ roblox_img: newRobloxImg })
+      .eq('username', username);
+  }
+
+  res.send(`<script>alert("เปลี่ยนรูปโปรไฟล์ Roblox สำเร็จ!"); window.location.href="/lootbox?username=${username}";</script>`);
+});
+
+// [ปรับปรุงเพิ่ม] หน้าคำเตือนก่อนกดยืนยันขอถอน Robux
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
@@ -681,6 +753,62 @@ app.post("/request-withdraw", async (req, res) => {
   if (totalRobux < 10) {
     return res.send(`<script>alert("แต้ม Robux สะสมยังไม่ถึง 10 Robux ไม่สามารถถอนได้!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+        <meta charset="UTF-8">
+        <title>ตรวจสอบเงื่อนไขก่อนถอน Robux</title>
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 30px; }
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 450px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            h2 { color: #ffd700; text-align: center; }
+            .warning-box { background: rgba(255,165,2,0.15); border: 1px solid #ffa502; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #ffa502; line-height: 1.6; }
+            button { width: 100%; background-color: #2ed573; color: white; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>⚠️ ตรวจสอบก่อนยืนยันการถอน</h2>
+            <p style="text-align:center; font-size:14px; color:#fff;">ยอดถอน: <b style="color:#ffd700; font-size:18px;">${totalRobux} Robux</b></p>
+            
+            <div class="warning-box">
+                <b>📌 คำเตือนและเงื่อนไขการรับ Robux:</b><br>
+                1. โปรดตรวจสอบให้แน่ใจว่าในเกม Roblox ของคุณตั้งค่าอายุเป็น <b>18 ปีขึ้นไปแล้วหรือยัง</b> และผ่านการ<b>สแกนใบหน้า (Age Check)</b> หรือยืนยันตัวตนแล้ว<br><br>
+                2. <b>หากอายุในเกมไม่ถึง 18 ปี</b> ระบบ Roblox จะบังคับให้ต้องมี <b>"บัญชีผู้ปกครอง" (Parent Account)</b> ทำการกดอนุมัติ/รับ Robux ให้ทุกครั้ง<br><br>
+                3. หากบัญชีของคุณไม่พร้อมรับโอน อาจทำให้การจัดส่งรางวัลล่าช้าหรือเกิดข้อผิดพลาดได้
+            </div>
+
+            <form action="/confirm-withdraw" method="POST">
+                <input type="hidden" name="username" value="${username}">
+                <button type="submit">✅ ยืนยันว่าตรวจสอบแล้ว / ส่งคำขอถอน</button>
+            </form>
+            <a href="/lootbox?username=${username}">⬅️ ยังไม่ถอน / กลับหน้าสุ่มกล่อง</a>
+        </div>
+    </body>
+    </html>
+  `);
+});
+
+app.post("/confirm-withdraw", async (req, res) => {
+  const { username } = req.body;
+
+  const { data: userHistory } = await supabase
+    .from('history')
+    .select('*')
+    .eq('username', username);
+
+  if (!userHistory || userHistory.length === 0) {
+    return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
+  }
+
+  let totalRobux = 0;
+  let totalOpens = userHistory.length;
+  userHistory.forEach(h => {
+    totalRobux += (h.reward_num || 0);
+  });
 
   const { data: userData } = await supabase
     .from('users')
@@ -726,7 +854,6 @@ app.post("/create-topup", (req, res) => {
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-        <!-- [ปรับปรุง] เพิ่มฟังก์ชัน JavaScript ดักตอนกดส่ง เพื่อแสดงข้อความกำลังอัปโหลด และป้องกันการกดซ้ำ -->
         <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
