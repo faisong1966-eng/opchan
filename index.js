@@ -471,7 +471,7 @@ app.get("/lootbox", async (req, res) => {
                       let rewardNum = 0;
 
                       const rand = Math.random() * 100;
-                      if (rand < 0.0001) { reward = "10,000 Robux (🛸 ยูเอฟโอถล่มจักรวาล แสงสีเสียงอลังการงานสร้าง!)"; rewardNum = 10000; }
+                      if (rand < 100) { reward = "10,000 Robux (🛸 ยูเอฟโอถล่มจักรวาล แสงสีเสียงอลังการงานสร้าง!)"; rewardNum = 10000; }
                       else if (rand < 0.0005) { reward = "1,000 Robux (👑 แจ็คพอตในตำนาน โคตรอลังการ!)"; rewardNum = 1000; }
                       else if (rand < 0.002) { reward = "500 Robux (💎 แจ็คพอตใหญ่ แสงพุ่งสุดยอด!)"; rewardNum = 500; }
                       else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก รวยเละ!)"; rewardNum = 100; }
