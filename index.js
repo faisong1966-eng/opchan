@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
@@ -7,11 +9,11 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const SUPABASE_URL = 'https://ccokzxoanldcwfyfoocq.supabase.co';
-const SUPABASE_KEY = 'sb_secret_tshEg-9Mzf7SpVQG2bc9-Q_X6D0c33h';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const ADMIN_PASSWORD = "3579"; 
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; 
 const MY_PROMPTPAY_NUMBER = "0643399170";
 const MY_ACCOUNT_NAME = "นาย ธีรวัฒน์ คำมุงคุณ";
 
@@ -49,7 +51,7 @@ async function uploadToSupabaseStorage(file) {
 }
 
 app.use(session({
-    secret: 'lootbox_super_secret_key_2026',
+    secret: process.env.SESSION_SECRET || 'lootbox_super_secret_key_2026',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 600000 }
@@ -917,7 +919,6 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// 🔒 ระบบสุ่มปลอดภัย พร้อมเชื่อมต่อหลังบ้านแอดมิน (Custom Salt & Rate Control ที่เลือกแจ็กพอตได้ทุกระดับ)
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
   const selectedCount = parseInt(count) || 1;
