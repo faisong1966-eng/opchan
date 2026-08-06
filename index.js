@@ -224,6 +224,28 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// API สำหรับให้ Frontend เช็คสถานะการถอนแบบ Realtime
+app.get("/check-withdraw-status", async (req, res) => {
+  const username = req.query.username;
+  if (!username) return res.json({ status: 'none' });
+
+  try {
+    const { data: pendingWithdrawRow } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .single();
+
+    if (!pendingWithdrawRow) {
+      return res.json({ status: 'approved' }); // ถ้าไม่มีในตาราง pending แสดงว่าแอดมินอนุมัติและเคลียร์ออกไปแล้ว
+    } else {
+      return res.json({ status: pendingWithdrawRow.status });
+    }
+  } catch (e) {
+    return res.json({ status: 'error' });
+  }
+});
+
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
   const countParam = parseInt(req.query.count) || 1;
@@ -283,21 +305,29 @@ app.get("/lootbox", async (req, res) => {
 
     let withdrawSectionHtml = "";
     if (pendingWithdrawRow) {
-      withdrawSectionHtml = `<div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
-          ⏳ ส่งคำขอถอน <b>${pendingWithdrawRow.total_robux} Robux</b> เรียบร้อยแล้ว (รอแอดมินตรวจสอบและโอนรางวัล)
-      </div>`;
+      withdrawSectionHtml = `
+        <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
+            ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;">${pendingWithdrawRow.total_robux} Robux</b> (รอแอดมินตรวจสอบและโอนรางวัล)
+        </div>
+        <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
+            💰 ยอดปัจจุบัน (สะสมใหม่ได้ปกติ): <b style="color:#ffd700;">${totalEarnedRobux} Robux</b>
+        </div>
+      `;
     } else {
       const canWithdraw = totalEarnedRobux >= 10;
-      withdrawSectionHtml = `<div style="margin-top:15px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; text-align:left;">
-          <b style="font-size:13px; color:#ffd700;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</b>
-          <p style="font-size:12px; color:#aaa; margin:5px 0;">แต้ม Robux สะสมของคุณ: <b style="color:#2ed573;">${totalEarnedRobux} Robux</b></p>
-          <form action="/request-withdraw" method="POST">
-              <input type="hidden" name="username" value="${username}">
-              <button type="submit" style="width:100%; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
-                  ${canWithdraw ? '📥 กดส่งคำขอถอน Robux' : '❌ ยังสะสมไม่ถึง 10 Robux (ถอนไม่ได้)'}
-              </button>
-          </form>
-      </div>`;
+      withdrawSectionHtml = `
+        <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
+            💰 ยอดปัจจุบัน: <b style="color:#ffd700;">${totalEarnedRobux} Robux</b>
+        </div>
+        <div style="margin-top:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; text-align:left;">
+            <b style="font-size:13px; color:#ffd700;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</b>
+            <form action="/request-withdraw" method="POST">
+                <input type="hidden" name="username" value="${username}">
+                <button type="submit" style="width:100%; margin-top:6px; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
+                    ${canWithdraw ? '📥 กดส่งคำขอถอน Robux' : '❌ ยังสะสมไม่ถึง 10 Robux (ถอนไม่ได้)'}
+                </button>
+            </form>
+        </div>`;
     }
 
     res.send(`
@@ -330,7 +360,7 @@ app.get("/lootbox", async (req, res) => {
               /* Countdown */
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
-              /* Rewards Showcase Box */
+              /* Rewards Showcase Box (ไอคอนตรงกับผลลัพธ์สุ่มจริง) */
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
               .rewards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -423,7 +453,7 @@ app.get("/lootbox", async (req, res) => {
 
               ${withdrawSectionHtml}
               
-              <!-- Showcase Rewards -->
+              <!-- Showcase Rewards (แก้ไขไอคอนและชื่อรางวัลให้ตรงกันทั้งหมด) -->
               <div class="showcase-container">
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
                   <div class="rewards-grid">
@@ -433,14 +463,10 @@ app.get("/lootbox", async (req, res) => {
                       </div>
                       <div class="reward-card">
                           <div style="font-size: 20px; margin-bottom: 2px;">🎁</div>
-                          <div class="r-name">1-2 R</div>
+                          <div class="r-name">1-5 R</div>
                       </div>
                       <div class="reward-card">
                           <div style="font-size: 20px; margin-bottom: 2px;">💎</div>
-                          <div class="r-name">3-5 R</div>
-                      </div>
-                      <div class="reward-card">
-                          <div style="font-size: 20px; margin-bottom: 2px;">👑</div>
                           <div class="r-name">10-20 R</div>
                       </div>
                       <div class="reward-card">
@@ -455,9 +481,9 @@ app.get("/lootbox", async (req, res) => {
                           <div style="font-size: 20px; margin-bottom: 2px;">🌟</div>
                           <div class="r-name" style="color:#00d2d3;">1,000 R</div>
                       </div>
-                      <div class="reward-card legendary">
-                          <div style="font-size: 20px; margin-bottom: 2px;">🐉</div>
-                          <div class="r-name" style="color:#ffd700;">10,000 R</div>
+                      <div class="reward-card legendary" style="grid-column: span 2;">
+                          <div style="font-size: 20px; margin-bottom: 2px;">🛸</div>
+                          <div class="r-name" style="color:#ffd700;">10,000 R (UFO)</div>
                       </div>
                   </div>
               </div>
@@ -527,6 +553,21 @@ app.get("/lootbox", async (req, res) => {
               let selectedCount = ${countParam};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime ตลอดเวลาที่ผู้เล่นยังอยู่ในระบบ
+              let hasAlertedApproved = false;
+              setInterval(() => {
+                  fetch('/check-withdraw-status?username=${username}')
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data.status === 'approved' && !hasAlertedApproved) {
+                          // เช็คว่าเคยมีสถานะรออยู่ก่อนหน้าไหม ถ้าแอดมินกดอนุมัติแล้วจะเด้งแจ้งเตือน
+                          hasAlertedApproved = true;
+                          alert("🎉 แจ้งเตือนจากระบบ: แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ");
+                          location.reload();
+                      }
+                  }).catch(err => {});
+              }, 5000); // เช็คทุกๆ 5 วินาที
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -877,6 +918,18 @@ app.post("/confirm-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
+  // เช็คว่ามีรายการค้างอยู่แล้วไหม ถ้ามีให้อัปเดตยอดแทน หรือเพิ่มใหม่
+  const { data: existingPending } = await supabase
+    .from('pending_withdraw')
+    .select('*')
+    .eq('username', username)
+    .eq('status', 'pending')
+    .single();
+
+  if (existingPending) {
+    return res.send(`<script>alert("คุณมีคำขอถอนที่กำลังรอแอดมินตรวจสอบอยู่แล้วครับ!"); window.location.href="/lootbox?username=${username}";</script>`);
+  }
+
   await supabase
     .from('pending_withdraw')
     .insert([{
@@ -1209,19 +1262,50 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
+// แก้ไขส่วนอนุมัติถอน: เมื่อแอดมินกดอนุมัติ จะลบเฉพาะประวัติของบิลการถอนนั้นๆ ออกจาก history เพื่อไม่ให้ยอดเก่ามาทบ แต่ยอดใหม่ที่ผู้เล่นสุ่มสะสมไว้จะไม่หายไป
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
-  await supabase
+  // ดึงข้อมูลคำขอถอนเพื่อดูว่าถอนยอดเท่าไหร่ และดึงประวัติมาลบเฉพาะส่วนที่ถอน
+  const { data: withdrawData } = await supabase
     .from('pending_withdraw')
-    .update({ status: 'completed' })
-    .eq('id', withdraw_id);
+    .select('*')
+    .eq('id', withdraw_id)
+    .single();
 
-  await supabase
-    .from('history')
-    .delete()
-    .eq('username', username);
+  if (withdrawData) {
+    // ลบคำออกจาก pending_withdraw
+    await supabase
+      .from('pending_withdraw')
+      .delete()
+      .eq('id', withdraw_id);
+
+    // ลบประวัติประมานจำนวนสุ่มที่ทำการถอนไปแล้ว เพื่อให้ยอดใหม่ยังอยู่
+    const { data: userHistory } = await supabase
+      .from('history')
+      .select('*')
+      .eq('username', username)
+      .order('id', { ascending: true });
+
+    if (userHistory && userHistory.length > 0) {
+      let accumulated = 0;
+      let idsToDelete = [];
+      for (let h of userHistory) {
+        if (accumulated < withdrawData.total_robux) {
+          accumulated += (h.reward_num || 0);
+          idsToDelete.push(h.id);
+        }
+      }
+
+      if (idsToDelete.length > 0) {
+        await supabase
+          .from('history')
+          .delete()
+          .in('id', idsToDelete);
+      }
+    }
+  }
 
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
@@ -1230,23 +1314,10 @@ app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
 
-  const { data: withdrawData } = await supabase
-    .from('pending_withdraw')
-    .select('username')
-    .eq('id', withdraw_id)
-    .single();
-
   await supabase
     .from('pending_withdraw')
     .delete()
     .eq('id', withdraw_id);
-
-  if (withdrawData) {
-    await supabase
-      .from('history')
-      .delete()
-      .eq('username', withdrawData.username);
-  }
 
   res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
