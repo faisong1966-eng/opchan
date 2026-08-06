@@ -468,7 +468,7 @@ app.get("/lootbox", async (req, res) => {
                           <div class="r-name" style="color:#00d2d3;">1,000 R</div>
                       </div>
                       <div class="reward-card legendary" style="grid-column: span 2;">
-                          <div style="font-size: 20px; margin-bottom: 2px;">🛸</div>
+                          <div style="font-size: 20px; margin-bottom: 2px;">🐉</div>
                           <div class="r-name" style="color:#ffd700;">10,000 R (UFO)</div>
                       </div>
                   </div>
@@ -1069,37 +1069,37 @@ app.post("/open-lootbox", async (req, res) => {
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
           } else if (forceRateType === 'always_jackpot_1') {
-              reward = "1 Robux";
+              reward = "1 Robux (🎁 เริ่มมาแล้ว)";
               rewardNum = 1;
           } else if (forceRateType === 'always_jackpot_2') {
-              reward = "2 Robux";
+              reward = "2 Robux (🎁 กำลังไปได้สวย)";
               rewardNum = 2;
           } else if (forceRateType === 'always_jackpot_3') {
-              reward = "3 Robux";
+              reward = "3 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)";
               rewardNum = 3;
           } else if (forceRateType === 'always_jackpot_5') {
-              reward = "5 Robux";
+              reward = "5 Robux (🎁 เฮ้ยมาว่ะ)";
               rewardNum = 5;
           } else if (forceRateType === 'always_jackpot_10') {
-              reward = "10 Robux";
+              reward = "10 Robux (💎 นี่แหละที่อยากได)";
               rewardNum = 10;
           } else if (forceRateType === 'always_jackpot_15') {
-              reward = "15 Robux";
+              reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)";
               rewardNum = 15;
           } else if (forceRateType === 'always_jackpot_20') {
-              reward = "20 Robux";
+              reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)";
               rewardNum = 20;
           } else if (forceRateType === 'always_jackpot_100') {
               reward = "100 Robux (🔥 แจ็คพอตแตก)";
               rewardNum = 100;
           } else if (forceRateType === 'always_jackpot_500') {
-              reward = "500 Robux (💎 แจ็คพอตใหญ่)";
+              reward = "500 Robux (✨ แจ็คพอตใหญ่)";
               rewardNum = 500;
           } else if (forceRateType === 'always_jackpot_1000') {
-              reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)";
+              reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)";
               rewardNum = 1000;
           } else if (forceRateType === 'always_jackpot_10000') {
-              reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)";
+              reward = "10,000 Robux (🐉 เทพมังกร ระดับจักรวาล)";
               rewardNum = 10000;
           }
       } else {
@@ -1110,29 +1110,29 @@ app.post("/open-lootbox", async (req, res) => {
           } else {
               const rand = Math.random() * 100;
               if (rand < 0.0001) { 
-                  reward = "10,000 Robux (🛸 UFO ถล่มจักรวาล)"; 
+                  reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; 
                   rewardNum = 10000; 
               }
               else if (rand < 0.0005) { 
-                  reward = "1,000 Robux (👑 แจ็คพอตในตำนาน)"; 
+                  reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; 
                   rewardNum = 1000; 
               }
               else if (rand < 0.002) { 
-                  reward = "500 Robux (💎 แจ็คพอตใหญ่)"; 
+                  reward = "500 Robux (✨ แจ็คพอตใหญ่)"; 
                   rewardNum = 500; 
               }
               else if (rand < 0.01) { 
                   reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
                   rewardNum = 100; 
               }
-              else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
-              else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
-              else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
-              else if (rand < 0.2) { reward = "5 Robux"; rewardNum = 5; }
-              else if (rand < 0.3) { reward = "4 Robux"; rewardNum = 4; }
+              else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
+              else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
+              else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได)"; rewardNum = 10; }
+              else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
+              else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
               else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
-              else if (rand < 1.0) { reward = "2 Robux"; rewardNum = 2; }
-              else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
+              else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
+              else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
               else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
           }
       }
