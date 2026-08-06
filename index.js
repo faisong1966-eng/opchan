@@ -332,10 +332,10 @@ app.get("/lootbox", async (req, res) => {
               /* Rewards Showcase Box */
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 12px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-              .rewards-grid { display: flex; justify-content: space-between; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
-              .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 4px; min-width: 65px; text-align: center; flex: 1; }
+              .rewards-grid { display: flex; justify-content: space-between; gap: 4px; overflow-x: auto; padding-bottom: 5px; }
+              .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 2px; min-width: 55px; text-align: center; flex: 1; }
               .reward-card img { width: 36px; height: 36px; object-fit: contain; margin-bottom: 3px; }
-              .reward-card .r-name { font-size: 10px; color: #fff; font-weight: bold; }
+              .reward-card .r-name { font-size: 9px; color: #fff; font-weight: bold; }
               .reward-card.legendary { border-color: #ffd700; background: linear-gradient(135deg, #2b2b1e, #13151f); box-shadow: 0 0 10px rgba(255,215,0,0.3); }
 
               /* Select Counts */
@@ -427,23 +427,27 @@ app.get("/lootbox", async (req, res) => {
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
                   <div class="rewards-grid">
                       <div class="reward-card">
-                          <div style="font-size: 24px; margin-bottom: 2px;">📦</div>
+                          <div style="font-size: 22px; margin-bottom: 2px;">📦</div>
                           <div class="r-name" style="color:#a4b0be;">0 เกลือ</div>
                       </div>
                       <div class="reward-card">
-                          <div style="font-size: 24px; margin-bottom: 2px;">🎁</div>
+                          <div style="font-size: 22px; margin-bottom: 2px;">🎁</div>
                           <div class="r-name">1-2 R</div>
                       </div>
                       <div class="reward-card">
-                          <div style="font-size: 24px; margin-bottom: 2px;">💎</div>
+                          <div style="font-size: 22px; margin-bottom: 2px;">💎</div>
                           <div class="r-name">3-5 R</div>
                       </div>
                       <div class="reward-card">
-                          <div style="font-size: 24px; margin-bottom: 2px;">👑</div>
+                          <div style="font-size: 22px; margin-bottom: 2px;">👑</div>
                           <div class="r-name">10-20 R</div>
                       </div>
+                      <div class="reward-card">
+                          <div style="font-size: 22px; margin-bottom: 2px;">🌟</div>
+                          <div class="r-name" style="color:#00d2d3;">1,000 R</div>
+                      </div>
                       <div class="reward-card legendary">
-                          <div style="font-size: 24px; margin-bottom: 2px;">🐉</div>
+                          <div style="font-size: 22px; margin-bottom: 2px;">🐉</div>
                           <div class="r-name" style="color:#ffd700;">10,000 R</div>
                       </div>
                   </div>
