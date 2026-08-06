@@ -559,19 +559,18 @@ app.get("/lootbox", async (req, res) => {
                   Notification.requestPermission();
               }
 
-              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime (แจ้งเตือนครั้งเดียวจบ ไม่รัวกวนใจ)
+              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime (ไม่ให้แจ้งเตือนซ้ำซ้อน)
               let hasAlertedApproved = false;
-              let checkWithdrawInterval = setInterval(() => {
+              setInterval(() => {
                   if (hasAlertedApproved) return;
 
                   fetch('/check-withdraw-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (data.status === 'approved' && !hasAlertedApproved) {
-                          hasAlertedApproved = true; // ล็อคทันทีไม่ให้ทำซ้ำ
-                          clearInterval(checkWithdrawInterval); // หยุดการเช็คซ้ำเมื่ออนุมัติแล้ว
+                          hasAlertedApproved = true; // ล็อคไว้ไม่ให้แจ้งเตือนซ้ำอีก
 
-                          // แจ้งเตือนผ่าน Browser (Google Chrome Desktop Notification)
+                          // แจ้งเตือนผ่าน Browser (Desktop Notification)
                           if (window.Notification && Notification.permission === "granted") {
                               new Notification("🎉 แอดมินอนุมัติยอดถอนแล้ว!", {
                                   body: "แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว กรุณาเช็คในเกม",
@@ -579,8 +578,6 @@ app.get("/lootbox", async (req, res) => {
                               });
                           }
 
-                          // แจ้งเตือนผ่าน Alert บนหน้าเว็บ
-                          alert("🎉 แจ้งเตือนจากระบบ: แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ");
                           location.reload();
                       }
                   }).catch(err => {});
