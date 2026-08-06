@@ -797,7 +797,8 @@ app.post("/request-withdraw", async (req, res) => {
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
-    .eq('username', username);
+    .eq('username', username)
+    .order('id', { ascending: true });
 
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน!"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -857,7 +858,8 @@ app.post("/confirm-withdraw", async (req, res) => {
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
-    .eq('username', username);
+    .eq('username', username)
+    .order('id', { ascending: true });
 
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -868,6 +870,9 @@ app.post("/confirm-withdraw", async (req, res) => {
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
   });
+
+  // บันทึก ID สูงสุดของประวัติรอบนี้ไว้ เพื่อให้เวลาแอดมินอนุมัติ จะได้ลบเฉพาะประวัติเก่าชุดนี้เท่านั้น ไม่กระทบประวัติใหม่ที่ผู้เล่นสุ่มระหว่างรอ
+  const maxHistoryId = userHistory[userHistory.length - 1].id;
 
   const { data: userData } = await supabase
     .from('users')
@@ -884,6 +889,7 @@ app.post("/confirm-withdraw", async (req, res) => {
       roblox_img: robloxImg,
       total_opens: totalOpens,
       total_robux: totalRobux,
+      last_history_id: maxHistoryId,
       status: 'pending'
     }]);
 
@@ -1213,15 +1219,33 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
+  // ดึงข้อมูลคำขอถอนเพื่อดูว่าควรลบประวัติถึง ID ไหน
+  const { data: withdrawData } = await supabase
+    .from('pending_withdraw')
+    .select('last_history_id')
+    .eq('id', withdraw_id)
+    .single();
+
   await supabase
     .from('pending_withdraw')
     .update({ status: 'completed' })
     .eq('id', withdraw_id);
 
-  await supabase
-    .from('history')
-    .delete()
-    .eq('username', username);
+  if (withdrawData && withdrawData.last_history_id) {
+    // ลบเฉพาะประวัติการสุ่มเก่าที่อยู่ในรอบที่ขอถอน (ID น้อยกว่าหรือเท่ากับ last_history_id) 
+    // ประวัติใหม่ที่ผู้เล่นสุ่มระหว่างรอจะไม่ถูกลบ
+    await supabase
+      .from('history')
+      .delete()
+      .eq('username', username)
+      .lte('id', withdrawData.last_history_id);
+  } else {
+    // เผื่อเป็นเคสข้อมูลเก่าที่ยังไม่มี last_history_id ให้ลบทั้งหมดของเจ้านั้น
+    await supabase
+      .from('history')
+      .delete()
+      .eq('username', username);
+  }
 
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
@@ -1232,7 +1256,7 @@ app.post("/admin/delete-withdraw", async (req, res) => {
 
   const { data: withdrawData } = await supabase
     .from('pending_withdraw')
-    .select('username')
+    .select('username, last_history_id')
     .eq('id', withdraw_id)
     .single();
 
@@ -1242,10 +1266,18 @@ app.post("/admin/delete-withdraw", async (req, res) => {
     .eq('id', withdraw_id);
 
   if (withdrawData) {
-    await supabase
-      .from('history')
-      .delete()
-      .eq('username', withdrawData.username);
+    if (withdrawData.last_history_id) {
+      await supabase
+        .from('history')
+        .delete()
+        .eq('username', withdrawData.username)
+        .lte('id', withdrawData.last_history_id);
+    } else {
+      await supabase
+        .from('history')
+        .delete()
+        .eq('username', withdrawData.username);
+    }
   }
 
   res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
