@@ -1,3 +1,17 @@
+
+// ====== SALT GUARANTEE SYSTEM (AUTO ADDED) ======
+const GUARANTEE_SETS = [
+  { salt: 5, reward: "Legendary Sword" },
+  { salt: 3, reward: "Epic Gun" },
+  { salt: 4, reward: "Mythic Pet" },
+  { salt: 2, reward: "Ultra Knife" },
+  { salt: 6, reward: "Godly Item" }
+];
+
+// NOTE: You must integrate logic into your spin function using this structure:
+// user.saltCount, user.guaranteeStep
+// See earlier instructions if needed.
+
 require('dotenv').config();
 
 const express = require("express");
