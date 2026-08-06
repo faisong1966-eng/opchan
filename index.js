@@ -456,7 +456,7 @@ app.get("/lootbox", async (req, res) => {
                           <div class="r-name" style="color:#00d2d3;">1,000 R</div>
                       </div>
                       <div class="reward-card legendary">
-                          <div style="font-size: 20px; margin-bottom: 2px;">🛸</div>
+                          <div style="font-size: 20px; margin-bottom: 2px;">🐉</div>
                           <div class="r-name" style="color:#ffd700;">10,000 R</div>
                       </div>
                   </div>
@@ -797,8 +797,7 @@ app.post("/request-withdraw", async (req, res) => {
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
-    .eq('username', username)
-    .order('id', { ascending: true });
+    .eq('username', username);
 
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน!"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -858,8 +857,7 @@ app.post("/confirm-withdraw", async (req, res) => {
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
-    .eq('username', username)
-    .order('id', { ascending: true });
+    .eq('username', username);
 
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -870,8 +868,6 @@ app.post("/confirm-withdraw", async (req, res) => {
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
   });
-
-  const maxHistoryId = userHistory[userHistory.length - 1].id;
 
   const { data: userData } = await supabase
     .from('users')
@@ -888,7 +884,6 @@ app.post("/confirm-withdraw", async (req, res) => {
       roblox_img: robloxImg,
       total_opens: totalOpens,
       total_robux: totalRobux,
-      last_history_id: maxHistoryId,
       status: 'pending'
     }]);
 
@@ -1218,29 +1213,15 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
-  const { data: withdrawData } = await supabase
-    .from('pending_withdraw')
-    .select('last_history_id')
-    .eq('id', withdraw_id)
-    .single();
-
   await supabase
     .from('pending_withdraw')
     .update({ status: 'completed' })
     .eq('id', withdraw_id);
 
-  if (withdrawData && withdrawData.last_history_id) {
-    await supabase
-      .from('history')
-      .delete()
-      .eq('username', username)
-      .lte('id', withdrawData.last_history_id);
-  } else {
-    await supabase
-      .from('history')
-      .delete()
-      .eq('username', username);
-  }
+  await supabase
+    .from('history')
+    .delete()
+    .eq('username', username);
 
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
@@ -1251,7 +1232,7 @@ app.post("/admin/delete-withdraw", async (req, res) => {
 
   const { data: withdrawData } = await supabase
     .from('pending_withdraw')
-    .select('username, last_history_id')
+    .select('username')
     .eq('id', withdraw_id)
     .single();
 
@@ -1261,18 +1242,10 @@ app.post("/admin/delete-withdraw", async (req, res) => {
     .eq('id', withdraw_id);
 
   if (withdrawData) {
-    if (withdrawData.last_history_id) {
-      await supabase
-        .from('history')
-        .delete()
-        .eq('username', withdrawData.username)
-        .lte('id', withdrawData.last_history_id);
-    } else {
-      await supabase
-        .from('history')
-        .delete()
-        .eq('username', withdrawData.username);
-    }
+    await supabase
+      .from('history')
+      .delete()
+      .eq('username', withdrawData.username);
   }
 
   res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
