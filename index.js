@@ -360,7 +360,7 @@ app.get("/lootbox", async (req, res) => {
               /* Countdown */
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
-              /* Rewards Showcase Box (ไอคอนตรงกับผลลัพธ์สุ่มจริง) */
+              /* Rewards Showcase Box */
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
               .rewards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -453,7 +453,7 @@ app.get("/lootbox", async (req, res) => {
 
               ${withdrawSectionHtml}
               
-              <!-- Showcase Rewards (แก้ไขไอคอนและชื่อรางวัลให้ตรงกันทั้งหมด) -->
+              <!-- Showcase Rewards -->
               <div class="showcase-container">
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
                   <div class="rewards-grid">
@@ -554,16 +554,33 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime ตลอดเวลาที่ผู้เล่นยังอยู่ในระบบ
+              // ขอสิทธิ์แจ้งเตือนเบราว์เซอร์ (Chrome Browser Notification) ตั้งแต่เริ่มเข้าหน้าเว็บ
+              if (window.Notification && Notification.permission !== "granted") {
+                  Notification.requestPermission();
+              }
+
+              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime (แจ้งเตือนครั้งเดียวเมื่อแอดมินกดอนุมัติจริง)
               let hasAlertedApproved = false;
-              setInterval(() => {
+              let checkInterval = setInterval(() => {
                   fetch('/check-withdraw-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (data.status === 'approved' && !hasAlertedApproved) {
-                          // เช็คว่าเคยมีสถานะรออยู่ก่อนหน้าไหม ถ้าแอดมินกดอนุมัติแล้วจะเด้งแจ้งเตือน
                           hasAlertedApproved = true;
-                          alert("🎉 แจ้งเตือนจากระบบ: แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ");
+                          clearInterval(checkInterval); // หยุดการเช็คซ้ำทันทีเมื่อแจ้งเตือนแล้วรอบนึง
+
+                          const msg = "🎉 แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ";
+                          
+                          // แจ้งเตือนผ่าน Google Chrome Desktop Notification (ถ้าผู้ใช้อนุญาต)
+                          if (window.Notification && Notification.permission === "granted") {
+                              new Notification("Roblox Robux Box - แจ้งเตือนการถอน", {
+                                  body: msg,
+                                  icon: "${robloxImg}"
+                              });
+                          }
+                          
+                          // แจ้งเตือนผ่าน Popup หน้าเว็บ
+                          alert(msg);
                           location.reload();
                       }
                   }).catch(err => {});
@@ -918,7 +935,6 @@ app.post("/confirm-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
-  // เช็คว่ามีรายการค้างอยู่แล้วไหม ถ้ามีให้อัปเดตยอดแทน หรือเพิ่มใหม่
   const { data: existingPending } = await supabase
     .from('pending_withdraw')
     .select('*')
@@ -1262,12 +1278,11 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// แก้ไขส่วนอนุมัติถอน: เมื่อแอดมินกดอนุมัติ จะลบเฉพาะประวัติของบิลการถอนนั้นๆ ออกจาก history เพื่อไม่ให้ยอดเก่ามาทบ แต่ยอดใหม่ที่ผู้เล่นสุ่มสะสมไว้จะไม่หายไป
+// อนุมัติถอน: ลบประวัติส่วนที่ถอนไปแล้วออกจาก history ทันที เพื่อให้ยอดปัจจุบันหักเหลือ 0 และเริ่มสะสมใหม่ได้ถูกต้อง
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
-  // ดึงข้อมูลคำขอถอนเพื่อดูว่าถอนยอดเท่าไหร่ และดึงประวัติมาลบเฉพาะส่วนที่ถอน
   const { data: withdrawData } = await supabase
     .from('pending_withdraw')
     .select('*')
@@ -1275,13 +1290,11 @@ app.post("/admin/approve-withdraw", async (req, res) => {
     .single();
 
   if (withdrawData) {
-    // ลบคำออกจาก pending_withdraw
     await supabase
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
 
-    // ลบประวัติประมานจำนวนสุ่มที่ทำการถอนไปแล้ว เพื่อให้ยอดใหม่ยังอยู่
     const { data: userHistory } = await supabase
       .from('history')
       .select('*')
