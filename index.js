@@ -224,7 +224,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// API สำหรับให้ Frontend เช็คสถานะการถอนแบบ Realtime
 app.get("/check-withdraw-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ status: 'none' });
@@ -538,32 +537,6 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-              if (window.Notification && Notification.permission !== "granted") {
-                  Notification.requestPermission();
-              }
-
-              let hasAlertedApproved = false;
-              setInterval(() => {
-                  if (hasAlertedApproved) return;
-
-                  fetch('/check-withdraw-status?username=${username}')
-                  .then(res => res.json())
-                  .then(data => {
-                      if (data.status === 'approved' && !hasAlertedApproved) {
-                          hasAlertedApproved = true; 
-
-                          if (window.Notification && Notification.permission === "granted") {
-                              new Notification("🎉 แอดมินอนุมัติยอดถอนแล้ว!", {
-                                  body: "แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว กรุณาเช็คในเกม",
-                                  icon: "${robloxImg}"
-                              });
-                          }
-
-                          location.reload();
-                      }
-                  }).catch(err => {});
-              }, 5000); 
-
               function setCount(count, btn) {
                   selectedCount = count;
                   document.querySelectorAll('.select-group button').forEach(b => b.classList.remove('active'));
@@ -650,7 +623,7 @@ app.get("/lootbox", async (req, res) => {
                   })
                   .then(response => response.json())
                   .then(data => {
-                      openBtn.disabled = false; // ปลดล็อคปุ่มให้กดเปิดต่อได้ทันทีโดยไม่ต้องรีโหลดหน้าเว็บ
+                      openBtn.disabled = false; 
 
                       if (!data.success) {
                           alert(data.message || "เกิดข้อผิดพลาด");
@@ -898,8 +871,11 @@ app.post("/confirm-withdraw", async (req, res) => {
 
   let totalRobux = 0;
   let totalOpens = userHistory.length;
+  let historyDataSnapshot = JSON.stringify(userHistory);
+  let idsToDelete = [];
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
+    idsToDelete.push(h.id);
   });
 
   const { data: userData } = await supabase
@@ -921,7 +897,6 @@ app.post("/confirm-withdraw", async (req, res) => {
     return res.send(`<script>alert("คุณมีคำขอถอนที่กำลังรอแอดมินตรวจสอบอยู่แล้วครับ!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
-  // สร้างคำขอถอน พร้อมเก็บประวัติชุดสุ่มนี้ไว้ให้แอดมินตรวจสอบได้
   await supabase
     .from('pending_withdraw')
     .insert([{
@@ -929,10 +904,18 @@ app.post("/confirm-withdraw", async (req, res) => {
       roblox_img: robloxImg,
       total_opens: totalOpens,
       total_robux: totalRobux,
-      status: 'pending'
+      status: 'pending',
+      history_snapshot: historyDataSnapshot
     }]);
 
-  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! แอดมินสามารถตรวจสอบประวัติการสุ่มของคุณได้แล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
+  if (idsToDelete.length > 0) {
+    await supabase
+      .from('history')
+      .delete()
+      .in('id', idsToDelete);
+  }
+
+  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! แต้มถูกรีเซ็ตเป็น 0 และส่งประวัติให้แอดมินเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1254,7 +1237,6 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// อนุมัติถอน (เคลียร์คำขอถอน และลบประวัติการสุ่มชุดนั้นออกจาก history เพื่อเริ่มรอบใหม่)
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
@@ -1270,20 +1252,14 @@ app.post("/admin/approve-withdraw", async (req, res) => {
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
-
-    // ลบประวัติเก่าของยูสเซอร์นี้ออกเมื่อแอดมินกดอนุมัติการถอนสำเร็จ
-    await supabase
-      .from('history')
-      .delete()
-      .eq('username', username);
   }
 
-  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อยและล้างประวัติการสุ่มเก่าแล้ว!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id, username } = req.body;
+  const { withdraw_id } = req.body;
 
   await supabase
     .from('pending_withdraw')
@@ -1345,17 +1321,37 @@ app.post("/admin/delete-user", async (req, res) => {
 app.get("/admin/user-detail", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const username = req.query.username;
+  const withdrawId = req.query.withdraw_id;
 
-  const { data: rows } = await supabase
-    .from('history')
-    .select('*')
-    .eq('username', username)
-    .order('id', { ascending: false });
+  let rows = [];
+
+  if (withdrawId) {
+    const { data: wData } = await supabase
+      .from('pending_withdraw')
+      .select('history_snapshot')
+      .eq('id', withdrawId)
+      .single();
+
+    if (wData && wData.history_snapshot) {
+      try {
+        rows = JSON.parse(wData.history_snapshot);
+      } catch (e) {}
+    }
+  }
+
+  if (!rows || rows.length === 0) {
+    const { data: dbRows } = await supabase
+      .from('history')
+      .select('*')
+      .eq('username', username)
+      .order('id', { ascending: false });
+    rows = dbRows || [];
+  }
 
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach(r => {
-      historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
+      historyList += `<tr><td>${r.id || '-'}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time || 'รอบถอนนี้'}</td></tr>`;
     });
   } else {
     historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
@@ -1436,7 +1432,7 @@ async function renderAdminDashboard(req, res) {
         <td>${w.time}</td>
         <td>
           <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
-            <a href="/admin/user-detail?username=${w.username}" target="_blank" style="background:#70a1ff; color:#fff; padding:6px 10px; border-radius:4px; font-weight:bold; text-decoration:none; font-size:12px;" title="เช็คประวัติการสุ่ม">🔍 ดูประวัติ</a>
+            <a href="/admin/user-detail?username=${w.username}&withdraw_id=${w.id}" target="_blank" style="background:#70a1ff; color:#fff; padding:6px 10px; border-radius:4px; font-weight:bold; text-decoration:none; font-size:12px;" title="เช็คประวัติการสุ่ม">🔍 ดูประวัติ</a>
             <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
               <input type="hidden" name="username" value="${w.username}">
@@ -1444,7 +1440,6 @@ async function renderAdminDashboard(req, res) {
             </form>
             <form action="/admin/delete-withdraw" method="POST" onsubmit="return confirm('เคลียร์คำขอถอนของ ${w.username} ใช่ไหม?');" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
-              <input type="hidden" name="username" value="${w.username}">
               <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">🗑️ ลบ/เคลียร์</button>
             </form>
           </div>
