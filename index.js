@@ -456,7 +456,7 @@ app.get("/lootbox", async (req, res) => {
                           <div class="r-name" style="color:#00d2d3;">1,000 R</div>
                       </div>
                       <div class="reward-card legendary">
-                          <div style="font-size: 20px; margin-bottom: 2px;">🐉</div>
+                          <div style="font-size: 20px; margin-bottom: 2px;">🛸</div>
                           <div class="r-name" style="color:#ffd700;">10,000 R</div>
                       </div>
                   </div>
