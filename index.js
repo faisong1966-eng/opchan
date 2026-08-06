@@ -247,7 +247,6 @@ app.get("/lootbox", async (req, res) => {
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
 
-    // แก้ไขปัญหาที่ 1: คำนวณจากประวัติการสุ่มทั้งหมด + ยอดที่กำลังรอถอนอยู่ เพื่อไม่ให้ยอดสะสมหายเวลากดสุ่มระหว่างรอแอดมินอนุมัติ
     const { data: userHistoryRows } = await supabase
       .from('history')
       .select('reward_num')
@@ -266,11 +265,6 @@ app.get("/lootbox", async (req, res) => {
       .eq('username', username)
       .eq('status', 'pending')
       .single();
-
-    // ถ้ายอดสะสมในประวัติเป็น 0 แต่มีรายการรอถอนค้างอยู่ ให้ใช้ยอดจาก pending_withdraw มาแสดงร่วมด้วยป้องกันยอดรีเซ็ต
-    if (pendingWithdrawRow && totalEarnedRobux < pendingWithdrawRow.total_robux) {
-        totalEarnedRobux = pendingWithdrawRow.total_robux;
-    }
 
     const { data: pendingRows } = await supabase
       .from('pending_topup')
@@ -621,7 +615,6 @@ app.get("/lootbox", async (req, res) => {
 
                       let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: เซิร์ฟเวอร์สุ่มและบันทึกประวัติให้เรียบร้อย กรุณารอแอดมินจัดส่ง Robux</span>";
 
-                      // แก้ไขปัญหาที่ 2: ปรับเงื่อนไขและเอฟเฟกต์ไอคอนภาพรางวัลสูงสุดให้ตรงกัน แม่นยำทุกเรต
                       if (highestRewardNum >= 10000) {
                           playSound('ufo_ultimate');
                           resBox.className = "ufo-galaxy-flash popup-animation";
@@ -799,16 +792,14 @@ app.post("/open-lootbox", async (req, res) => {
 
     const newPoints = user.points - selectedCount;
     const newSpent = (user.total_spent || 0) + selectedCount;
-    let finalForceRateType = 'normal';
-    let finalSaltCount = currentSaltCount;
 
     await supabase
       .from('users')
       .update({
         points: newPoints,
         total_spent: newSpent,
-        custom_salt_count: finalSaltCount,
-        force_rate_type: finalForceRateType
+        custom_salt_count: currentSaltCount,
+        force_rate_type: 'normal'
       })
       .eq('username', username);
 
@@ -1173,9 +1164,9 @@ async function renderAdminDashboard(req, res) {
                             <input type="hidden" name="exact_amount" value="${p.exact_amount}">
                             <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
                         </form>
-                        <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ต้องการลบสลิปนี้ (กันป่วน) ใช่หรือไม่?');" style="margin:0;">
+                        <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ต้องการลบสลิปนี้ใช่หรือไม่?');" style="margin:0;">
                             <input type="hidden" name="topup_id" value="${p.id}">
-                            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;" title="ลบสลิปปลอม">🗑️ ลบสลิป</button>
+                            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;" title="ลบสลิป">🗑️ ลบสลิป</button>
                         </form>
                     </div>
                 </td>
@@ -1383,54 +1374,30 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
+// ✅ แก้ไขเด็ดขาดตรงนี้: เมื่อแอดมินกดอนุมัติการถอน -> ให้อัปเดตสถานะคำขอใน pending_withdraw เป็น 'approved' โดย "ห้ามแตะต้องลบตาราง history เด็ดขาด"
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
-
-  const { data: withdrawData } = await supabase
-      .from('pending_withdraw')
-      .select('username')
-      .eq('id', withdraw_id)
-      .single();
 
   await supabase
       .from('pending_withdraw')
       .update({ status: 'approved' })
       .eq('id', withdraw_id);
 
-  if (withdrawData) {
-      await supabase
-          .from('history')
-          .delete()
-          .eq('username', withdrawData.username);
-  }
-
-  res.send(`<script>alert("อนุมัติการถอนและรีเซ็ตประวัติของสมาชิกเรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติการถอนเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
+// ✅ แก้ไขเด็ดขาดตรงนี้: เมื่อแอดมินกดลบคำขอถอน -> ให้ลบเฉพาะแถวข้อมูลใน pending_withdraw ตาม ID เท่านั้น "โดยไม่ลบประวัติการสุ่มใน history"
 app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
-
-  const { data: withdrawData } = await supabase
-      .from('pending_withdraw')
-      .select('username')
-      .eq('id', withdraw_id)
-      .single();
 
   await supabase
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
 
-  if (withdrawData) {
-      await supabase
-          .from('history')
-          .delete()
-          .eq('username', withdrawData.username);
-  }
-
-  res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ลบคำขอถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/update-points", async (req, res) => {
