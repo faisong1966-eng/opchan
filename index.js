@@ -159,9 +159,13 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
           roblox_img: robloxImg, 
           points: 0, 
           total_spent: 0, 
-          target_salt_count: 0,
-          current_salt_progress: 0,
-          target_reward_on_hit: 'normal' 
+          // เพิ่มฟิลด์ควบคุมระบบเกลือหลายชุด + สุ่มตามดวง + แจ็กพอต + คะแนนทั่วไป
+          salt_sets_json: JSON.stringify([]), // เก็บเป็น Array ชุดเกลือ
+          luck_random_rounds: 0,              // สุ่มตามดวงกี่รอบ
+          reward_after_luck: 'normal',        // ตั้งค่าหลังหมดช่วงสุ่มตามดวง
+          jackpot_target_round: 0,            // รันมาถึงรอบนี้ให้ได้แจ็กพอต
+          jackpot_reward_value: 100,          // มูลค่าแจ็กพอตรอบนั้น
+          normal_score_config: 'normal'       // คะแนนทั่วไปหลังเกลือ
       }]);
 
     if (error) {
@@ -1039,6 +1043,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
+// อัปเดตตรรกะการสุ่มกล่อง รองรับ 2-3 เซตเกลือ + สุ่มตามดวงหลายรอบ + แจ็กพอตถึงรอบ + คะแนนทั่วไป
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
   const selectedCount = parseInt(count) || 1;
@@ -1066,81 +1071,63 @@ app.post("/open-lootbox", async (req, res) => {
   let historyBatch = [];
   let summaryRewards = {};
 
-  let targetSaltCount = user.target_salt_count || 0;
-  let currentSaltProgress = user.current_salt_progress || 0;
-  let targetRewardOnHit = user.target_reward_on_hit || 'normal';
+  // ดึงค่าการควบคุมทั้งหมดจาก DB
+  let saltSets = [];
+  try {
+      saltSets = JSON.parse(user.salt_sets_json || '[]');
+  } catch (e) {
+      saltSets = [];
+  }
+  
+  let luckRandomRounds = user.luck_random_rounds || 0;
+  let rewardAfterLuck = user.reward_after_luck || 'normal';
+  let jackpotTargetRound = user.jackpot_target_round || 0;
+  let jackpotRewardValue = user.jackpot_reward_value || 100;
+  let normalScoreConfig = user.normal_score_config || 'normal';
 
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
 
-      if (currentSaltProgress < targetSaltCount) {
-          reward = "0 Robux (😢 เกลือ)";
-          rewardNum = 0;
-          currentSaltProgress += 1;
-      } else {
-          if (targetRewardOnHit !== 'normal') {
-              if (targetRewardOnHit === 'always_salt') {
-                  reward = "0 Robux (😢 เกลือ)";
-                  rewardNum = 0;
-              } else if (targetRewardOnHit === '1') {
-                  reward = "1 Robux (🎁 เริ่มมาแล้ว)";
-                  rewardNum = 1;
-              } else if (targetRewardOnHit === '2') {
-                  reward = "2 Robux (🎁 กำลังไปได้สวย)";
-                  rewardNum = 2;
-              } else if (targetRewardOnHit === '3') {
-                  reward = "3 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)";
-                  rewardNum = 3;
-              } else if (targetRewardOnHit === '4') {
-                  reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)";
-                  rewardNum = 4;
-              } else if (targetRewardOnHit === '5') {
-                  reward = "5 Robux (🎁 เฮ้ยมาว่ะ)";
-                  rewardNum = 5;
-              } else if (targetRewardOnHit === '10') {
-                  reward = "10 Robux (💎 นี่แหละที่อยากได้)";
-                  rewardNum = 10;
-              } else if (targetRewardOnHit === '15') {
-                  reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)";
-                  rewardNum = 15;
-              } else if (targetRewardOnHit === '20') {
-                  reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)";
-                  rewardNum = 20;
-              } else if (targetRewardOnHit === '100') {
-                  reward = "100 Robux (🔥 แจ็คพอตแตก)";
-                  rewardNum = 100;
-              } else if (targetRewardOnHit === '500') {
-                  reward = "500 Robux (✨ แจ็คพอตใหญ่)";
-                  rewardNum = 500;
-              } else if (targetRewardOnHit === '1000') {
-                  reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)";
-                  rewardNum = 1000;
-              } else if (targetRewardOnHit === '10000') {
-                  reward = "10,000 Robux (🐉 เทพมังกร ระดับจักรวาล)";
-                  rewardNum = 10000;
+      // ลำดับที่ 1: ตรวจสอบระบบเกลือหลายเซต (saltSets)
+      let handledBySalt = false;
+      if (saltSets && saltSets.length > 0) {
+          // ใช้เซตแรกในคิว
+          let currentSet = saltSets[0];
+          if (currentSet.remaining > 0) {
+              reward = "0 Robux (😢 เกลือ)";
+              rewardNum = 0;
+              currentSet.remaining -= 1;
+              handledBySalt = true;
+
+              // ถ้าเซตนี้หมดแล้ว ให้ตัดออกจากคิว
+              if (currentSet.remaining <= 0) {
+                  saltSets.shift();
               }
-              targetRewardOnHit = 'normal';
-              currentSaltProgress = 0;
-              targetSaltCount = 0;
-          } else {
+          }
+      }
+
+      if (!handledBySalt) {
+          // ลำดับที่ 2: ตรวจสอบช่องช่องแจ็กพอต (รันมาถึงรอบนี้ให้ได้แจ็กพอต)
+          if (jackpotTargetRound > 0) {
+              jackpotTargetRound -= 1;
+              if (jackpotTargetRound === 0) {
+                  // ถึงรอบแจ็กพอตแล้ว!
+                  rewardNum = parseInt(jackpotRewardValue) || 100;
+                  reward = `${rewardNum} Robux (🔥 แจ็คพอตตามรอบ)`;
+                  jackpotRewardValue = 100; // รีเซ็ตค่า
+              }
+          }
+
+          // ถ้ายังไม่โดนแจ็กพอตตามรอบ มาเช็คต่อ
+          if (rewardNum === 0 && luckRandomRounds > 0) {
+              // ลำดับที่ 3: สุ่มตามดวง X รอบ
+              luckRandomRounds -= 1;
               const rand = Math.random() * 100;
-              if (rand < 0.0001) { 
-                  reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; 
-                  rewardNum = 10000; 
-              }
-              else if (rand < 0.0005) { 
-                  reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; 
-                  rewardNum = 1000; 
-              }
-              else if (rand < 0.002) { 
-                  reward = "500 Robux (✨ แจ็คพอตใหญ่)"; 
-                  rewardNum = 500; 
-              }
-              else if (rand < 0.01) { 
-                  reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
-                  rewardNum = 100; 
-              }
+              if (rand < 0.0001) { reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+              else if (rand < 0.0005) { reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+              else if (rand < 0.002) { reward = "500 Robux (✨ แจ็คพอตใหญ่)"; rewardNum = 500; }
+              else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
               else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
               else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
               else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
@@ -1150,6 +1137,44 @@ app.post("/open-lootbox", async (req, res) => {
               else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
               else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
               else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
+
+              // ถ้าครบจำนวนรอบสุ่มตามดวงแล้ว ให้ไปใช้ค่าหลังหมดดวง (rewardAfterLuck)
+              if (luckRandomRounds === 0 && rewardAfterLuck !== 'normal') {
+                  // แปลงค่า rewardAfterLuck มาใส่เคสคะแนนทั่วไป
+                  normalScoreConfig = rewardAfterLuck;
+                  rewardAfterLuck = 'normal';
+              }
+          } 
+          
+          if (rewardNum === 0 && jackpotTargetRound !== 0 && luckRandomRounds === 0) {
+              // ลำดับที่ 4: คะแนนธรรมดา / คะแนนทั่วไป (หลังจากเกลือมาแล้ว หรือตั้งค่าทั่วไป)
+              if (normalScoreConfig !== 'normal') {
+                  if (normalScoreConfig === 'always_salt') {
+                      reward = "0 Robux (😢 เกลือ)";
+                      rewardNum = 0;
+                  } else {
+                      rewardNum = parseInt(normalScoreConfig) || 0;
+                      reward = `${rewardNum} Robux (🎁 คะแนนทั่วไปตามกำหนด)`;
+                  }
+                  // ใช้ครั้งเดียวแล้วรีเซ็ตกลับเป็นปกติ
+                  normalScoreConfig = 'normal';
+              } else {
+                  // เรตปกติทั่วไปตามระบบ
+                  const rand = Math.random() * 100;
+                  if (rand < 0.0001) { reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+                  else if (rand < 0.0005) { reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+                  else if (rand < 0.002) { reward = "500 Robux (✨ แจ็คพอตใหญ่)"; rewardNum = 500; }
+                  else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+                  else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
+                  else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
+                  else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
+                  else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
+                  else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
+                  else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
+                  else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
+                  else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
+                  else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
+              }
           }
       }
 
@@ -1171,14 +1196,18 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
+  // อัปเดตสถานะตัวแปรควบคุมกลับลงฐานข้อมูล
   await supabase
     .from('users')
     .update({ 
         points: newPoints, 
         total_spent: newSpent,
-        target_salt_count: targetSaltCount,
-        current_salt_progress: currentSaltProgress,
-        target_reward_on_hit: targetRewardOnHit
+        salt_sets_json: JSON.stringify(saltSets),
+        luck_random_rounds: luckRandomRounds,
+        reward_after_luck: rewardAfterLuck,
+        jackpot_target_round: jackpotTargetRound,
+        jackpot_reward_value: jackpotRewardValue,
+        normal_score_config: normalScoreConfig
     })
     .eq('username', username);
 
@@ -1323,20 +1352,40 @@ app.post("/admin/update-points", async (req, res) => {
   res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
+// ฟังก์ชันอัปเดตการควบคุมขั้นสูง (เกลือ 2-3 เซต, สุ่มตามดวง, แจ็กพอตตามรอบ, คะแนนทั่วไป)
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { username, target_salt_count, target_reward_on_hit } = req.body;
+  const { 
+      username, 
+      salt1_count, 
+      salt2_count, 
+      salt3_count, 
+      luck_random_rounds, 
+      reward_after_luck,
+      jackpot_target_round,
+      jackpot_reward_value,
+      normal_score_config
+  } = req.body;
+
+  // สร้างชุดเกลือ 2-3 เซตเก็บเป็น Array JSON
+  let saltSets = [];
+  if (parseInt(salt1_count) > 0) saltSets.push({ remaining: parseInt(salt1_count) });
+  if (parseInt(salt2_count) > 0) saltSets.push({ remaining: parseInt(salt2_count) });
+  if (parseInt(salt3_count) > 0) saltSets.push({ remaining: parseInt(salt3_count) });
 
   await supabase
     .from('users')
     .update({ 
-        target_salt_count: parseInt(target_salt_count) || 0,
-        current_salt_progress: 0,
-        target_reward_on_hit: target_reward_on_hit || 'normal'
+        salt_sets_json: JSON.stringify(saltSets),
+        luck_random_rounds: parseInt(luck_random_rounds) || 0,
+        reward_after_luck: reward_after_luck || 'normal',
+        jackpot_target_round: parseInt(jackpot_target_round) || 0,
+        jackpot_reward_value: parseInt(jackpot_reward_value) || 100,
+        normal_score_config: normal_score_config || 'normal'
     })
     .eq('username', username);
 
-  res.send(`<script>alert("บันทึกการตั้งค่าระบบล็อกผลของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("บันทึกการตั้งค่าระบบล็อกผล (เกลือหลายเซต / ดวง / แจ็กพอต / คะแนนทั่วไป) ของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-user", async (req, res) => {
@@ -1497,8 +1546,21 @@ async function renderAdminDashboard(req, res) {
           daysLeft = diffDays > 0 ? `${diffDays} วัน` : `หมดอายุ`;
       }
 
-      const saltTargetVal = u.target_salt_count || 0;
-      const targetRewardVal = u.target_reward_on_hit || 'normal';
+      // ดึงค่าการตั้งค่าปัจจุบันมาแสดงในฟอร์มแอดมิน
+      let currentSaltSets = [];
+      try {
+          currentSaltSets = JSON.parse(u.salt_sets_json || '[]');
+      } catch (e) {}
+
+      let s1 = currentSaltSets[0] ? currentSaltSets[0].remaining : 0;
+      let s2 = currentSaltSets[1] ? currentSaltSets[1].remaining : 0;
+      let s3 = currentSaltSets[2] ? currentSaltSets[2].remaining : 0;
+
+      let luckRoundsVal = u.luck_random_rounds || 0;
+      let rewardAfterLuckVal = u.reward_after_luck || 'normal';
+      let jackpotRoundVal = u.jackpot_target_round || 0;
+      let jackpotRewVal = u.jackpot_reward_value || 100;
+      let normalScoreVal = u.normal_score_config || 'normal';
 
       userHtml += `<tr>
         <td>${runningNo}</td>
@@ -1515,32 +1577,58 @@ async function renderAdminDashboard(req, res) {
             <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
           </form>
 
-          <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; margin-top:4px; text-align:left;">
+          <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; margin-top:4px; text-align:left;">
             <input type="hidden" name="username" value="${u.username}">
-            <div style="font-size:11px; color:#ffd700; margin-bottom:2px;">🎛️ ตั้งค่าควบคุมเกลือและแจ๊คพอต:</div>
-            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
-              <span style="font-size:11px; color:#aaa;">ให้เกลือก่อน:</span>
-              <input type="number" name="target_salt_count" value="${saltTargetVal}" min="0" style="width:45px; padding:2px; font-size:11px; text-align:center;"> รอบ
+            <div style="font-size:11px; color:#ffd700; margin-bottom:4px; font-weight:bold;">🎛️ ตั้งค่าระบบเกลือ/ดวง/แจ็กพอต:</div>
+            
+            <div style="font-size:10px; color:#00d2d3; margin-bottom:2px;">1️⃣ ตั้งค่าเกลือ (3 เซต):</div>
+            <div style="display:flex; gap:3px; margin-bottom:4px; font-size:10px;">
+              เซต1:<input type="number" name="salt1_count" value="${s1}" min="0" style="width:30px; text-align:center; padding:2px;">
+              เซต2:<input type="number" name="salt2_count" value="${s2}" min="0" style="width:30px; text-align:center; padding:2px;">
+              เซต3:<input type="number" name="salt3_count" value="${s3}" min="0" style="width:30px; text-align:center; padding:2px;"> รอบ
             </div>
-            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
-              <select name="target_reward_on_hit" style="width:100%; font-size:11px; padding:2px;">
-                <option value="normal" ${targetRewardVal === 'normal' ? 'selected' : ''}>-- หลังเกลือครบ สุ่มต่อตามดวง --</option>
-                <option value="always_salt" ${targetRewardVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
-                <option value="1" ${targetRewardVal === '1' ? 'selected' : ''}>🎁 รอบถัดไปได้: 1 Robux</option>
-                <option value="2" ${targetRewardVal === '2' ? 'selected' : ''}>🎁 รอบถัดไปได้: 2 Robux</option>
-                <option value="3" ${targetRewardVal === '3' ? 'selected' : ''}>🎁 รอบถัดไปได้: 3 Robux</option>
-                <option value="4" ${targetRewardVal === '4' ? 'selected' : ''}>🎁 รอบถัดไปได้: 4 Robux</option>
-                <option value="5" ${targetRewardVal === '5' ? 'selected' : ''}>🎁 รอบถัดไปได้: 5 Robux</option>
-                <option value="10" ${targetRewardVal === '10' ? 'selected' : ''}>💎 รอบถัดไปได้: 10 Robux</option>
-                <option value="15" ${targetRewardVal === '15' ? 'selected' : ''}>💎 รอบถัดไปได้: 15 Robux</option>
-                <option value="20" ${targetRewardVal === '20' ? 'selected' : ''}>💎 รอบถัดไปได้: 20 Robux</option>
-                <option value="100" ${targetRewardVal === '100' ? 'selected' : ''}>🔥 รอบถัดไปได้: 100 Robux</option>
-                <option value="500" ${targetRewardVal === '500' ? 'selected' : ''}>✨ รอบถัดไปได้: 500 Robux</option>
-                <option value="1000" ${targetRewardVal === '1000' ? 'selected' : ''}>👑 รอบถัดไปได้: 1,000 Robux</option>
-                <option value="10000" ${targetRewardVal === '10000' ? 'selected' : ''}>🛸 รอบถัดไปได้: 10,000 Robux</option>
+
+            <div style="font-size:10px; color:#00d2d3; margin-bottom:2px;">2️⃣ สุ่มตามดวง:</div>
+            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px; font-size:10px;">
+              สุ่ม <input type="number" name="luck_random_rounds" value="${luckRoundsVal}" min="0" style="width:35px; text-align:center; padding:2px;"> รอบ แล้วให้ต่อด้วย:
+            </div>
+            <div style="margin-bottom:4px;">
+              <select name="reward_after_luck" style="width:100%; font-size:10px; padding:2px;">
+                <option value="normal" ${rewardAfterLuckVal === 'normal' ? 'selected' : ''}>-- ปกติ (ตามเรต) --</option>
+                <option value="always_salt" ${rewardAfterLuckVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือยาวๆ (0)</option>
+                <option value="1" ${rewardAfterLuckVal === '1' ? 'selected' : ''}>1 Robux</option>
+                <option value="2" ${rewardAfterLuckVal === '2' ? 'selected' : ''}>2 Robux</option>
+                <option value="3" ${rewardAfterLuckVal === '3' ? 'selected' : ''}>3 Robux</option>
+                <option value="5" ${rewardAfterLuckVal === '5' ? 'selected' : ''}>5 Robux</option>
+                <option value="10" ${rewardAfterLuckVal === '10' ? 'selected' : ''}>10 Robux</option>
+                <option value="100" ${rewardAfterLuckVal === '100' ? 'selected' : ''}>100 Robux</option>
               </select>
             </div>
-            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกการควบคุมนี้</button>
+
+            <div style="font-size:10px; color:#ffd700; margin-bottom:2px;">3️⃣ ช่องแจ็กพอตตามรอบ:</div>
+            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px; font-size:10px;">
+              รอบที่ <input type="number" name="jackpot_target_round" value="${jackpotRoundVal}" min="0" style="width:35px; text-align:center; padding:2px;"> ได้รางวัล:
+              <input type="number" name="jackpot_reward_value" value="${jackpotRewVal}" min="1" style="width:45px; text-align:center; padding:2px;"> R
+            </div>
+
+            <div style="font-size:10px; color:#ff4757; margin-bottom:2px;">4️⃣ คะแนนทั่วไป (หลังเกลือ):</div>
+            <div style="margin-bottom:6px;">
+              <select name="normal_score_config" style="width:100%; font-size:10px; padding:2px;">
+                <option value="normal" ${normalScoreVal === 'normal' ? 'selected' : ''}>-- สุ่มปกติทั่วไป --</option>
+                <option value="always_salt" ${normalScoreVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
+                <option value="1" ${normalScoreVal === '1' ? 'selected' : ''}>1 Robux</option>
+                <option value="2" ${normalScoreVal === '2' ? 'selected' : ''}>2 Robux</option>
+                <option value="3" ${normalScoreVal === '3' ? 'selected' : ''}>3 Robux</option>
+                <option value="5" ${normalScoreVal === '5' ? 'selected' : ''}>5 Robux</option>
+                <option value="10" ${normalScoreVal === '10' ? 'selected' : ''}>10 Robux</option>
+                <option value="100" ${normalScoreVal === '100' ? 'selected' : ''}>100 Robux</option>
+                <option value="500" ${normalScoreVal === '500' ? 'selected' : ''}>500 Robux</option>
+                <option value="1000" ${normalScoreVal === '1000' ? 'selected' : ''}>1,000 Robux</option>
+                <option value="10000" ${normalScoreVal === '10000' ? 'selected' : ''}>10,000 Robux</option>
+              </select>
+            </div>
+
+            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:4px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกการควบคุมทั้งหมด</button>
           </form>
 
           <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin-top:6px;">
@@ -1588,8 +1676,8 @@ async function renderAdminDashboard(req, res) {
       </table>
 
       <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ตั้งค่าเกลือ-เรตลับรายบุคคล / อายุ 30 วัน)</h3>
-      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:220px;">จัดการ / ตั้งค่าเรตลับ</th></tr>
+      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 950px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:260px;">จัดการ / ควบคุมระบบเกลือ & แจ็กพอต</th></tr>
         ${userHtml}
       </table>
       ${paginationHtml}
