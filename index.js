@@ -306,7 +306,7 @@ app.get("/lootbox", async (req, res) => {
     if (pendingWithdrawRow) {
       withdrawSectionHtml = `
         <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
-            ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">${pendingWithdrawRow.total_robux} Robux</b> (รอแอดมินตรวจสอบและโอนรางวัล)
+            ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">${pendingWithdrawRow.total_robux} Robux</b> (ยอดจะเข้าไม่เกิน 24ชม. )
         </div>
         <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
             💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
