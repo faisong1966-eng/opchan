@@ -88,27 +88,21 @@ app.get("/", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>🎁 Roblox Robux LootBox - หน้าแรก</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #ffffff; text-align: center; margin: 0; padding: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .container { background: rgba(26, 26, 46, 0.85); backdrop-filter: blur(12px); padding: 40px 30px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 100%; max-width: 400px; }
-            h1 { color: #ffd700; font-size: 28px; font-weight: 800; margin-bottom: 10px; text-shadow: 0 0 15px rgba(255,215,0,0.4); }
-            p { color: #a2a2bc; font-size: 14px; margin-bottom: 25px; }
-            a { display: block; background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; margin: 12px 0; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.3s; }
-            a:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,71,87,0.6); }
-            .btn-register { background: linear-gradient(135deg, #2ed573, #7bed9f) !important; box-shadow: 0 4px 15px rgba(46,213,115,0.4) !important; color: #000 !important; }
-            .btn-register:hover { box-shadow: 0 6px 20px rgba(46,213,115,0.6) !important; }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 80px; }
+            .container { background: #2b2b40; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.3); width: 350px; }
+            h1 { color: #ffd700; }
+            a { display: block; background-color: #ff4757; color: white; padding: 10px; margin: 10px 0; border-radius: 5px; text-decoration: none; font-weight: bold; }
+            a:hover { background-color: #ff6b81; }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>🎁 Roblox Robux Box</h1>
-            <p>เว็บสุ่มลุ้นรับ Robux สุดอลังการ ระบบปลอดภัย 100%</p>
-            <a href="/login">🔑 เข้าสู่ระบบ</a>
-            <a href="/register" class="btn-register">📝 สมัครสมาชิก</a>
+            <p>เว็บสุ่มลุ้นรับ Robux สุดมันส์</p>
+            <a href="/login">เข้าสู่ระบบ</a>
+            <a href="/register" style="background-color: #2ed573;">สมัครสมาชิก</a>
         </div>
     </body>
     </html>
@@ -121,38 +115,31 @@ app.get("/register", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>สมัครสมาชิก</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #ffffff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .container { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px; border-radius: 20px; border: 1px solid rgba(46,213,115,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 100%; max-width: 400px; text-align: left; }
-            h2 { color: #2ed573; text-align: center; font-weight: 800; margin-bottom: 5px; }
-            label { display: block; margin-top: 15px; font-size: 13px; font-weight: 600; color: #dcdcfe; }
-            input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin-top: 6px; border-radius: 8px; border: 1px solid #3d3d5c; background: #121222; color: #fff; font-size: 14px; outline: none; transition: 0.2s; }
-            input[type="text"]:focus, input[type="password"]:focus { border-color: #2ed573; box-shadow: 0 0 8px rgba(46,213,115,0.3); }
-            input[type="file"] { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; background: #121222; color: #fff; border: 1px solid #3d3d5c; font-size: 13px; }
-            button { width: 100%; background: linear-gradient(135deg, #2ed573, #7bed9f); color: #000; padding: 12px; border: none; border-radius: 10px; margin-top: 25px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(46,213,115,0.4); transition: 0.3s; }
-            button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,213,115,0.6); }
-            a { display: block; text-align: center; margin-top: 20px; color: #70a1ff; text-decoration: none; font-size: 14px; font-weight: 600; }
-            .alert-box { font-size: 12px; color: #ffd700; text-align: center; background: rgba(255,215,0,0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,215,0,0.3); margin-bottom: 15px; }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 30px; }
+            .container { background: #2b2b40; padding: 30px; border-radius: 10px; display: inline-block; width: 360px; text-align: left; }
+            h2 { color: #2ed573; text-align: center; }
+            label { display: block; margin-top: 10px; font-size: 14px; }
+            input { width: 100%; padding: 8px; margin-top: 5px; border-radius: 4px; border: none; box-sizing: border-box; }
+            button { width: 100%; background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
-            <div class="alert-box">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</div>
+            <p style="font-size:12px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
             <form action="/register" method="POST" enctype="multipart/form-data">
                 <label>Username (สำหรับเข้าเว็บ):</label>
-                <input type="text" name="username" placeholder="ระบุชื่อผู้ใช้งานของคุณ" required>
+                <input type="text" name="username" required>
                 <label>Password:</label>
-                <input type="password" name="password" placeholder="••••••••" required>
+                <input type="password" name="password" required>
                 <label>อัปโหลดรูปโปรไฟล์ Roblox ของคุณ:</label>
-                <input type="file" name="roblox_img" accept="image/*" required>
+                <input type="file" name="roblox_img" accept="image/*" required style="background:white; color:black; padding:5px;">
                 <button type="submit">ยืนยันการสมัคร</button>
             </form>
-            <a href="/">⬅️ กลับหน้าแรก</a>
+            <a href="/">กลับหน้าแรก</a>
         </div>
     </body>
     </html>
@@ -183,20 +170,15 @@ app.get("/login", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>เข้าสู่ระบบ</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #ffffff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .container { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px; border-radius: 20px; border: 1px solid rgba(255,71,87,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 100%; max-width: 400px; text-align: left; }
-            h2 { color: #ffd700; text-align: center; font-weight: 800; margin-bottom: 20px; }
-            label { display: block; margin-top: 15px; font-size: 13px; font-weight: 600; color: #dcdcfe; }
-            input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin-top: 6px; border-radius: 8px; border: 1px solid #3d3d5c; background: #121222; color: #fff; font-size: 14px; outline: none; transition: 0.2s; }
-            input[type="text"]:focus, input[type="password"]:focus { border-color: #ff4757; box-shadow: 0 0 8px rgba(255,71,87,0.3); }
-            button { width: 100%; background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 10px; margin-top: 25px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.3s; }
-            button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,71,87,0.6); }
-            a { display: block; text-align: center; margin-top: 20px; color: #70a1ff; text-decoration: none; font-size: 14px; font-weight: 600; }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 50px; }
+            .container { background: #2b2b40; padding: 30px; border-radius: 10px; display: inline-block; width: 350px; text-align: left; }
+            h2 { color: #ffd700; text-align: center; }
+            label { display: block; margin-top: 10px; font-size: 14px; }
+            input { width: 100%; padding: 8px; margin-top: 5px; border-radius: 4px; border: none; box-sizing: border-box; }
+            button { width: 100%; background-color: #ff4757; color: white; padding: 10px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; }
         </style>
     </head>
     <body>
@@ -204,12 +186,12 @@ app.get("/login", (req, res) => {
             <h2>🔑 เข้าสู่ระบบ</h2>
             <form action="/login" method="POST">
                 <label>Username:</label>
-                <input type="text" name="username" placeholder="ระบุชื่อผู้ใช้งาน" required>
+                <input type="text" name="username" required>
                 <label>Password:</label>
-                <input type="password" name="password" placeholder="••••••••" required>
+                <input type="password" name="password" required>
                 <button type="submit">เข้าสู่ระบบ</button>
             </form>
-            <a href="/">⬅️ กลับหน้าแรก</a>
+            <a href="/">กลับหน้าแรก</a>
         </div>
     </body>
     </html>
@@ -292,25 +274,25 @@ app.get("/lootbox", async (req, res) => {
     let pendingHtml = "";
     if (pendingRows && pendingRows.length > 0) {
       pendingRows.forEach(p => {
-        pendingHtml += `<li style="color:#ffa502; margin-bottom:4px;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
+        pendingHtml += `<li style="color:#ffa502;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
       });
     } else {
-      pendingHtml = `<span style="color:#8e8ea0; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
+      pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
     }
 
     let withdrawSectionHtml = "";
     if (pendingWithdrawRow) {
-      withdrawSectionHtml = `<div style="background:rgba(255,165,2,0.1); border:1px solid rgba(255,165,2,0.4); padding:12px; border-radius:12px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center; font-weight:600;">
+      withdrawSectionHtml = `<div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
           ⏳ ส่งคำขอถอน <b>${pendingWithdrawRow.total_robux} Robux</b> เรียบร้อยแล้ว (รอแอดมินตรวจสอบและโอนรางวัล)
       </div>`;
     } else {
       const canWithdraw = totalEarnedRobux >= 10;
-      withdrawSectionHtml = `<div style="margin-top:15px; background:rgba(18,18,34,0.6); border:1px solid rgba(255,215,0,0.15); padding:14px; border-radius:12px; text-align:left;">
-          <div style="font-size:13px; font-weight:700; color:#ffd700; margin-bottom:6px;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</div>
-          <p style="font-size:12px; color:#a2a2bc; margin:0 0 10px 0;">แต้ม Robux สะสมของคุณ: <b style="color:#2ed573;">${totalEarnedRobux} Robux</b></p>
+      withdrawSectionHtml = `<div style="margin-top:15px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; text-align:left;">
+          <b style="font-size:13px; color:#ffd700;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</b>
+          <p style="font-size:12px; color:#aaa; margin:5px 0;">แต้ม Robux สะสมของคุณ: <b style="color:#2ed573;">${totalEarnedRobux} Robux</b></p>
           <form action="/request-withdraw" method="POST">
               <input type="hidden" name="username" value="${username}">
-              <button type="submit" style="width:100%; background:${canWithdraw ? 'linear-gradient(135deg, #2ed573, #7bed9f)' : '#3d3d5c'}; color:${canWithdraw ? '#000' : '#8e8ea0'}; padding:10px; border:none; border-radius:8px; font-weight:700; cursor:${canWithdraw ? 'pointer' : 'not-allowed'}; font-size:13px; box-shadow:${canWithdraw ? '0 4px 15px rgba(46,213,115,0.3)' : 'none'}; transition:0.2s;">
+              <button type="submit" style="width:100%; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
                   ${canWithdraw ? '📥 กดส่งคำขอถอน Robux' : '❌ ยังสะสมไม่ถึง 10 Robux (ถอนไม่ได้)'}
               </button>
           </form>
@@ -322,129 +304,109 @@ app.get("/lootbox", async (req, res) => {
       <html lang="th">
       <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>สุ่มกล่อง Roblox Robux - อลังการพรีเมียม</title>
-          <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+          <title>สุ่มกล่อง Roblox Robux</title>
           <style>
-              * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-              body { background-color: #0b0b16; color: #ffffff; text-align: center; margin: 0; padding: 20px 10px 40px 10px; background-image: radial-gradient(circle at 50% 0%, #1a153b 0%, #0b0b16 70%); min-height: 100vh; }
+              body { background-color: #0b0c10; color: #ffffff; text-align: center; margin: 0; padding: 15px 0; }
+              .main-wrapper { max-width: 440px; margin: 0 auto; background: #13151f; border-radius: 16px; border: 1px solid #25283c; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; padding: 20px; box-sizing: border-box; }
               
-              .container { background: rgba(20, 20, 38, 0.85); backdrop-filter: blur(16px); padding: 25px 20px; border-radius: 24px; display: inline-block; width: 100%; max-width: 480px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); border: 1px solid rgba(255,215,0,0.25); position: relative; overflow: hidden; }
-              
-              /* แถบแสงอลังการด้านบน */
-              .container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #ff4757, #ffd700, #2ed573, #00d2d3, #8e44ad); }
+              /* Header Banner */
+              .banner-header { text-align: center; margin-bottom: 15px; position: relative; }
+              .banner-header h2 { color: #ffd700; font-size: 20px; margin: 5px 0 0 0; text-shadow: 0 0 10px rgba(255,215,0,0.4); }
+              .banner-header p { color: #00d2d3; font-size: 13px; margin: 3px 0 0 0; font-weight: bold; }
 
-              h1 { color: #ffd700; font-size: 24px; font-weight: 900; text-transform: uppercase; margin: 10px 0 15px 0; text-shadow: 0 0 20px rgba(255,215,0,0.6); letter-spacing: 0.5px; }
+              /* User Info Bar */
+              .user-bar { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+              .user-left { display: flex; align-items: center; gap: 10px; }
+              .profile-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; }
+              .user-right { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
               
-              .banner-sub { background: linear-gradient(135deg, rgba(255,71,87,0.15), rgba(255,215,0,0.15)); border: 1px solid rgba(255,215,0,0.3); padding: 12px; border-radius: 14px; margin-bottom: 18px; box-shadow: inset 0 0 15px rgba(255,215,0,0.1); }
-              .banner-sub h2 { color: #ffd700; font-size: 16px; font-weight: 800; margin: 0 0 4px 0; }
-              .banner-sub p { color: #dcdcfe; font-size: 12px; margin: 0; font-weight: 600; }
+              .btn-history { background: #00d2d3; color: #000; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
+              .btn-edit { background: #ffa502; color: #000; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
 
-              .user-box { margin-bottom: 15px; text-align: left; background: rgba(15,15,26,0.7); padding: 12px 15px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.08); }
-              .user-info { display: flex; align-items: center; gap: 10px; }
-              .profile-img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.4); }
-              .user-actions { display: flex; flex-direction: column; gap: 4px; }
+              /* Wallet stats */
+              .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 12px; font-weight: bold; color: #ffd700; }
               
-              .btn-action-mini { padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 700; text-align: center; transition: 0.2s; }
-              .btn-action-mini:hover { transform: scale(1.05); }
+              /* Countdown */
+              #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
-              #countdown-box { background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); padding: 8px; border-radius: 10px; margin-bottom: 15px; font-size: 12px; color: #ffd700; text-align: center; font-weight: 700; }
+              /* Rewards Showcase Box */
+              .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 12px; margin-bottom: 15px; }
+              .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+              .rewards-grid { display: flex; justify-content: space-between; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
+              .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 4px; min-width: 65px; text-align: center; flex: 1; }
+              .reward-card img { width: 36px; height: 36px; object-fit: contain; margin-bottom: 3px; }
+              .reward-card .r-name { font-size: 10px; color: #fff; font-weight: bold; }
+              .reward-card.legendary { border-color: #ffd700; background: linear-gradient(135deg, #2b2b1e, #13151f); box-shadow: 0 0 10px rgba(255,215,0,0.3); }
+
+              /* Select Counts */
+              .rate-sub-title { font-size: 12px; color: #ffd700; text-align: left; margin-bottom: 6px; font-weight: bold; }
+              .select-group { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px; }
+              .select-group button { background: #1b1e2e; color: #fff; border: 1px solid #2f3452; padding: 6px 0; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; text-align: center; }
+              .select-group button.active { background: #ffd700; color: #000; border-color: #ffaa00; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+
+              /* Main Open Box Button */
+              .box-btn { background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); margin-bottom: 10px; }
+              .box-btn:hover { filter: brightness(1.1); }
+
+              #result-box { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; background: #181b2a; border: 1px solid #2c314f; min-height: 40px; text-align: left; max-height: 180px; overflow-y: auto; }
+
+              /* Topup Section Styling */
+              .topup-section-title { font-size: 15px; color: #ffd700; text-align: left; margin: 15px 0 5px 0; font-weight: bold; border-left: 3px solid #ffd700; padding-left: 6px; }
+              .topup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+              .topup-card { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; text-align: left; }
+              .topup-card h4 { font-size: 12px; margin: 0 0 8px 0; display: flex; align-items: center; gap: 4px; }
               
-              .wallet { background: linear-gradient(135deg, rgba(35,35,60,0.9), rgba(20,20,38,0.9)); padding: 12px; border-radius: 14px; margin-bottom: 18px; font-size: 14px; display: flex; justify-content: space-around; font-weight: 700; border: 1px solid rgba(255,255,255,0.08); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
-              .wallet div { display: flex; align-items: center; gap: 6px; }
-
-              .box-preview-area { background: rgba(12,12,22,0.6); border-radius: 16px; padding: 15px; margin-bottom: 18px; border: 1px solid rgba(255,255,255,0.08); position: relative; }
-              .chest-img-main { width: 110px; height: 110px; object-fit: contain; margin: 5px auto 10px auto; display: block; filter: drop-shadow(0 0 20px rgba(255,215,0,0.6)); animation: floatChest 3s ease-in-out infinite; }
+              label { display: block; font-size: 10px; color: #a4b0be; margin-bottom: 3px; }
+              input[type="number"] { width: 100%; padding: 6px; background: #13151f; border: 1px solid #333856; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; }
+              .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; }
               
-              @keyframes floatChest {
-                  0%, 100% { transform: translateY(0) scale(1); }
-                  50% { transform: translateY(-6px) scale(1.03); }
-              }
+              .notice-bottom { background: linear-gradient(135deg, #1b1e2e, #251e2b); border: 1px solid #4a2845; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 11px; color: #ff9ff3; text-align: center; }
 
-              .box-btn { background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 14px; border: none; border-radius: 14px; font-size: 16px; cursor: pointer; font-weight: 800; width: 100%; box-shadow: 0 6px 20px rgba(255,71,87,0.5); transition: 0.2s; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-              .box-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,71,87,0.7); background: linear-gradient(135deg, #ff6b81, #ff4757); }
-              
-              .select-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
-              .select-group button { background: #1a1a2e; color: #a2a2bc; border: 1px solid #3d3d5c; padding: 10px 0; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; transition: 0.2s; }
-              .select-group button:hover { border-color: #ffd700; color: #fff; }
-              .select-group button.active { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; border-color: #ffd700; box-shadow: 0 0 12px rgba(255,215,0,0.4); }
-
-              input[type="number"] { width: 100%; padding: 12px; margin: 8px 0 12px 0; border-radius: 10px; border: 1px solid #3d3d5c; background: #121222; color: #fff; font-size: 14px; text-align: center; font-weight: 700; outline: none; }
-              input[type="number"]:focus { border-color: #2ed573; box-shadow: 0 0 8px rgba(46,213,115,0.3); }
-
-              .topup-btn { background: linear-gradient(135deg, #2ed573, #7bed9f); color: #000; padding: 12px; border: none; border-radius: 10px; width: 100%; font-weight: 800; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(46,213,115,0.3); transition: 0.2s; }
-              .topup-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,213,115,0.5); }
-              
-              .reward-showcase { background: rgba(12,12,22,0.7); padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: left; max-height: 120px; overflow-y: auto; font-size: 12px; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-wrap: wrap; gap: 5px; }
-              .reward-item { background: #23233c; padding: 5px 10px; border-radius: 6px; color: #ffd700; font-weight: 700; border: 1px solid rgba(255,215,0,0.2); }
-              .reward-epic { background: rgba(142,68,173,0.3); color: #d5b8ff; border-color: rgba(142,68,173,0.6); }
-              .reward-legend { background: rgba(231,76,60,0.3); color: #ff9999; border-color: rgba(231,76,60,0.6); }
-              .reward-ufo { background: rgba(0,210,211,0.3); color: #70ffff; border-color: rgba(0,210,211,0.6); }
-
-              #result-box { margin-top: 15px; padding: 15px; border-radius: 12px; font-size: 14px; font-weight: 700; background: rgba(12,12,22,0.8); min-height: 50px; transition: all 0.3s; text-align: left; max-height: 220px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); }
-              
+              /* Animations */
               @keyframes bouncePop {
                   0% { transform: scale(0.3); opacity: 0; }
-                  50% { transform: scale(1.1); opacity: 1; }
+                  50% { transform: scale(1.15); opacity: 1; }
                   70% { transform: scale(0.95); }
                   100% { transform: scale(1); opacity: 1; }
               }
-              .popup-animation { animation: bouncePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-
-              .epic-glow {
-                  animation: epicFlash 0.5s infinite alternate;
-                  box-shadow: 0 0 25px #ffd700, inset 0 0 15px #ff4757;
-                  border: 2px solid #ffd700;
-              }
-
+              .popup-animation { animation: bouncePop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+              .epic-glow { box-shadow: 0 0 20px #ffd700; border: 1px solid #ffd700; }
               .rainbow-flash { animation: rainbowAnim 0.4s infinite alternate; }
               @keyframes rainbowAnim {
-                  0% { background-color: rgba(255, 0, 127, 0.5); box-shadow: 0 0 30px #ff007f; }
-                  33% { background-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 30px #ffd700; }
-                  66% { background-color: rgba(0, 210, 211, 0.5); box-shadow: 0 0 30px #00d2d3; }
-                  100% { background-color: rgba(142, 68, 173, 0.5); box-shadow: 0 0 30px #8e44ad; }
+                  0% { background-color: rgba(255, 0, 127, 0.3); }
+                  100% { background-color: rgba(255, 215, 0, 0.3); }
               }
-
               .ufo-galaxy-flash { animation: ufoAnim 0.25s infinite alternate; }
               @keyframes ufoAnim {
-                  0% { background-color: rgba(0, 255, 255, 0.7); box-shadow: 0 0 40px #00ffff, inset 0 0 20px #ffffff; border: 2px solid #fff; }
-                  50% { background-color: rgba(255, 0, 255, 0.7); box-shadow: 0 0 40px #ff00ff, inset 0 0 20px #ffff00; border: 2px solid #ffd700; }
-                  100% { background-color: rgba(0, 255, 0, 0.7); box-shadow: 0 0 40px #00ff00, inset 0 0 20px #00ffff; border: 2px solid #00d2d3; }
+                  0% { background-color: rgba(0, 255, 255, 0.4); border: 2px solid #00ffff; }
+                  100% { background-color: rgba(255, 0, 255, 0.4); border: 2px solid #ff00ff; }
               }
 
-              @keyframes epicFlash {
-                  0% { background-color: rgba(255, 215, 0, 0.2); }
-                  100% { background-color: rgba(255, 71, 87, 0.4); }
-              }
-
-              hr { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 25px 0; }
-              
-              .section-title { text-align: left; font-size: 15px; font-weight: 800; color: #ffd700; margin: 15px 0 8px 0; display: flex; align-items: center; gap: 6px; }
-              .section-desc { text-align: left; font-size: 12px; color: #a2a2bc; line-height: 1.5; margin-bottom: 12px; }
-
-              .topup-card { background: rgba(15,15,26,0.6); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 15px; text-align: left; }
-              
-              .logout-link { display: inline-block; margin-top: 20px; color: #ff4757; text-decoration: none; font-weight: 700; font-size: 14px; transition: 0.2s; }
-              .logout-link:hover { color: #ff6b81; text-shadow: 0 0 10px rgba(255,71,87,0.4); }
+              .logout-link { display: block; margin-top: 20px; color: #ff4757; text-decoration: none; font-size: 12px; font-weight: bold; }
           </style>
       </head>
       <body>
-          <div class="container">
-              <div class="banner-sub">
-                  <h2>🎉 สุ่มกล่องเพียง 1฿ ลุ้นแสน!</h2>
-                  <p>สุ่มรับรางวัลสูงสุด 10,000 Robux</p>
+          <div class="main-wrapper">
+              
+              <!-- Banner Header -->
+              <div class="banner-header">
+                  <div style="font-size: 18px;">🎉 ✨ 🎁</div>
+                  <h2>สุ่มกล่อง Roblox Robux</h2>
+                  <p>✨ สุ่มรับรางวัลสูงสุด 10,000 Robux! ✨</p>
               </div>
 
-              <h1>🎁 สุ่มกล่อง Roblox Robux</h1>
-              
-              <div class="user-box">
-                  <div class="user-info">
+              <!-- User Bar -->
+              <div class="user-bar">
+                  <div class="user-left">
                       <img src="${robloxImg}" class="profile-img">
-                      <span style="font-size: 13px; font-weight: 700;">ผู้ใช้งาน: <b style="color: #2ed573;">${username}</b></span>
+                      <div style="text-align: left; font-size: 12px;">
+                          <span style="color: #a4b0be; display: block; font-size: 10px;">ผู้ใช้งาน</span>
+                          <b>${username}</b>
+                      </div>
                   </div>
-                  <div class="user-actions">
-                      <a href="/my-history?username=${username}" class="btn-action-mini" style="background:#00d2d3; color:#000;">📜 ประวัติการสุ่ม</a>
-                      <a href="/edit-profile?username=${username}" class="btn-action-mini" style="background:#ffa502; color:#000;">🔄 เปลี่ยนรูปโปรไฟล์</a>
+                  <div class="user-right">
+                      <a href="/my-history?username=${username}" class="btn-history">📜 ประวัติสุ่ม</a>
+                      <a href="/edit-profile?username=${username}" class="btn-edit">🔄 เปลี่ยนรูป</a>
                   </div>
               </div>
 
@@ -452,76 +414,98 @@ app.get("/lootbox", async (req, res) => {
                   ⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...
               </div>
               
-              <div class="wallet">
-                  <div>💰 แต้ม: <span id="points" style="color: #ffd700; font-size: 16px;">${currentPoints}</span></div>
-                  <div>🎯 ยอดสุ่ม: <span id="spent" style="color: #2ed573; font-size: 16px;">${totalSpent}</span> บ.</div>
+              <!-- Wallet Stats -->
+              <div class="wallet-box">
+                  <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
+                  <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
               ${withdrawSectionHtml}
               
-              <div class="section-title">🏆 ของรางวัลในกล่อง:</div>
-              <div class="reward-showcase">
-                  <span class="reward-item">0 Robux (เกลือ)</span>
-                  <span class="reward-item">1 - 2 Robux</span>
-                  <span class="reward-item">3 - 5 Robux</span>
-                  <span class="reward-item reward-epic">10 - 20 Robux</span>
-                  <span class="reward-item reward-legend">100 Robux 🔥</span>
-                  <span class="reward-item reward-legend">500 Robux 💎</span>
-                  <span class="reward-item reward-legend">1,000 Robux 👑</span>
-                  <span class="reward-item reward-ufo">10,000 Robux 🛸 (ใหม่!)</span>
+              <!-- Showcase Rewards -->
+              <div class="showcase-container">
+                  <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
+                  <div class="rewards-grid">
+                      <div class="reward-card">
+                          <div style="font-size: 24px; margin-bottom: 2px;">📦</div>
+                          <div class="r-name" style="color:#a4b0be;">0 เกลือ</div>
+                      </div>
+                      <div class="reward-card">
+                          <div style="font-size: 24px; margin-bottom: 2px;">🎁</div>
+                          <div class="r-name">1-2 R</div>
+                      </div>
+                      <div class="reward-card">
+                          <div style="font-size: 24px; margin-bottom: 2px;">💎</div>
+                          <div class="r-name">3-5 R</div>
+                      </div>
+                      <div class="reward-card">
+                          <div style="font-size: 24px; margin-bottom: 2px;">👑</div>
+                          <div class="r-name">10-20 R</div>
+                      </div>
+                      <div class="reward-card legendary">
+                          <div style="font-size: 24px; margin-bottom: 2px;">🐉</div>
+                          <div class="r-name" style="color:#ffd700;">10,000 R</div>
+                      </div>
+                  </div>
               </div>
 
-              <div class="box-preview-area">
-                  <img src="https://i.imgur.com/35N9L6q.png" class="chest-img-main" onerror="this.src='https://cdn-icons-png.flaticon.com/512/4248/4248443.png'">
-                  <div class="section-title" style="justify-content: center; margin-top: 0; font-size: 13px; color: #ffd700;">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
-                  <div class="select-group">
-                      <button type="button" class="active" onclick="setCount(1, this)">1 ครั้ง</button>
-                      <button type="button" onclick="setCount(10, this)">10 ครั้ง</button>
-                      <button type="button" onclick="setCount(20, this)">20 ครั้ง</button>
-                      <button type="button" onclick="setCount(30, this)">30 ครั้ง</button>
-                      <button type="button" onclick="setCount(50, this)">50 ครั้ง</button>
-                      <button type="button" onclick="setCount(100, this)">100 ครั้ง</button>
+              <div class="rate-sub-title">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
+              <div class="select-group">
+                  <button type="button" class="active" onclick="setCount(1, this)">1 ครั้ง</button>
+                  <button type="button" onclick="setCount(10, this)">10 ครั้ง</button>
+                  <button type="button" onclick="setCount(20, this)">20 ครั้ง</button>
+                  <button type="button" onclick="setCount(30, this)">30 ครั้ง</button>
+                  <button type="button" onclick="setCount(50, this)">50 ครั้ง</button>
+                  <button type="button" onclick="setCount(100, this)">100 ครั้ง</button>
+              </div>
+
+              <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (ใช้ 1 แต้ม)</button>
+              
+              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
+
+              <!-- Topup Section -->
+              <div class="topup-section-title">💳 ช่องทางการเติมเงิน</div>
+              
+              <div class="topup-grid">
+                  <!-- PromptPay -->
+                  <div class="topup-card">
+                      <h4 style="color: #2ed573;">📱 พร้อมเพย์</h4>
+                      <form action="/create-topup" method="POST">
+                          <input type="hidden" name="username" value="${username}">
+                          <input type="hidden" name="topup_type" value="promptpay">
+                          <label>จำนวนเงิน (บาท):</label>
+                          <input type="number" name="amount" placeholder="เช่น 50" required>
+                          <button type="submit" class="topup-sub-btn" style="background:#2ed573; color:#fff;">สร้าง QR สแกน</button>
+                      </form>
                   </div>
 
-                  <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (ใช้ 1 แต้ม)</button>
-              </div>
-              
-              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัลสุดอลังการ!</div>
-
-              <hr>
-
-              <div class="topup-card">
-                  <div class="section-title" style="color: #2ed573; margin-top:0;">⚡ เติมเงินผ่าน พร้อมเพย์ (PromptPay)</div>
-                  <p class="section-desc">1. ใส่จำนวนเงินเพื่อสร้าง QR<br>2. สแกนโอนผ่านพร้อมเพย์ แล้วอัปโหลดสลิป</p>
-                  
-                  <form action="/create-topup" method="POST">
-                      <input type="hidden" name="username" value="${username}">
-                      <input type="hidden" name="topup_type" value="promptpay">
-                      <label style="font-size: 12px; color: #a2a2bc; font-weight: 600; display: block; text-align: left;">จำนวนเงินที่ต้องการเติม (บาท):</label>
-                      <input type="number" name="amount" placeholder="เช่น 50" required>
-                      <button type="submit" class="topup-btn">สร้าง QR Code สแกนจ่าย</button>
-                  </form>
+                  <!-- TrueMoney -->
+                  <div class="topup-card">
+                      <h4 style="color: #ff4757;">🧡 Wallet</h4>
+                      <form action="/create-topup" method="POST">
+                          <input type="hidden" name="username" value="${username}">
+                          <input type="hidden" name="topup_type" value="truemoney">
+                          <label>จำนวนเงิน (บาท):</label>
+                          <input type="number" name="amount" placeholder="เช่น 50" required>
+                          <button type="submit" class="topup-sub-btn" style="background:#ff4757; color:#fff;">แจ้งโอนเงิน</button>
+                      </form>
+                  </div>
               </div>
 
-              <div class="topup-card">
-                  <div class="section-title" style="color: #ff4757; margin-top:0;">🧡 เติมเงินผ่าน TrueMoney Wallet</div>
-                  <p class="section-desc">โอนเงินเข้า TrueMoney Wallet: <b style="color:#ff4757;">0643399170</b> (ชื่อ: <b>ธีรวัฒน์ คำมุงคุณ</b>)<br>แล้วกรอกจำนวนเงินพร้อมอัปโหลดสลิปด้านล่าง</p>
-                  
-                  <form action="/create-topup" method="POST">
-                      <input type="hidden" name="username" value="${username}">
-                      <input type="hidden" name="topup_type" value="truemoney">
-                      <label style="font-size: 12px; color: #a2a2bc; font-weight: 600; display: block; text-align: left;">จำนวนเงินที่โอน (บาท):</label>
-                      <input type="number" name="amount" placeholder="เช่น 50" required>
-                      <button type="submit" class="topup-btn" style="background: linear-gradient(135deg, #ff4757, #ff6b81); color: #fff; box-shadow: 0 4px 15px rgba(255,71,87,0.4);">แจ้งโอนผ่าน TrueMoney Wallet</button>
-                  </form>
+              <div style="text-align: left; margin-top: 10px; font-size: 11px; color: #a4b0be; background: #1b1e2e; padding: 8px; border-radius: 6px;">
+                  📌 เบอร์ TrueMoney: <b style="color:#ff4757;">${MY_TRUEMONEY_NUMBER}</b> (${MY_TRUEMONEY_NAME})
               </div>
 
-              <div style="text-align:left; margin-top:15px; background:rgba(15,15,26,0.6); padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
-                  <div style="font-size:12px; color:#ffd700; font-weight:700; margin-bottom:6px;">📌 สถานะการเติมเงิน:</div>
-                  <ul style="padding-left:15px; margin:0; font-size:12px;">${pendingHtml}</ul>
+              <div style="text-align:left; margin-top:10px; background:#1b1e2e; padding:8px; border-radius:6px; font-size:11px;">
+                  <b style="color:#ffd700;">📌 สถานะการเติมเงิน:</b>
+                  <ul style="padding-left:15px; margin:3px 0;">${pendingHtml}</ul>
               </div>
 
-              <a href="/" class="logout-link">🚪 ออกจากระบบ</a>
+              <div class="notice-bottom">
+                  ✨ เตรียมตัวรับโชคใหญ่! เติมเงินเพื่อเริ่มลุ้นได้เลย! ✨
+              </div>
+
+              <a href="/" class="logout-link">ออกจากระบบ</a>
           </div>
 
           <script>
@@ -689,10 +673,10 @@ app.get("/my-history", async (req, res) => {
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach(r => {
-      historyList += `<tr><td style="padding:10px; border-bottom:1px solid #3d3d5c;">${r.id}</td><td style="padding:10px; border-bottom:1px solid #3d3d5c; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:10px; border-bottom:1px solid #3d3d5c; color:#a2a2bc; font-size:12px;">${r.time}</td></tr>`;
+      historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:20px; color:#a2a2bc;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
   }
 
   res.send(`
@@ -700,23 +684,19 @@ app.get("/my-history", async (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ประวัติการสุ่มของฉัน</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #ffffff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .container { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px 20px; display: inline-block; border-radius: 20px; width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(0,210,211,0.3); }
-            table { width: 100%; border-collapse: collapse; background: #121222; border-radius: 10px; overflow: hidden; margin-bottom: 20px; font-size: 13px; }
-            th { padding: 12px; background: #1a1a2e; color: #ffd700; font-weight: 700; }
-            a { display: inline-block; background: linear-gradient(135deg, #70a1ff, #1e90ff); color: #fff; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 700; box-shadow: 0 4px 15px rgba(112,161,255,0.4); transition: 0.3s; }
-            a:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(112,161,255,0.6); }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
+            th { padding: 10px; background: #3d3d5c; color: #ffd700; }
+            a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h2 style="color:#ffd700; font-weight:800; margin-bottom:20px;">📜 ประวัติการสุ่มของ: ${username}</h2>
-            <table>
+            <h2 style="color:#ffd700;">📜 ประวัติการสุ่มของ: ${username}</h2>
+            <table border="1">
                 <tr><th>ID</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
                 ${historyList}
             </table>
@@ -744,31 +724,27 @@ app.get("/edit-profile", async (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>เปลี่ยนรูปโปรไฟล์ Roblox</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #ffffff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .container { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px; display: inline-block; border-radius: 20px; width: 100%; max-width: 380px; text-align: left; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,165,2,0.3); }
-            h2 { color: #ffa502; text-align: center; font-weight: 800; margin-bottom: 5px; }
-            label { display: block; margin-top: 15px; font-size: 13px; font-weight: 600; color: #dcdcfe; }
-            input[type="file"] { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; background: #121222; color: #fff; border: 1px solid #3d3d5c; font-size: 13px; }
-            button { width: 100%; background: linear-gradient(135deg, #2ed573, #7bed9f); color: #000; padding: 12px; border: none; border-radius: 10px; margin-top: 25px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(46,213,115,0.4); transition: 0.3s; }
-            button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,213,115,0.6); }
-            a { display: block; text-align: center; margin-top: 20px; color: #70a1ff; text-decoration: none; font-size: 14px; font-weight: 600; }
-            .current-img { display: block; margin: 0 auto 15px auto; width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; box-shadow: 0 0 15px rgba(255,215,0,0.4); }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; }
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            h2 { color: #ffa502; text-align: center; }
+            label { display: block; margin-top: 10px; font-size: 14px; }
+            input { width: 100%; padding: 8px; margin-top: 5px; border-radius: 4px; border: none; box-sizing: border-box; }
+            button { width: 100%; background-color: #2ed573; color: white; padding: 10px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
+            .current-img { display: block; margin: 0 auto 15px auto; width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h2>🔄 เปลี่ยนรูปโปรไฟล์</h2>
-            <p style="font-size:12px; color:#a2a2bc; text-align:center; margin-bottom:20px;">อัปเดตรูปใหม่ได้ตลอด หากเปลี่ยนบัญชีหรือสมัคร ID ใหม่</p>
+            <h2>🔄 เปลี่ยนรูปโปรไฟล์ Roblox</h2>
+            <p style="font-size:12px; color:#aaa; text-align:center;">อัปเดตรูปใหม่ได้ตลอด หากเปลี่ยนบัญชีหรือสมัคร ID ใหม่</p>
             <img src="${currentImg}" class="current-img">
             <form action="/edit-profile" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="username" value="${username}">
                 <label>อัปโหลดรูปโปรไฟล์ Roblox ใหม่:</label>
-                <input type="file" name="roblox_img" accept="image/*" required>
+                <input type="file" name="roblox_img" accept="image/*" required style="background:white; color:black; padding:5px;">
                 <button type="submit">บันทึกการเปลี่ยนแปลง</button>
             </form>
             <a href="/lootbox?username=${username}">⬅️ กลับหน้าสุ่มกล่อง</a>
@@ -810,6 +786,7 @@ app.post("/request-withdraw", async (req, res) => {
   }
 
   let totalRobux = 0;
+  let totalOpens = userHistory.length;
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
   });
@@ -823,24 +800,20 @@ app.post("/request-withdraw", async (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ตรวจสอบเงื่อนไขก่อนถอน Robux</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #ffffff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .container { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px; display: inline-block; border-radius: 20px; width: 100%; max-width: 450px; text-align: left; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,215,0,0.3); }
-            h2 { color: #ffd700; text-align: center; font-weight: 800; margin-bottom: 10px; }
-            .warning-box { background: rgba(255,165,2,0.1); border: 1px solid rgba(255,165,2,0.4); padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 12px; color: #ffa502; line-height: 1.6; }
-            button { width: 100%; background: linear-gradient(135deg, #2ed573, #7bed9f); color: #000; padding: 12px; border: none; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 10px; font-size: 15px; box-shadow: 0 4px 15px rgba(46,213,115,0.4); transition: 0.3s; }
-            button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,213,115,0.6); }
-            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; font-weight: 600; }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 30px; }
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 450px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            h2 { color: #ffd700; text-align: center; }
+            .warning-box { background: rgba(255,165,2,0.15); border: 1px solid #ffa502; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #ffa502; line-height: 1.6; }
+            button { width: 100%; background-color: #2ed573; color: white; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>⚠️ ตรวจสอบก่อนยืนยันการถอน</h2>
-            <p style="text-align:center; font-size:14px; color:#fff;">ยอดถอน: <b style="color:#ffd700; font-size:20px;">${totalRobux} Robux</b></p>
+            <p style="text-align:center; font-size:14px; color:#fff;">ยอดถอน: <b style="color:#ffd700; font-size:18px;">${totalRobux} Robux</b></p>
             
             <div class="warning-box">
                 <b>📌 คำเตือนและเงื่อนไขการรับ Robux:</b><br><br>
@@ -909,57 +882,50 @@ app.post("/create-topup", (req, res) => {
   if (topup_type === "truemoney") {
       titleText = "🧡 แจ้งโอนเงิน TrueMoney Wallet";
       infoHtml = `
-        <p style="font-size:13px; color:#a2a2bc; text-align:center; margin:5px 0;">โอนเข้าเบอร์: <b style="color:#ff4757; font-size:16px;">${MY_TRUEMONEY_NUMBER}</b></p>
-        <p style="font-size:13px; color:#a2a2bc; text-align:center; margin:5px 0;">ชื่อบัญชี: <b>${MY_TRUEMONEY_NAME}</b></p>
+        <p style="font-size:13px; color:#aaa; text-align:center;">โอนเข้าเบอร์: <b style="color:#ff4757; font-size:16px;">${MY_TRUEMONEY_NUMBER}</b></p>
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_TRUEMONEY_NAME}</b></p>
       `;
   } else {
       titleText = "📱 สแกนจ่ายด้วยพร้อมเพย์";
       const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
       infoHtml = `
-        <p style="font-size:13px; color:#a2a2bc; text-align:center; margin:5px 0;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
-        <div style="background:#fff; padding:12px; text-align:center; border-radius:12px; margin:15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-            <img src="${qrCodeUrl}" style="width:180px; height:180px; display:block; margin:0 auto;">
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
+            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
         </div>
       `;
   }
 
   res.send(`
-    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${titleText}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${titleText}</title>
     <style>
-        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-        body { background: #0f0f1a; color: #fff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-        .box { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px; display: inline-block; border-radius: 20px; width: 100%; max-width: 380px; text-align: left; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,215,0,0.3); }
-        label { display: block; margin-top: 15px; font-size: 13px; font-weight: 600; color: #dcdcfe; }
-        input[type="file"] { width: 100%; padding: 10px; margin-top: 6px; border-radius: 8px; background: #121222; color: #fff; border: 1px solid #3d3d5c; font-size: 13px; }
+        body { background: #1e1e2f; color: #fff; text-align: center; padding-top: 30px; }
+        .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
     </style></head>
     <body><div class="box">
-        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center; font-weight:800; margin-bottom:15px;">${titleText}</h2>
+        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center;">${titleText}</h2>
         ${infoHtml}
         
-        <div style="text-align:center; background:rgba(255,215,0,0.1); padding:10px; border-radius:10px; border:1px solid rgba(255,215,0,0.3); margin:15px 0;">
-            <span style="font-size:12px; color:#a2a2bc; display:block;">ยอดที่ต้องชำระ:</span>
-            <span style="color:#ffd700; font-size:22px; font-weight:900;">${exactAmount} บาท</span>
-        </div>
+        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
         
-        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:15px 0;">
+        <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
         <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
             
-            <label>📤 อัปโหลดสลิปโอนเงิน:</label>
-            <input type="file" name="slip_img" accept="image/*" required>
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
+            <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
-            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? 'linear-gradient(135deg, #ff4757, #ff6b81)' : 'linear-gradient(135deg, #2ed573, #7bed9f)'}; color:${topup_type === 'truemoney' ? '#fff' : '#000'}; padding:12px; border:none; border-radius:10px; font-weight:800; cursor:pointer; margin-top:20px; font-size:14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition:0.3s;">ส่งสลิปให้แอดมินตรวจสอบ</button>
+            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
 
-        <div id="loading-text" style="display:none; text-align:center; margin-top:12px; color:#ffd700; font-size:13px; font-weight:700;">
+        <div id="loading-text" style="display:none; text-align:center; margin-top:10px; color:#ffd700; font-size:13px; font-weight:bold;">
             ⏳ กำลังอัปโหลดสลิปและบันทึกข้อมูล กรุณารอ...
         </div>
 
-        <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:20px; color:#70a1ff; text-decoration:none; font-size:13px; font-weight:600;">⬅️ กลับหน้าสุ่มกล่อง</a>
+        <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
     </div>
     <script>
         function handleUpload(form) {
@@ -1158,34 +1124,16 @@ app.get("/admin", async (req, res) => {
   }
 
   res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>เข้าสู่ระบบผู้ดูแลระบบ</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-        <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0f0f1a; color: #fff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%); }
-            .box { background: rgba(26, 26, 46, 0.9); backdrop-filter: blur(12px); padding: 30px; display: inline-block; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 100%; max-width: 380px; border: 1px solid rgba(255,71,87,0.3); }
-            input[type="password"] { padding: 12px; width: 100%; border-radius: 8px; border: 1px solid #3d3d5c; background: #121222; color: #fff; font-size: 14px; margin-top: 10px; outline: none; }
-            button { padding: 12px; background: linear-gradient(135deg, #ff4757, #ff6b81); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; margin-top: 15px; width: 100%; font-size: 15px; box-shadow: 0 4px 15px rgba(255,71,87,0.4); transition: 0.3s; }
-            button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,71,87,0.6); }
-            a { color: #70a1ff; text-decoration: none; margin-top: 20px; display: inline-block; font-size: 14px; font-weight: 600; }
-        </style>
-    </head>
-    <body>
-      <div class="box">
-        <h2 style="color: #ffd700; font-weight: 800; margin-bottom: 10px;">🛠️ ระบบแอดมิน</h2>
+    <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:80px;">
+      <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+        <h2>🛠️ เข้าสู่ระบบผู้ดูแลระบบ</h2>
         <form action="/admin/login" method="POST">
-          <input type="password" name="password" placeholder="รหัสผ่านแอดมิน" required>
-          <button type="submit">เข้าสู่ระบบ</button>
+          <input type="password" name="password" placeholder="รหัสผ่านแอดมิน" style="padding:10px; width:240px; border-radius:4px; border:none; box-sizing:border-box;" required>
+          <button type="submit" style="padding:10px 15px; background:#ff4757; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; margin-top:10px; width:100%;">เข้าสู่ระบบ</button>
         </form>
-        <a href="/">⬅️ กลับหน้าแรก</a>
+        <br><a href="/" style="color:#70a1ff; text-decoration:none; margin-top:15px; display:inline-block;">กลับหน้าแรก</a>
       </div>
     </body>
-    </html>
   `);
 });
 
@@ -1347,36 +1295,23 @@ app.get("/admin/user-detail", async (req, res) => {
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach(r => {
-      historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px; color:#a2a2bc;">${r.time}</td></tr>`;
+      historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#a2a2bc;">ไม่มีประวัติการสุ่ม</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
   }
 
   res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ประวัติการสุ่ม</title>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-        body { background:#0f0f1a; color:#fff; text-align:center; padding:30px 10px; }
-        .box { background: rgba(26,26,46,0.9); padding:25px; display:inline-block; border-radius:20px; width:100%; max-width:600px; border: 1px solid rgba(255,215,0,0.3); }
-        table { width:100%; border-collapse:collapse; background:#121222; border-radius:10px; overflow:hidden; margin-bottom:20px; font-size:13px; }
-        th { padding:10px; background:#1a1a2e; color:#ffd700; }
-        a { background: linear-gradient(135deg, #70a1ff, #1e90ff); color:#fff; padding:10px 20px; border-radius:10px; text-decoration:none; font-weight:700; display:inline-block; }
-    </style></head>
-    <body>
-      <div class="box">
-        <h2 style="color:#ffd700; font-weight:800; margin-bottom:15px;">📦 ประวัติการสุ่มของ: ${username}</h2>
-        <table>
-          <tr><th>ID</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
+    <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:40px;">
+      <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px; width:600px;">
+        <h2 style="color:#ffd700;">📦 ประวัติการสุ่มของ: ${username}</h2>
+        <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; margin-bottom:20px;">
+          <tr><th style="padding:8px;">ID</th><th style="padding:8px;">รางวัลที่ได้</th><th style="padding:8px;">เวลา</th></tr>
           ${historyList}
         </table>
-        <a href="/admin">⬅️ กลับหน้าแอดมินหลัก</a>
+        <a href="/admin" style="background:#70a1ff; color:#fff; padding:10px 20px; border-radius:5px; text-decoration:none; font-weight:bold; display:inline-block;">⬅️ กลับหน้าแอดมินหลัก</a>
       </div>
     </body>
-    </html>
   `);
 });
 
@@ -1406,26 +1341,26 @@ async function renderAdminDashboard(req, res) {
         <td>${p.id}</td>
         <td><b>${p.username}</b></td>
         <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b><br>${topupBadge}</td>
-        <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:50px; height:70px; object-fit:cover; border-radius:6px; border:1px solid #fff;"></a></td>
-        <td style="font-size:12px; color:#a2a2bc;">${p.time}</td>
+        <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:60px; height:80px; object-fit:cover; border:1px solid #fff;"></a></td>
+        <td>${p.time}</td>
         <td>
           <div style="display:flex; gap:4px; justify-content:center;">
             <form action="/admin/approve-topup" method="POST" style="margin:0;">
               <input type="hidden" name="topup_id" value="${p.id}">
               <input type="hidden" name="username" value="${p.username}">
               <input type="hidden" name="exact_amount" value="${p.exact_amount}">
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:6px; font-weight:700; cursor:pointer; font-size:12px;">✅ อนุมัติ</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
             </form>
-            <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ต้องการลบสลิปนี้ใช่หรือไม่?');" style="margin:0;">
+            <form action="/admin/delete-topup" method="POST" onsubmit="return confirm('ต้องการลบสลิปนี้ (กันป่วน) ใช่หรือไม่?');" style="margin:0;">
               <input type="hidden" name="topup_id" value="${p.id}">
-              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:6px; font-weight:700; cursor:pointer; font-size:12px;">🗑️ ลบ</button>
+              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer;" title="ลบสลิปปลอม">🗑️ ลบสลิป</button>
             </form>
           </div>
         </td>
       </tr>`;
     });
   } else {
-    pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#a2a2bc;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
+    pendingSlipHtml = `<tr><td colspan="6" style="padding:15px; color:#aaa;">ไม่มีรายการสลิปรอตรวจสอบ</td></tr>`;
   }
 
   let withdrawHtml = "";
@@ -1434,28 +1369,28 @@ async function renderAdminDashboard(req, res) {
       withdrawHtml += `<tr>
         <td>${w.id}</td>
         <td><b>${w.username}</b></td>
-        <td><a href="${w.roblox_img}" target="_blank"><img src="${w.roblox_img}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;"></a></td>
-        <td style="color:#00d2d3;">สุ่ม ${w.total_opens} ครั้ง</td>
-        <td style="color:#ffd700; font-weight:800;">${w.total_robux} Robux</td>
-        <td style="font-size:12px; color:#a2a2bc;">${w.time}</td>
+        <td><a href="${w.roblox_img}" target="_blank"><img src="${w.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;"></a></td>
+        <td style="color:#00d2d3;">สุ่มไป ${w.total_opens} ครั้ง</td>
+        <td style="color:#ffd700; font-size:15px; font-weight:bold;">${w.total_robux} Robux</td>
+        <td>${w.time}</td>
         <td>
           <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
-            <a href="/admin/user-detail?username=${w.username}" target="_blank" style="background:#70a1ff; color:#fff; padding:5px 8px; border-radius:6px; font-weight:700; text-decoration:none; font-size:11px;">🔍 ประวัติ</a>
+            <a href="/admin/user-detail?username=${w.username}" target="_blank" style="background:#70a1ff; color:#fff; padding:6px 10px; border-radius:4px; font-weight:bold; text-decoration:none; font-size:12px;" title="เช็คประวัติการสุ่ม">🔍 ดูประวัติ</a>
             <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
               <input type="hidden" name="username" value="${w.username}">
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:5px 8px; border-radius:6px; font-weight:700; cursor:pointer; font-size:11px;">✅ อนุมัติ</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">✅ อนุมัติโอน</button>
             </form>
-            <form action="/admin/delete-withdraw" method="POST" onsubmit="return confirm('เคลียร์คำขอถอนนี้ใช่ไหม?');" style="margin:0;">
+            <form action="/admin/delete-withdraw" method="POST" onsubmit="return confirm('เคลียร์คำขอถอนของ ${w.username} ใช่ไหม?');" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
-              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:5px 8px; border-radius:6px; font-weight:700; cursor:pointer; font-size:11px;">🗑️ ลบ</button>
+              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">🗑️ ลบ/เคลียร์</button>
             </form>
           </div>
         </td>
       </tr>`;
     });
   } else {
-    withdrawHtml = `<tr><td colspan="7" style="padding:15px; color:#a2a2bc;">ยังไม่มีคำขอถอน Robux จากสมาชิก</td></tr>`;
+    withdrawHtml = `<tr><td colspan="7" style="padding:15px; color:#aaa;">ยังไม่มีคำขอถอน Robux จากสมาชิก</td></tr>`;
   }
 
   let userHtml = "";
@@ -1478,114 +1413,96 @@ async function renderAdminDashboard(req, res) {
       userHtml += `<tr>
         <td>${runningNo}</td>
         <td><b>${u.username}</b></td>
-        <td><a href="${u.roblox_img}" target="_blank"><img src="${u.roblox_img}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;"></a></td>
+        <td><a href="${u.roblox_img}" target="_blank"><img src="${u.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;" title="คลิกเพื่อดูรูปใหญ่"></a></td>
         <td>${u.points} แต้ม</td>
         <td>${u.total_spent || 0} บาท</td>
-        <td style="color:#ffd700; font-size:12px;">${daysLeft}</td>
+        <td style="color:#ffd700; font-size:13px;">${daysLeft}</td>
         <td>
-          <form action="/admin/update-points" method="POST" style="display:inline-flex; gap:3px; align-items:center; margin:0 0 4px 0;">
+          <form action="/admin/update-points" method="POST" style="display:inline-flex; gap:3px; align-items:center; margin:0; margin-bottom:4px;">
             <input type="hidden" name="username" value="${u.username}">
-            <input type="number" name="points" value="1" min="1" style="width:40px; padding:3px; text-align:center; border-radius:4px; border:1px solid #3d3d5c; background:#121222; color:#fff;">
-            <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:3px 6px; border-radius:4px; cursor:pointer; font-weight:700;">➕</button>
-            <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:4px; cursor:pointer; font-weight:700;">➖</button>
+            <input type="number" name="points" value="1" min="1" style="width:40px; padding:3px; text-align:center; border-radius:3px; border:none;">
+            <button type="submit" name="action" value="add" style="background:#2ed573; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="เพิ่มแต้ม">➕</button>
+            <button type="submit" name="action" value="subtract" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-weight:bold;" title="ลดแต้ม">➖</button>
           </form>
 
-          <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.4); padding:6px; border-radius:6px; margin-top:4px; text-align:left; border:1px solid rgba(255,255,255,0.06);">
-            <div style="font-size:11px; color:#ffd700; margin-bottom:2px; font-weight:700;">🎛️ ตั้งค่าเรต/เกลือ:</div>
+          <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; margin-top:4px; text-align:left;">
+            <input type="hidden" name="username" value="${u.username}">
+            <div style="font-size:11px; color:#ffd700; margin-bottom:2px;">🎛️ ตั้งค่าเรต/เกลือลับ:</div>
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
-              <span style="font-size:11px; color:#a2a2bc;">เกลือ:</span>
-              <input type="number" name="custom_salt_count" value="${saltCountVal}" min="0" style="width:45px; padding:2px; font-size:11px; text-align:center; background:#121222; color:#fff; border:1px solid #3d3d5c; border-radius:3px;">
+              <span style="font-size:11px; color:#aaa;">เกลือต่อ:</span>
+              <input type="number" name="custom_salt_count" value="${saltCountVal}" min="0" style="width:45px; padding:2px; font-size:11px; text-align:center;"> รอบ
             </div>
-            <div style="margin-bottom:4px;">
-              <select name="force_rate_type" style="width:100%; font-size:11px; padding:3px; background:#121222; color:#fff; border:1px solid #3d3d5c; border-radius:3px;">
-                <option value="normal" ${rateTypeVal === 'normal' ? 'selected' : ''}>เรตปกติ</option>
-                <option value="always_salt" ${rateTypeVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล</option>
-                <option value="always_jackpot_1" ${rateTypeVal === 'always_jackpot_1' ? 'selected' : ''}>⭐ ออก 1 Robux</option>
-                <option value="always_jackpot_2" ${rateTypeVal === 'always_jackpot_2' ? 'selected' : ''}>⭐ ออก 2 Robux</option>
-                <option value="always_jackpot_3" ${rateTypeVal === 'always_jackpot_3' ? 'selected' : ''}>⭐ ออก 3 Robux</option>
-                <option value="always_jackpot_5" ${rateTypeVal === 'always_jackpot_5' ? 'selected' : ''}>⭐ ออก 5 Robux</option>
-                <option value="always_jackpot_10" ${rateTypeVal === 'always_jackpot_10' ? 'selected' : ''}>⭐ ออก 10 Robux</option>
-                <option value="always_jackpot_15" ${rateTypeVal === 'always_jackpot_15' ? 'selected' : ''}>⭐ ออก 15 Robux</option>
-                <option value="always_jackpot_20" ${rateTypeVal === 'always_jackpot_20' ? 'selected' : ''}>⭐ ออก 20 Robux</option>
-                <option value="always_jackpot_100" ${rateTypeVal === 'always_jackpot_100' ? 'selected' : ''}>🔥 ออก 100 Robux</option>
-                <option value="always_jackpot_500" ${rateTypeVal === 'always_jackpot_500' ? 'selected' : ''}>💎 ออก 500 Robux</option>
-                <option value="always_jackpot_1000" ${rateTypeVal === 'always_jackpot_1000' ? 'selected' : ''}>👑 ออก 1,000 Robux</option>
-                <option value="always_jackpot_10000" ${rateTypeVal === 'always_jackpot_10000' ? 'selected' : ''}>🛸 ออก 10,000 Robux</option>
+            <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
+              <select name="force_rate_type" style="width:100%; font-size:11px; padding:2px;">
+                <option value="normal" ${rateTypeVal === 'normal' ? 'selected' : ''}>เรตปกติ (สุ่มตามดวง)</option>
+                <option value="always_salt" ${rateTypeVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
+                <option value="always_jackpot_1" ${rateTypeVal === 'always_jackpot_1' ? 'selected' : ''}>⭐ ล็อคออก 1 Robux</option>
+                <option value="always_jackpot_2" ${rateTypeVal === 'always_jackpot_2' ? 'selected' : ''}>⭐ ล็อคออก 2 Robux</option>
+                <option value="always_jackpot_3" ${rateTypeVal === 'always_jackpot_3' ? 'selected' : ''}>⭐ ล็อคออก 3 Robux</option>
+                <option value="always_jackpot_5" ${rateTypeVal === 'always_jackpot_5' ? 'selected' : ''}>⭐ ล็อคออก 5 Robux</option>
+                <option value="always_jackpot_10" ${rateTypeVal === 'always_jackpot_10' ? 'selected' : ''}>⭐ ล็อคออก 10 Robux</option>
+                <option value="always_jackpot_15" ${rateTypeVal === 'always_jackpot_15' ? 'selected' : ''}>⭐ ล็อคออก 15 Robux</option>
+                <option value="always_jackpot_20" ${rateTypeVal === 'always_jackpot_20' ? 'selected' : ''}>⭐ ล็อคออก 20 Robux</option>
+                <option value="always_jackpot_100" ${rateTypeVal === 'always_jackpot_100' ? 'selected' : ''}>🔥 ล็อคแจ็คพอต 100 Robux</option>
+                <option value="always_jackpot_500" ${rateTypeVal === 'always_jackpot_500' ? 'selected' : ''}>💎 ล็อคแจ็คพอต 500 Robux</option>
+                <option value="always_jackpot_1000" ${rateTypeVal === 'always_jackpot_1000' ? 'selected' : ''}>👑 ล็อคแจ็คพอต 1,000 Robux</option>
+                <option value="always_jackpot_10000" ${rateTypeVal === 'always_jackpot_10000' ? 'selected' : ''}>🛸 ล็อคแจ็คพอต 10,000 Robux</option>
               </select>
             </div>
-            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:700; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกเรต</button>
+            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกเรตยูสนี้</button>
           </form>
 
           <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin-top:6px;">
             <input type="hidden" name="username" value="${u.username}">
-            <button type="submit" style="background:#c0392b; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-weight:700; cursor:pointer; font-size:11px; width:100%;">🗑️ ลบยูส</button>
+            <button type="submit" style="background:#c0392b; color:#fff; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">🗑️ ลบยูส</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    userHtml = `<tr><td colspan="7" style="padding:15px; color:#a2a2bc;">ยังไม่มีสมาชิกในระบบ</td></tr>`;
+    userHtml = `<tr><td colspan="7" style="padding:15px; color:#aaa;">ยังไม่มีสมาชิกในระบบ</td></tr>`;
   }
 
   let paginationHtml = "";
   if (totalPages > 1) {
-      paginationHtml += `<div style="margin: 20px 0;">`;
+      paginationHtml += `<div style="margin: 15px 0;">`;
       if (page > 1) {
-          paginationHtml += `<a href="/admin?page=${page - 1}" style="background:#23233c; color:#fff; padding:8px 14px; margin:0 3px; border-radius:6px; text-decoration:none; font-weight:700; font-size:13px;">⬅️ หน้าก่อนหน้า</a>`;
+          paginationHtml += `<a href="/admin?page=${page - 1}" style="background:#3d3d5c; color:#fff; padding:6px 12px; margin:0 3px; border-radius:4px; text-decoration:none; font-weight:bold;">⬅️ หน้าก่อนหน้า</a>`;
       }
-      paginationHtml += `<span style="margin:0 10px; color:#ffd700; font-weight:700; font-size:13px;">หน้า ${page} / ${totalPages}</span>`;
+      paginationHtml += `<span style="margin:0 10px; color:#ffd700; font-weight:bold;">หน้า ${page} / ${totalPages}</span>`;
       if (page < totalPages) {
-          paginationHtml += `<a href="/admin?page=${page + 1}" style="background:#23233c; color:#fff; padding:8px 14px; margin:0 3px; border-radius:6px; text-decoration:none; font-weight:700; font-size:13px;">หน้าถัดไป ➡️</a>`;
+          paginationHtml += `<a href="/admin?page=${page + 1}" style="background:#3d3d5c; color:#fff; padding:6px 12px; margin:0 3px; border-radius:4px; text-decoration:none; font-weight:bold;">หน้าถัดไป ➡️</a>`;
       }
       paginationHtml += `</div>`;
   }
 
   res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ระบบจัดการหลังบ้าน (แอดมิน)</title>
-        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-        <style>
-            * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
-            body { background: #0b0b16; color: #fff; text-align: center; margin: 0; padding: 20px 10px; }
-            h2 { color: #ffd700; font-weight: 900; }
-            h3 { color: #ffd700; font-weight: 800; font-size: 16px; margin-top: 30px; }
-            table { margin: 0 auto; border-collapse: collapse; background: rgba(26,26,46,0.85); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); font-size: 13px; width: 100%; max-width: 950px; }
-            th { padding: 10px; background: #1a1a2e; color: #ffd700; font-weight: 700; }
-            td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-            a { color: #70a1ff; text-decoration: none; font-weight: 600; }
-        </style>
-    </head>
-    <body>
+    <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:30px;">
       <h2>🛠️ ระบบจัดการหลังบ้าน (แอดมิน)</h2>
       <div style="margin-bottom: 20px;">
-          <a href="/admin/logout" style="color:#ff4757; font-weight:700; margin-right:15px;">🔒 ออกจากระบบ</a>
-          <a href="/" style="color:#70a1ff; font-weight:700;">🏠 กลับหน้าแรก</a>
+          <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none; margin-right:15px;">🔒 ออกจากระบบ</a>
+          <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
       </div>
 
-      <h3>📥 รายการสลิปรอตรวจสอบการเติมเงิน</h3>
-      <table>
-        <tr><th>ID</th><th>Username</th><th>ยอดเงิน</th><th>รูปสลิป</th><th>เวลา</th><th>จัดการ</th></tr>
+      <h3 style="color:#ffd700;">📥 รายการสลิปรอตรวจสอบการเติมเงิน (มีปุ่มลบสลิปกันป่วน)</h3>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 800px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">ยอดเงิน</th><th style="padding:8px;">รูปสลิป</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ / ลบสลิปปลอม</th></tr>
         ${pendingSlipHtml}
       </table>
 
-      <h3>💎 คำขอถอน Robux และประวัติการสุ่มจากสมาชิก</h3>
-      <table>
-        <tr><th>ID</th><th>Username</th><th>รูป Roblox</th><th>จำนวนครั้ง</th><th>รวม Robux</th><th>เวลา</th><th>จัดการ</th></tr>
+      <h3 style="color:#ffd700;">💎 คำขอถอน Robux และประวัติการสุ่มจากสมาชิก (ยอดสะสม >= 10 Robux)</h3>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ID</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">จำนวนครั้ง</th><th style="padding:8px;">รวม Robux ที่ต้องโอน</th><th style="padding:8px;">เวลา</th><th style="padding:8px;">จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
-      <h3>👥 รายชื่อสมาชิกทั้งหมด</h3>
-      <table>
-        <tr><th>ลำดับ</th><th>Username</th><th>รูป Roblox</th><th>แต้ม</th><th>ยอดใช้</th><th>อายุ</th><th style="width:220px;">จัดการ / เรตลับ</th></tr>
+      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ตั้งค่าเกลือ-เรตลับรายบุคคล / อายุ 30 วัน)</h3>
+      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:220px;">จัดการ / ตั้งค่าเรตลับ</th></tr>
         ${userHtml}
       </table>
       ${paginationHtml}
     </body>
-    </html>
   `);
 }
 
