@@ -795,7 +795,7 @@ app.post("/confirm-withdraw", async (req, res) => {
     .eq('username', username);
 
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("เกิดข้อผิดพลาด Không พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   let totalRobux = 0;
@@ -954,11 +954,32 @@ app.post("/open-lootbox", async (req, res) => {
       let reward = "";
       let rewardNum = 0;
 
-      // ถ้าเป็นการสุ่มครั้งแรก (i === 0) และมีการตั้งค่าเรตพิเศษ/เกลือไว้ จะออกผลลัพธ์นั้นแค่ครั้งเดียวในรอบนี้
+      // ถ้าเป็นการสุ่มครั้งแรก (i === 0) และมีการตั้งค่าเรตพิเศษไว้ จะออกผลลัพธ์นั้นแค่ครั้งเดียวในรอบนี้
       if (i === 0 && forceRateType !== 'normal') {
           if (forceRateType === 'always_salt') {
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
+          } else if (forceRateType === 'always_jackpot_1') {
+              reward = "1 Robux";
+              rewardNum = 1;
+          } else if (forceRateType === 'always_jackpot_2') {
+              reward = "2 Robux";
+              rewardNum = 2;
+          } else if (forceRateType === 'always_jackpot_3') {
+              reward = "3 Robux";
+              rewardNum = 3;
+          } else if (forceRateType === 'always_jackpot_5') {
+              reward = "5 Robux";
+              rewardNum = 5;
+          } else if (forceRateType === 'always_jackpot_10') {
+              reward = "10 Robux";
+              rewardNum = 10;
+          } else if (forceRateType === 'always_jackpot_15') {
+              reward = "15 Robux";
+              rewardNum = 15;
+          } else if (forceRateType === 'always_jackpot_20') {
+              reward = "20 Robux";
+              rewardNum = 20;
           } else if (forceRateType === 'always_jackpot_100') {
               reward = "100 Robux (🔥 แจ็คพอตแตก)";
               rewardNum = 100;
@@ -1026,7 +1047,7 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
-  // หลังจากสุ่มเสร็จแล้ว ให้รีเซ็ตค่าการบังคับเรตกลับเป็น 'normal' ทันที เพื่อไม่ให้ค้างไปรอบถัดไป
+  // หลังจากสุ่มเสร็จแล้ว ให้รีเซ็ตค่าการบังคับเรตกลับเป็น 'normal' ทันที
   let finalForceRateType = 'normal';
   let finalSaltCount = currentSaltCount;
 
@@ -1372,6 +1393,13 @@ async function renderAdminDashboard(req, res) {
               <select name="force_rate_type" style="width:100%; font-size:11px; padding:2px;">
                 <option value="normal" ${rateTypeVal === 'normal' ? 'selected' : ''}>เรตปกติ (สุ่มตามดวง)</option>
                 <option value="always_salt" ${rateTypeVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
+                <option value="always_jackpot_1" ${rateTypeVal === 'always_jackpot_1' ? 'selected' : ''}>⭐ ล็อคออก 1 Robux</option>
+                <option value="always_jackpot_2" ${rateTypeVal === 'always_jackpot_2' ? 'selected' : ''}>⭐ ล็อคออก 2 Robux</option>
+                <option value="always_jackpot_3" ${rateTypeVal === 'always_jackpot_3' ? 'selected' : ''}>⭐ ล็อคออก 3 Robux</option>
+                <option value="always_jackpot_5" ${rateTypeVal === 'always_jackpot_5' ? 'selected' : ''}>⭐ ล็อคออก 5 Robux</option>
+                <option value="always_jackpot_10" ${rateTypeVal === 'always_jackpot_10' ? 'selected' : ''}>⭐ ล็อคออก 10 Robux</option>
+                <option value="always_jackpot_15" ${rateTypeVal === 'always_jackpot_15' ? 'selected' : ''}>⭐ ล็อคออก 15 Robux</option>
+                <option value="always_jackpot_20" ${rateTypeVal === 'always_jackpot_20' ? 'selected' : ''}>⭐ ล็อคออก 20 Robux</option>
                 <option value="always_jackpot_100" ${rateTypeVal === 'always_jackpot_100' ? 'selected' : ''}>🔥 ล็อคแจ็คพอต 100 Robux</option>
                 <option value="always_jackpot_500" ${rateTypeVal === 'always_jackpot_500' ? 'selected' : ''}>💎 ล็อคแจ็คพอต 500 Robux</option>
                 <option value="always_jackpot_1000" ${rateTypeVal === 'always_jackpot_1000' ? 'selected' : ''}>👑 ล็อคแจ็คพอต 1,000 Robux</option>
