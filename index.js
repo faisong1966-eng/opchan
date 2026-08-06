@@ -512,7 +512,7 @@ app.get("/lootbox", async (req, res) => {
               let userSpent = ${totalSpent};
               let selectedCount = ${countParam};
               const createdAtTime = new Date("${createdAt}").getTime();
-              const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+              constthirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -523,7 +523,7 @@ app.get("/lootbox", async (req, res) => {
 
               function updateCountdown() {
                   const now = new Date().getTime();
-                  const expireTime = createdAtTime + thirtyDaysMs;
+                  const expireTime = createdAtTime + 30 * 24 * 60 * 60 * 1000;
                   const timeLeft = expireTime - now;
 
                   const box = document.getElementById("countdown-box");
