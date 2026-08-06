@@ -161,8 +161,8 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
           total_spent: 0, 
           custom_salt_count: 0, 
           force_rate_type: 'normal',
-          current_salt_streak: 0,
-          current_pity_set: 1 
+          pity_current_salt: 0,
+          pity_current_set: 1
       }]);
 
     if (error) {
@@ -277,8 +277,6 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
-    const currentSaltStreak = row.current_salt_streak || 0;
-    const currentPitySet = row.current_pity_set || 1;
 
     const { data: userHistoryRows } = await supabase
       .from('history')
@@ -373,8 +371,6 @@ app.get("/lootbox", async (req, res) => {
               .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 2px; text-align: center; }
               .reward-card .r-name { font-size: 10px; color: #fff; font-weight: bold; }
               .reward-card.legendary { border-color: #ffd700; background: linear-gradient(135deg, #2b2b1e, #13151f); box-shadow: 0 0 10px rgba(255,215,0,0.3); }
-
-              .pity-status-box { background: rgba(0, 210, 211, 0.1); border: 1px solid #00d2d3; border-radius: 8px; padding: 8px 12px; margin-bottom: 15px; text-align: left; font-size: 12px; color: #00d2d3; display: flex; justify-content: space-between; align-items: center; }
 
               .rate-sub-title { font-size: 12px; color: #ffd700; text-align: left; margin-bottom: 6px; font-weight: bold; }
               .select-group { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px; }
@@ -488,11 +484,6 @@ app.get("/lootbox", async (req, res) => {
                   </div>
               </div>
 
-              <div class="pity-status-box">
-                  <div>🧂 เกลือสะสมปัจจุบัน: <b id="display-salt-streak" style="color:#ffd700;">${currentSaltStreak}</b> ครั้ง</div>
-                  <div>🎯 เซตรางวัลถัดไป: <b id="display-pity-set" style="color:#ffd700;">เซตที่ ${currentPitySet} (จาก 5)</b></div>
-              </div>
-
               <div class="rate-sub-title">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
               <div class="select-group">
                   <button type="button" class="${countParam === 1 ? 'active' : ''}" onclick="setCount(1, this)">1 ครั้ง</button>
@@ -554,8 +545,6 @@ app.get("/lootbox", async (req, res) => {
               let userSpent = ${totalSpent};
               let totalEarnedRobux = ${totalEarnedRobux};
               let selectedCount = ${countParam};
-              let currentSaltStreak = ${currentSaltStreak};
-              let currentPitySet = ${currentPitySet};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -655,13 +644,9 @@ app.get("/lootbox", async (req, res) => {
                       userPoints = data.newPoints;
                       userSpent = data.newSpent;
                       totalEarnedRobux += data.totalRewardNum;
-                      currentSaltStreak = data.newSaltStreak;
-                      currentPitySet = data.newPitySet;
 
                       document.getElementById("points").innerText = userPoints;
                       document.getElementById("spent").innerText = userSpent;
-                      document.getElementById("display-salt-streak").innerText = currentSaltStreak;
-                      document.getElementById("display-pity-set").innerText = "เซตที่ " + currentPitySet + " (จาก 5)";
                       
                       const earnedRobuxEl = document.getElementById("total-earned-robux");
                       if (earnedRobuxEl) {
@@ -1084,24 +1069,20 @@ app.post("/open-lootbox", async (req, res) => {
 
   let currentSaltCount = user.custom_salt_count || 0;
   let forceRateType = user.force_rate_type || 'normal';
-  
-  // โหลดค่าระบบเกลือสะสมและเซตรางวัลต่อเนื่อง
-  let saltStreak = user.current_salt_streak || 0;
-  let pitySet = user.current_pity_set || 1;
 
-  // กำหนดเงื่อนไข 5 เซตของรางวัลการันตีเมื่อเกลือครบ X (คุณสามารถปรับเปลี่ยน X และ รางวัลได้ตามต้องการ)
-  // เซต 1: เกลือครบ 5 → ได้ 5 Robux
-  // เซต 2: เกลือครบ 4 → ได้ 10 Robux
-  // เซต 3: เกลือครบ 5 → ได้ 20 Robux
-  // เซต 4: เกลือครบ 3 → ได้ 50 Robux
-  // เซต 5: เกลือครบ 5 → ได้ 100 Robux
-  const pityConfigs = {
-      1: { saltLimit: 5, rewardName: "5 Robux (🎁 การันตีเซต 1)", rewardNum: 5 },
-      2: { saltLimit: 4, rewardName: "10 Robux (💎 การันตีเซต 2)", rewardNum: 10 },
-      3: { saltLimit: 5, rewardName: "20 Robux (💎 การันตีเซต 3)", rewardNum: 20 },
-      4: { saltLimit: 3, rewardName: "50 Robux (🔥 การันตีเซต 4)", rewardNum: 50 },
-      5: { saltLimit: 5, rewardName: "100 Robux (🌟 การันตีเซต 5)", rewardNum: 100 }
+  // ── Pity System Variables Setup (5 เซต เกลือครบ -> ได้รางวัลตามเซต) ──
+  // กำหนดเงื่อนไขเกลือและรางวัลของแต่ละเซต (สามารถปรับแต่งจำนวนเซตหรือค่าได้ที่นี่)
+  const pitySets = {
+      1: { saltRequired: 5, rewardName: "10 Robux (💎 รางวัลการันตี เซต 1)", rewardNum: 10 },
+      2: { saltRequired: 10, rewardName: "20 Robux (💎 รางวัลการันตี เซต 2)", rewardNum: 20 },
+      3: { saltRequired: 15, rewardName: "100 Robux (🔥 รางวัลการันตี เซต 3)", rewardNum: 100 },
+      4: { saltRequired: 20, rewardName: "500 Robux (✨ รางวัลการันตี เซต 4)", rewardNum: 500 },
+      5: { saltRequired: 25, rewardName: "1,000 Robux (🌟 รางวัลการันตี เซต 5)", rewardNum: 1000 }
   };
+  const totalSets = Object.keys(pitySets).length;
+
+  let pityCurrentSalt = user.pity_current_salt || 0;
+  let pityCurrentSet = user.pity_current_set || 1;
 
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
@@ -1151,62 +1132,64 @@ app.post("/open-lootbox", async (req, res) => {
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
               currentSaltCount -= 1;
+              pityCurrentSalt += 1; // นับเกลือเพิ่มเมื่อได้ของกาก
           } else {
-              // ตรวจสอบระบบเกลือสะสมและเซตรางวัลต่อเนื่อง
-              const currentConfig = pityConfigs[pitySet] || pityConfigs[1];
-              if (saltStreak >= currentConfig.saltLimit) {
-                  // เกลือครบตามเซตปัจจุบัน → ได้รางวัลการันตี
-                  reward = currentConfig.rewardName;
-                  rewardNum = currentConfig.rewardNum;
-                  isGuaranteedReward = true;
+              const rand = Math.random() * 100;
+              if (rand < 0.0001) { 
+                  reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; 
+                  rewardNum = 10000; 
+              }
+              else if (rand < 0.0005) { 
+                  reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; 
+                  rewardNum = 1000; 
+              }
+              else if (rand < 0.002) { 
+                  reward = "500 Robux (✨ แจ็คพอตใหญ่)"; 
+                  rewardNum = 500; 
+              }
+              else if (rand < 0.01) { 
+                  reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
+                  rewardNum = 100; 
+              }
+              else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
+              else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
+              else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
+              else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
+              else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
+              else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
+              else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
+              else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
+              else { 
+                  reward = "0 Robux (😢 เกลือ)"; 
+                  rewardNum = 0; 
+              }
 
-                  // รีเซ็ตเกลือ และขยับไปเซตถัดไป (ถ้าครบ 5 เซตแล้ว วนกลับไปเซตแรก 1)
-                  saltStreak = 0;
-                  pitySet += 1;
-                  if (pitySet > 5) {
-                      pitySet = 1;
-                  }
+              // ตรวจสอบเงื่อนไขการได้ของดีเทียบกับการนับเกลือ
+              if (rewardNum > 0) {
+                  // ได้ของดี -> รีเซ็ตเกลือ (ยกเว้นเป็น reward การันตี)
+                  pityCurrentSalt = 0;
               } else {
-                  // สุ่มปกติ
-                  const rand = Math.random() * 100;
-                  if (rand < 0.0001) { 
-                      reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; 
-                      rewardNum = 10000; 
-                  }
-                  else if (rand < 0.0005) { 
-                      reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; 
-                      rewardNum = 1000; 
-                  }
-                  else if (rand < 0.002) { 
-                      reward = "500 Robux (✨ แจ็คพอตใหญ่)"; 
-                      rewardNum = 500; 
-                  }
-                  else if (rand < 0.01) { 
-                      reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
-                      rewardNum = 100; 
-                  }
-                  else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
-                  else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
-                  else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
-                  else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
-                  else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
-                  else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
-                  else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
-                  else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
-                  else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
+                  // ได้ของกาก (0 เกลือ) -> นับเกลือเพิ่ม
+                  pityCurrentSalt += 1;
               }
           }
       }
 
-      // เช็คการจัดการเกลือตามโจทย์:
-      // ได้ของกาก (rewardNum === 0) → นับเกลือเพิ่ม (+1)
-      // ได้ของดี (rewardNum > 0) → รีเซ็ตเกลือ (ยกเว้นเป็น reward การันตี)
-      if (rewardNum === 0) {
-          saltStreak += 1;
-      } else {
-          if (!isGuaranteedReward) {
-              saltStreak = 0;
+      // ── ตรวจสอบระบบช่องรางวัลถัดไป (Pity / ช่องเกลือครบ X ได้รางวัลที่กำหนด) ──
+      const currentSetData = pitySets[pityCurrentSet] || pitySets[1];
+      if (pityCurrentSalt >= currentSetData.saltRequired) {
+          reward = currentSetData.rewardName;
+          rewardNum = currentSetData.rewardNum;
+          isGuaranteedReward = true;
+
+          // หลังจากได้รางวัลในเซตนั้น -> ไปเซตถัดไปทันที
+          pityCurrentSet += 1;
+          if (pityCurrentSet > totalSets) {
+              // ถ้าครบทุกเซต -> วนกลับไปเซตแรก
+              pityCurrentSet = 1;
           }
+          // รีเซ็ตจำนวนเกลือสะสมเพื่อเริ่มนับเซตใหม่
+          pityCurrentSalt = 0;
       }
 
       totalRewardNum += rewardNum;
@@ -1237,8 +1220,8 @@ app.post("/open-lootbox", async (req, res) => {
         total_spent: newSpent,
         custom_salt_count: finalSaltCount,
         force_rate_type: finalForceRateType,
-        current_salt_streak: saltStreak,
-        current_pity_set: pitySet
+        pity_current_salt: pityCurrentSalt,
+        pity_current_set: pityCurrentSet
     })
     .eq('username', username);
 
@@ -1252,9 +1235,7 @@ app.post("/open-lootbox", async (req, res) => {
       newSpent: newSpent,
       totalRewardNum: totalRewardNum,
       highestRewardNum: highestRewardNum,
-      summaryRewards: summaryRewards,
-      newSaltStreak: saltStreak,
-      newPitySet: pitySet
+      summaryRewards: summaryRewards
   });
 });
 
@@ -1650,7 +1631,7 @@ async function renderAdminDashboard(req, res) {
       <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ตั้งค่าเกลือ-เรตลับรายบุคคล / อายุ 30 วัน)</h3>
       <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
         <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:220px;">จัดการ / ตั้งค่าเรตลับ</th></tr>
-        ${userHtml}
+        {userHtml}
       </table>
       ${paginationHtml}
     </body>
