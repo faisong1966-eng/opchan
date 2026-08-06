@@ -306,23 +306,23 @@ app.get("/lootbox", async (req, res) => {
     if (pendingWithdrawRow) {
       withdrawSectionHtml = `
         <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
-            ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;">${pendingWithdrawRow.total_robux} Robux</b> (รอแอดมินตรวจสอบและโอนรางวัล)
+            ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">${pendingWithdrawRow.total_robux} Robux</b> (รอแอดมินตรวจสอบและโอนรางวัล)
         </div>
         <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
-            💰 ยอดปัจจุบัน: <b style="color:#ffd700;">${totalEarnedRobux} Robux</b>
+            💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
         </div>
       `;
     } else {
       const canWithdraw = totalEarnedRobux >= 10;
       withdrawSectionHtml = `
         <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
-            💰 ยอดปัจจุบัน: <b style="color:#ffd700;">${totalEarnedRobux} Robux</b>
+            💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
         </div>
         <div style="margin-top:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; text-align:left;">
             <b style="font-size:13px; color:#ffd700;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</b>
             <form action="/request-withdraw" method="POST">
                 <input type="hidden" name="username" value="${username}">
-                <button type="submit" style="width:100%; margin-top:6px; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
+                <button type="submit" id="withdraw-btn" style="width:100%; margin-top:6px; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
                     ${canWithdraw ? '📥 กดส่งคำขอถอน Robux' : '❌ ยังสะสมไม่ถึง 10 Robux (ถอนไม่ได้)'}
                 </button>
             </form>
@@ -533,6 +533,7 @@ app.get("/lootbox", async (req, res) => {
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
+              let totalEarnedRobux = ${totalEarnedRobux};
               let selectedCount = ${countParam};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
@@ -632,8 +633,25 @@ app.get("/lootbox", async (req, res) => {
 
                       userPoints = data.newPoints;
                       userSpent = data.newSpent;
+                      totalEarnedRobux += data.totalRewardNum;
+
                       document.getElementById("points").innerText = userPoints;
                       document.getElementById("spent").innerText = userSpent;
+                      
+                      const earnedRobuxEl = document.getElementById("total-earned-robux");
+                      if (earnedRobuxEl) {
+                          earnedRobuxEl.innerText = totalEarnedRobux + " Robux";
+                      }
+
+                      const withdrawBtn = document.getElementById("withdraw-btn");
+                      if (withdrawBtn) {
+                          if (totalEarnedRobux >= 10) {
+                              withdrawBtn.disabled = false;
+                              withdrawBtn.style.background = "#2ed573";
+                              withdrawBtn.style.cursor = "pointer";
+                              withdrawBtn.innerText = "📥 กดส่งคำขอถอน Robux";
+                          }
+                      }
 
                       let totalRewardNum = data.totalRewardNum;
                       let highestRewardNum = data.highestRewardNum;
