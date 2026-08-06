@@ -871,7 +871,6 @@ app.post("/confirm-withdraw", async (req, res) => {
     totalRobux += (h.reward_num || 0);
   });
 
-  // บันทึก ID สูงสุดของประวัติรอบนี้ไว้ เพื่อให้เวลาแอดมินอนุมัติ จะได้ลบเฉพาะประวัติเก่าชุดนี้เท่านั้น ไม่กระทบประวัติใหม่ที่ผู้เล่นสุ่มระหว่างรอ
   const maxHistoryId = userHistory[userHistory.length - 1].id;
 
   const { data: userData } = await supabase
@@ -1219,7 +1218,6 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
-  // ดึงข้อมูลคำขอถอนเพื่อดูว่าควรลบประวัติถึง ID ไหน
   const { data: withdrawData } = await supabase
     .from('pending_withdraw')
     .select('last_history_id')
@@ -1232,15 +1230,12 @@ app.post("/admin/approve-withdraw", async (req, res) => {
     .eq('id', withdraw_id);
 
   if (withdrawData && withdrawData.last_history_id) {
-    // ลบเฉพาะประวัติการสุ่มเก่าที่อยู่ในรอบที่ขอถอน (ID น้อยกว่าหรือเท่ากับ last_history_id) 
-    // ประวัติใหม่ที่ผู้เล่นสุ่มระหว่างรอจะไม่ถูกลบ
     await supabase
       .from('history')
       .delete()
       .eq('username', username)
       .lte('id', withdrawData.last_history_id);
   } else {
-    // เผื่อเป็นเคสข้อมูลเก่าที่ยังไม่มี last_history_id ให้ลบทั้งหมดของเจ้านั้น
     await supabase
       .from('history')
       .delete()
