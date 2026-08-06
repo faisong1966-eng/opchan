@@ -224,6 +224,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// API สำหรับให้ Frontend เช็คสถานะการถอนแบบ Realtime
 app.get("/check-withdraw-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ status: 'none' });
@@ -236,7 +237,7 @@ app.get("/check-withdraw-status", async (req, res) => {
       .single();
 
     if (!pendingWithdrawRow) {
-      return res.json({ status: 'approved' }); 
+      return res.json({ status: 'approved' }); // ถ้าไม่มีในตาราง pending แสดงว่าแอดมินอนุมัติและเคลียร์ออกไปแล้ว
     } else {
       return res.json({ status: pendingWithdrawRow.status });
     }
@@ -338,39 +339,61 @@ app.get("/lootbox", async (req, res) => {
           <style>
               body { background-color: #0b0c10; color: #ffffff; text-align: center; margin: 0; padding: 15px 0; }
               .main-wrapper { max-width: 460px; margin: 0 auto; background: #13151f; border-radius: 16px; border: 1px solid #25283c; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; padding: 20px; box-sizing: border-box; }
+              
+              /* Header Banner */
               .banner-header { text-align: center; margin-bottom: 15px; position: relative; }
               .banner-header h2 { color: #ffd700; font-size: 20px; margin: 5px 0 0 0; text-shadow: 0 0 10px rgba(255,215,0,0.4); }
               .banner-header p { color: #00d2d3; font-size: 13px; margin: 3px 0 0 0; font-weight: bold; }
+
+              /* User Info Bar */
               .user-bar { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
               .user-left { display: flex; align-items: center; gap: 10px; }
               .profile-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #ffd700; }
               .user-right { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+              
               .btn-history { background: #00d2d3; color: #000; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
               .btn-edit { background: #ffa502; color: #000; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
+
+              /* Wallet stats */
               .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 12px; font-weight: bold; color: #ffd700; }
+              
+              /* Countdown */
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
+
+              /* Rewards Showcase Box */
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
               .rewards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
               .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 2px; text-align: center; }
               .reward-card .r-name { font-size: 10px; color: #fff; font-weight: bold; }
               .reward-card.legendary { border-color: #ffd700; background: linear-gradient(135deg, #2b2b1e, #13151f); box-shadow: 0 0 10px rgba(255,215,0,0.3); }
+
+              /* Select Counts */
               .rate-sub-title { font-size: 12px; color: #ffd700; text-align: left; margin-bottom: 6px; font-weight: bold; }
               .select-group { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px; }
               .select-group button { background: #1b1e2e; color: #fff; border: 1px solid #2f3452; padding: 6px 0; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; text-align: center; }
               .select-group button.active { background: #ffd700; color: #000; border-color: #ffaa00; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+
+              /* Main Open Box Button */
               .box-btn { background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); margin-bottom: 10px; }
               .box-btn:hover { filter: brightness(1.1); }
               .box-btn:disabled { background: #555 !important; cursor: not-allowed; box-shadow: none; filter: none; }
+
               #result-box { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; background: #181b2a; border: 1px solid #2c314f; min-height: 40px; text-align: left; max-height: 180px; overflow-y: auto; }
+
+              /* Topup Section Styling */
               .topup-section-title { font-size: 15px; color: #ffd700; text-align: left; margin: 15px 0 5px 0; font-weight: bold; border-left: 3px solid #ffd700; padding-left: 6px; }
               .topup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
               .topup-card { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; text-align: left; }
               .topup-card h4 { font-size: 12px; margin: 0 0 8px 0; display: flex; align-items: center; gap: 4px; }
+              
               label { display: block; font-size: 10px; color: #a4b0be; margin-bottom: 3px; }
               input[type="number"] { width: 100%; padding: 6px; background: #13151f; border: 1px solid #333856; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; }
               .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; }
+              
               .notice-bottom { background: linear-gradient(135deg, #1b1e2e, #251e2b); border: 1px solid #4a2845; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 11px; color: #ff9ff3; text-align: center; }
+
+              /* Animations */
               @keyframes bouncePop {
                   0% { transform: scale(0.3); opacity: 0; }
                   50% { transform: scale(1.15); opacity: 1; }
@@ -389,17 +412,21 @@ app.get("/lootbox", async (req, res) => {
                   0% { background-color: rgba(0, 255, 255, 0.4); border: 2px solid #00ffff; }
                   100% { background-color: rgba(255, 0, 255, 0.4); border: 2px solid #ff00ff; }
               }
+
               .logout-link { display: block; margin-top: 20px; color: #ff4757; text-decoration: none; font-size: 12px; font-weight: bold; }
           </style>
       </head>
       <body>
           <div class="main-wrapper">
+              
+              <!-- Banner Header -->
               <div class="banner-header">
                   <div style="font-size: 18px;">🎉 ✨ 🎁</div>
                   <h2>สุ่มกล่อง Roblox Robux</h2>
                   <p>✨ สุ่มรับรางวัลสูงสุด 10,000 Robux! ✨</p>
               </div>
 
+              <!-- User Bar -->
               <div class="user-bar">
                   <div class="user-left">
                       <img src="${robloxImg}" class="profile-img">
@@ -418,6 +445,7 @@ app.get("/lootbox", async (req, res) => {
                   ⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...
               </div>
               
+              <!-- Wallet Stats -->
               <div class="wallet-box">
                   <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
                   <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
@@ -425,6 +453,7 @@ app.get("/lootbox", async (req, res) => {
 
               ${withdrawSectionHtml}
               
+              <!-- Showcase Rewards -->
               <div class="showcase-container">
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
                   <div class="rewards-grid">
@@ -473,9 +502,11 @@ app.get("/lootbox", async (req, res) => {
               
               <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
 
+              <!-- Topup Section -->
               <div class="topup-section-title">💳 ช่องทางการเติมเงิน</div>
               
               <div class="topup-grid">
+                  <!-- PromptPay -->
                   <div class="topup-card">
                       <h4 style="color: #2ed573;">📱 พร้อมเพย์</h4>
                       <form action="/create-topup" method="POST">
@@ -487,6 +518,7 @@ app.get("/lootbox", async (req, res) => {
                       </form>
                   </div>
 
+                  <!-- TrueMoney -->
                   <div class="topup-card">
                       <h4 style="color: #ff4757;">🧡 Wallet</h4>
                       <form action="/create-topup" method="POST">
@@ -522,21 +554,24 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
+              // ขอสิทธิ์แจ้งเตือนของเบราว์เซอร์ (Google Chrome Notification)
               if (window.Notification && Notification.permission !== "granted") {
                   Notification.requestPermission();
               }
 
+              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime (แจ้งเตือนครั้งเดียวจบ ไม่รัวกวนใจ)
               let hasAlertedApproved = false;
-              const checkInterval = setInterval(() => {
+              let checkWithdrawInterval = setInterval(() => {
                   if (hasAlertedApproved) return;
 
                   fetch('/check-withdraw-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (data.status === 'approved' && !hasAlertedApproved) {
-                          hasAlertedApproved = true; 
-                          clearInterval(checkInterval); // หยุดการยิงเช็คซ้ำทันทีเมื่อแจ้งเตือนแล้ว
+                          hasAlertedApproved = true; // ล็อคทันทีไม่ให้ทำซ้ำ
+                          clearInterval(checkWithdrawInterval); // หยุดการเช็คซ้ำเมื่ออนุมัติแล้ว
 
+                          // แจ้งเตือนผ่าน Browser (Google Chrome Desktop Notification)
                           if (window.Notification && Notification.permission === "granted") {
                               new Notification("🎉 แอดมินอนุมัติยอดถอนแล้ว!", {
                                   body: "แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว กรุณาเช็คในเกม",
@@ -544,11 +579,12 @@ app.get("/lootbox", async (req, res) => {
                               });
                           }
 
+                          // แจ้งเตือนผ่าน Alert บนหน้าเว็บ
                           alert("🎉 แจ้งเตือนจากระบบ: แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ");
                           location.reload();
                       }
                   }).catch(err => {});
-              }, 5000);
+              }, 5000); // เช็คทุกๆ 5 วินาที
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -826,6 +862,7 @@ app.post("/request-withdraw", async (req, res) => {
   }
 
   let totalRobux = 0;
+  let totalOpens = userHistory.length;
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
   });
@@ -1241,6 +1278,7 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
+// อนุมัติถอน: เคลียร์ยอดปัจจุบันให้เป็น 0 โดยลบเฉพาะประวัติส่วนที่ถอนออกไป
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
