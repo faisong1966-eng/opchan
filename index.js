@@ -226,6 +226,7 @@ app.post("/login", async (req, res) => {
 
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
+  const countParam = parseInt(req.query.count) || 1;
   if (!username) return res.redirect("/login");
 
   const isExpired = await checkUserExpiration(username);
@@ -346,6 +347,7 @@ app.get("/lootbox", async (req, res) => {
               /* Main Open Box Button */
               .box-btn { background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); margin-bottom: 10px; }
               .box-btn:hover { filter: brightness(1.1); }
+              .box-btn:disabled { background: #555 !important; cursor: not-allowed; box-shadow: none; filter: none; }
 
               #result-box { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; background: #181b2a; border: 1px solid #2c314f; min-height: 40px; text-align: left; max-height: 180px; overflow-y: auto; }
 
@@ -462,15 +464,15 @@ app.get("/lootbox", async (req, res) => {
 
               <div class="rate-sub-title">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
               <div class="select-group">
-                  <button type="button" class="active" onclick="setCount(1, this)">1 ครั้ง</button>
-                  <button type="button" onclick="setCount(10, this)">10 ครั้ง</button>
-                  <button type="button" onclick="setCount(20, this)">20 ครั้ง</button>
-                  <button type="button" onclick="setCount(30, this)">30 ครั้ง</button>
-                  <button type="button" onclick="setCount(50, this)">50 ครั้ง</button>
-                  <button type="button" onclick="setCount(100, this)">100 ครั้ง</button>
+                  <button type="button" class="${countParam === 1 ? 'active' : ''}" onclick="setCount(1, this)">1 ครั้ง</button>
+                  <button type="button" class="${countParam === 10 ? 'active' : ''}" onclick="setCount(10, this)">10 ครั้ง</button>
+                  <button type="button" class="${countParam === 20 ? 'active' : ''}" onclick="setCount(20, this)">20 ครั้ง</button>
+                  <button type="button" class="${countParam === 30 ? 'active' : ''}" onclick="setCount(30, this)">30 ครั้ง</button>
+                  <button type="button" class="${countParam === 50 ? 'active' : ''}" onclick="setCount(50, this)">50 ครั้ง</button>
+                  <button type="button" class="${countParam === 100 ? 'active' : ''}" onclick="setCount(100, this)">100 ครั้ง</button>
               </div>
 
-              <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (ใช้ 1 แต้ม)</button>
+              <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (${countParam} ครั้ง / ใช้ ${countParam} แต้ม)</button>
               
               <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
 
@@ -522,7 +524,7 @@ app.get("/lootbox", async (req, res) => {
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
-              let selectedCount = 1;
+              let selectedCount = ${countParam};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -598,6 +600,9 @@ app.get("/lootbox", async (req, res) => {
                       return;
                   }
 
+                  const openBtn = document.getElementById("open-box-btn");
+                  openBtn.disabled = true;
+
                   const resBox = document.getElementById("result-box");
                   resBox.className = "";
                   resBox.innerText = \`🌀 ส่งคำขอเปิดกล่องรัวๆ \${selectedCount} ครั้ง ไปยัง Server...\`;
@@ -655,7 +660,9 @@ app.get("/lootbox", async (req, res) => {
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>
                           \${noticeText}\`;
 
-                      setTimeout(() => { location.reload(); }, 2000);
+                      setTimeout(() => { 
+                          window.location.href = \`/lootbox?username=${username}&count=\${selectedCount}\`; 
+                      }, 2000);
                   })
                   .catch(err => {
                       alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
@@ -1376,9 +1383,10 @@ async function renderAdminDashboard(req, res) {
 
   let withdrawHtml = "";
   if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
-    pendingWithdrawRows.forEach(w => {
+    pendingWithdrawRows.forEach((w, index) => {
+      const withdrawRunningNo = index + 1;
       withdrawHtml += `<tr>
-        <td>${w.id}</td>
+        <td>${withdrawRunningNo}</td>
         <td><b>${w.username}</b></td>
         <td><a href="${w.roblox_img}" target="_blank"><img src="${w.roblox_img}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ffd700;"></a></td>
         <td style="color:#00d2d3;">สุ่มไป ${w.total_opens} ครั้ง</td>
