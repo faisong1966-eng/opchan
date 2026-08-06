@@ -1081,7 +1081,7 @@ app.post("/open-lootbox", async (req, res) => {
               reward = "5 Robux (🎁 เฮ้ยมาว่ะ)";
               rewardNum = 5;
           } else if (forceRateType === 'always_jackpot_10') {
-              reward = "10 Robux (💎 นี่แหละที่อยากได)";
+              reward = "10 Robux (💎 นี่แหละที่อยากได้)";
               rewardNum = 10;
           } else if (forceRateType === 'always_jackpot_15') {
               reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)";
@@ -1127,7 +1127,7 @@ app.post("/open-lootbox", async (req, res) => {
               }
               else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
               else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
-              else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได)"; rewardNum = 10; }
+              else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
               else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
               else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
               else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
