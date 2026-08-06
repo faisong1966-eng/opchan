@@ -161,8 +161,8 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
           total_spent: 0, 
           custom_salt_count: 0, 
           force_rate_type: 'normal',
-          current_salt_counter: 0,
-          current_pity_set: 1
+          current_salt_streak: 0,
+          current_pity_set: 1 
       }]);
 
     if (error) {
@@ -277,7 +277,7 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const robloxImg = row.roblox_img;
     const createdAt = row.created_at;
-    const currentSaltCounter = row.current_salt_counter || 0;
+    const currentSaltStreak = row.current_salt_streak || 0;
     const currentPitySet = row.current_pity_set || 1;
 
     const { data: userHistoryRows } = await supabase
@@ -367,15 +367,14 @@ app.get("/lootbox", async (req, res) => {
               
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
-              .pity-info-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; margin-bottom: 12px; font-size: 12px; text-align: left; }
-              .pity-info-box b { color: #ffd700; }
-
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
               .rewards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
               .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 2px; text-align: center; }
               .reward-card .r-name { font-size: 10px; color: #fff; font-weight: bold; }
               .reward-card.legendary { border-color: #ffd700; background: linear-gradient(135deg, #2b2b1e, #13151f); box-shadow: 0 0 10px rgba(255,215,0,0.3); }
+
+              .pity-status-box { background: rgba(0, 210, 211, 0.1); border: 1px solid #00d2d3; border-radius: 8px; padding: 8px 12px; margin-bottom: 15px; text-align: left; font-size: 12px; color: #00d2d3; display: flex; justify-content: space-between; align-items: center; }
 
               .rate-sub-title { font-size: 12px; color: #ffd700; text-align: left; margin-bottom: 6px; font-weight: bold; }
               .select-group { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px; }
@@ -453,11 +452,6 @@ app.get("/lootbox", async (req, res) => {
                   <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              <div class="pity-info-box">
-                  <div>🧂 เกลือปัจจุบัน: <b id="display-salt">${currentSaltCounter}</b> ครั้ง</div>
-                  <div>🎁 เซตรางวัลการันตีปัจจุบัน: เซตที่ <b id="display-set">${currentPitySet}</b> (จาก 5 เซต)</div>
-              </div>
-
               ${withdrawSectionHtml}
               
               <div class="showcase-container">
@@ -492,6 +486,11 @@ app.get("/lootbox", async (req, res) => {
                           <div class="r-name" style="color:#ffd700;">10,000 R (UFO)</div>
                       </div>
                   </div>
+              </div>
+
+              <div class="pity-status-box">
+                  <div>🧂 เกลือสะสมปัจจุบัน: <b id="display-salt-streak" style="color:#ffd700;">${currentSaltStreak}</b> ครั้ง</div>
+                  <div>🎯 เซตรางวัลถัดไป: <b id="display-pity-set" style="color:#ffd700;">เซตที่ ${currentPitySet} (จาก 5)</b></div>
               </div>
 
               <div class="rate-sub-title">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
@@ -554,9 +553,9 @@ app.get("/lootbox", async (req, res) => {
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
               let totalEarnedRobux = ${totalEarnedRobux};
-              let currentSaltCounter = ${currentSaltCounter};
-              let currentPitySet = ${currentPitySet};
               let selectedCount = ${countParam};
+              let currentSaltStreak = ${currentSaltStreak};
+              let currentPitySet = ${currentPitySet};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -656,13 +655,13 @@ app.get("/lootbox", async (req, res) => {
                       userPoints = data.newPoints;
                       userSpent = data.newSpent;
                       totalEarnedRobux += data.totalRewardNum;
-                      currentSaltCounter = data.newSaltCounter;
+                      currentSaltStreak = data.newSaltStreak;
                       currentPitySet = data.newPitySet;
 
                       document.getElementById("points").innerText = userPoints;
                       document.getElementById("spent").innerText = userSpent;
-                      document.getElementById("display-salt").innerText = currentSaltCounter;
-                      document.getElementById("display-set").innerText = currentPitySet;
+                      document.getElementById("display-salt-streak").innerText = currentSaltStreak;
+                      document.getElementById("display-pity-set").innerText = "เซตที่ " + currentPitySet + " (จาก 5)";
                       
                       const earnedRobuxEl = document.getElementById("total-earned-robux");
                       if (earnedRobuxEl) {
@@ -1086,17 +1085,22 @@ app.post("/open-lootbox", async (req, res) => {
   let currentSaltCount = user.custom_salt_count || 0;
   let forceRateType = user.force_rate_type || 'normal';
   
-  // Logic เกลือและรางวัลการันตี (หลายเซต)
-  let saltCounter = user.current_salt_counter || 0;
+  // โหลดค่าระบบเกลือสะสมและเซตรางวัลต่อเนื่อง
+  let saltStreak = user.current_salt_streak || 0;
   let pitySet = user.current_pity_set || 1;
 
-  // กำหนดเงื่อนไข 5 เซต (สามารถปรับแต่งจำนวนเกลือที่ต้องครบ และรางวัลที่จะได้ในแต่ละเซตได้ที่นี่)
-  const pitySetsConfig = {
-      1: { requiredSalt: 10, rewardNum: 10, rewardText: "10 Robux (🎁 การันตีเซต 1)" },
-      2: { requiredSalt: 15, rewardNum: 20, rewardText: "20 Robux (🎁 การันตีเซต 2)" },
-      3: { requiredSalt: 20, rewardNum: 50, rewardText: "50 Robux (🔥 การันตีเซต 3)" },
-      4: { requiredSalt: 25, rewardNum: 100, rewardText: "100 Robux (✨ การันตีเซต 4)" },
-      5: { requiredSalt: 30, rewardNum: 500, rewardText: "🌟 การันตีเซต 5 สุดยอดตำนาน (500 Robux)" }
+  // กำหนดเงื่อนไข 5 เซตของรางวัลการันตีเมื่อเกลือครบ X (คุณสามารถปรับเปลี่ยน X และ รางวัลได้ตามต้องการ)
+  // เซต 1: เกลือครบ 5 → ได้ 5 Robux
+  // เซต 2: เกลือครบ 4 → ได้ 10 Robux
+  // เซต 3: เกลือครบ 5 → ได้ 20 Robux
+  // เซต 4: เกลือครบ 3 → ได้ 50 Robux
+  // เซต 5: เกลือครบ 5 → ได้ 100 Robux
+  const pityConfigs = {
+      1: { saltLimit: 5, rewardName: "5 Robux (🎁 การันตีเซต 1)", rewardNum: 5 },
+      2: { saltLimit: 4, rewardName: "10 Robux (💎 การันตีเซต 2)", rewardNum: 10 },
+      3: { saltLimit: 5, rewardName: "20 Robux (💎 การันตีเซต 3)", rewardNum: 20 },
+      4: { saltLimit: 3, rewardName: "50 Robux (🔥 การันตีเซต 4)", rewardNum: 50 },
+      5: { saltLimit: 5, rewardName: "100 Robux (🌟 การันตีเซต 5)", rewardNum: 100 }
   };
 
   for (let i = 0; i < selectedCount; i++) {
@@ -1147,22 +1151,23 @@ app.post("/open-lootbox", async (req, res) => {
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
               currentSaltCount -= 1;
-              saltCounter += 1;
           } else {
-              // เช็คระบบเกลือครบเซต (ช่องรางวัลถัดไป)
-              const currentConfig = pitySetsConfig[pitySet] || pitySetsConfig[1];
-              if (saltCounter >= currentConfig.requiredSalt) {
-                  reward = currentConfig.rewardText;
+              // ตรวจสอบระบบเกลือสะสมและเซตรางวัลต่อเนื่อง
+              const currentConfig = pityConfigs[pitySet] || pityConfigs[1];
+              if (saltStreak >= currentConfig.saltLimit) {
+                  // เกลือครบตามเซตปัจจุบัน → ได้รางวัลการันตี
+                  reward = currentConfig.rewardName;
                   rewardNum = currentConfig.rewardNum;
                   isGuaranteedReward = true;
-                  
-                  // ได้รางวัลการันตีแล้ว รีเซ็ตเกลือ และขยับไปเซตถัดไปทันที (ถ้าครบ 5 เซตแล้ววนกลับมา 1)
-                  saltCounter = 0;
+
+                  // รีเซ็ตเกลือ และขยับไปเซตถัดไป (ถ้าครบ 5 เซตแล้ว วนกลับไปเซตแรก 1)
+                  saltStreak = 0;
                   pitySet += 1;
                   if (pitySet > 5) {
                       pitySet = 1;
                   }
               } else {
+                  // สุ่มปกติ
                   const rand = Math.random() * 100;
                   if (rand < 0.0001) { 
                       reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; 
@@ -1189,14 +1194,18 @@ app.post("/open-lootbox", async (req, res) => {
                   else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
                   else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
                   else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
-
-                  // กฎเดิม: ได้ของดี (>= 1 Robux) และไม่ใช่ reward การันตี -> รีเซ็ตเกลือเป็น 0
-                  if (rewardNum >= 1 && !isGuaranteedReward) {
-                      saltCounter = 0;
-                  } else if (rewardNum === 0) {
-                      saltCounter += 1;
-                  }
               }
+          }
+      }
+
+      // เช็คการจัดการเกลือตามโจทย์:
+      // ได้ของกาก (rewardNum === 0) → นับเกลือเพิ่ม (+1)
+      // ได้ของดี (rewardNum > 0) → รีเซ็ตเกลือ (ยกเว้นเป็น reward การันตี)
+      if (rewardNum === 0) {
+          saltStreak += 1;
+      } else {
+          if (!isGuaranteedReward) {
+              saltStreak = 0;
           }
       }
 
@@ -1228,7 +1237,7 @@ app.post("/open-lootbox", async (req, res) => {
         total_spent: newSpent,
         custom_salt_count: finalSaltCount,
         force_rate_type: finalForceRateType,
-        current_salt_counter: saltCounter,
+        current_salt_streak: saltStreak,
         current_pity_set: pitySet
     })
     .eq('username', username);
@@ -1244,7 +1253,7 @@ app.post("/open-lootbox", async (req, res) => {
       totalRewardNum: totalRewardNum,
       highestRewardNum: highestRewardNum,
       summaryRewards: summaryRewards,
-      newSaltCounter: saltCounter,
+      newSaltStreak: saltStreak,
       newPitySet: pitySet
   });
 });
