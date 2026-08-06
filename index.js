@@ -898,10 +898,8 @@ app.post("/confirm-withdraw", async (req, res) => {
 
   let totalRobux = 0;
   let totalOpens = userHistory.length;
-  let idsToDelete = [];
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
-    idsToDelete.push(h.id);
   });
 
   const { data: userData } = await supabase
@@ -923,7 +921,7 @@ app.post("/confirm-withdraw", async (req, res) => {
     return res.send(`<script>alert("คุณมีคำขอถอนที่กำลังรอแอดมินตรวจสอบอยู่แล้วครับ!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
-  // สร้างคำขอถอน
+  // สร้างคำขอถอน พร้อมเก็บประวัติชุดสุ่มนี้ไว้ให้แอดมินตรวจสอบได้
   await supabase
     .from('pending_withdraw')
     .insert([{
@@ -934,15 +932,7 @@ app.post("/confirm-withdraw", async (req, res) => {
       status: 'pending'
     }]);
 
-  // ลบประวัติเก่าออกทันที เพื่อให้ยอดปัจจุบัน (totalEarnedRobux) กลับมาเป็น 0 ทันที
-  if (idsToDelete.length > 0) {
-    await supabase
-      .from('history')
-      .delete()
-      .in('id', idsToDelete);
-  }
-
-  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! แต้มถูกรีเซ็ตเป็น 0 และส่งประวัติให้แอดมินเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! แอดมินสามารถตรวจสอบประวัติการสุ่มของคุณได้แล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1264,7 +1254,7 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// อนุมัติถอน (เนื่องจากประวัติถูกลบไปตั้งแต่ตอนกดขอถอนแล้ว จึงลบแค่ pending_withdraw ออก)
+// อนุมัติถอน (เคลียร์คำขอถอน และลบประวัติการสุ่มชุดนั้นออกจาก history เพื่อเริ่มรอบใหม่)
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
@@ -1280,14 +1270,20 @@ app.post("/admin/approve-withdraw", async (req, res) => {
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
+
+    // ลบประวัติเก่าของยูสเซอร์นี้ออกเมื่อแอดมินกดอนุมัติการถอนสำเร็จ
+    await supabase
+      .from('history')
+      .delete()
+      .eq('username', username);
   }
 
-  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อยและล้างประวัติการสุ่มเก่าแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id } = req.body;
+  const { withdraw_id, username } = req.body;
 
   await supabase
     .from('pending_withdraw')
@@ -1448,6 +1444,7 @@ async function renderAdminDashboard(req, res) {
             </form>
             <form action="/admin/delete-withdraw" method="POST" onsubmit="return confirm('เคลียร์คำขอถอนของ ${w.username} ใช่ไหม?');" style="margin:0;">
               <input type="hidden" name="withdraw_id" value="${w.id}">
+              <input type="hidden" name="username" value="${w.username}">
               <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">🗑️ ลบ/เคลียร์</button>
             </form>
           </div>
