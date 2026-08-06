@@ -153,7 +153,16 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
   try {
     const { error } = await supabase
       .from('users')
-      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0, custom_salt_count: 0, force_rate_type: 'normal', pattern_enabled: false, pattern_salt_1: 0, pattern_jp_1: 0, pattern_salt_2: 0, pattern_jp_2: 0 }]);
+      .insert([{ 
+          username, 
+          password, 
+          roblox_img: robloxImg, 
+          points: 0, 
+          total_spent: 0, 
+          target_salt_count: 0,
+          current_salt_progress: 0,
+          target_reward_on_hit: 'normal' 
+      }]);
 
     if (error) {
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
@@ -1057,95 +1066,63 @@ app.post("/open-lootbox", async (req, res) => {
   let historyBatch = [];
   let summaryRewards = {};
 
-  let currentSaltCount = user.custom_salt_count || 0;
-  let forceRateType = user.force_rate_type || 'normal';
-  
-  let patternEnabled = user.pattern_enabled || false;
-  let pSalt1 = user.pattern_salt_1 || 0;
-  let pJp1 = user.pattern_jp_1 || 0;
-  let pSalt2 = user.pattern_salt_2 || 0;
-  let pJp2 = user.pattern_jp_2 || 0;
+  let targetSaltCount = user.target_salt_count || 0;
+  let currentSaltProgress = user.current_salt_progress || 0;
+  let targetRewardOnHit = user.target_reward_on_hit || 'normal';
 
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
       let rewardNum = 0;
 
-      if (i === 0 && forceRateType !== 'normal') {
-          if (forceRateType === 'always_salt') {
-              reward = "0 Robux (😢 เกลือ)";
-              rewardNum = 0;
-          } else if (forceRateType === 'always_jackpot_1') {
-              reward = "1 Robux (🎁 เริ่มมาแล้ว)";
-              rewardNum = 1;
-          } else if (forceRateType === 'always_jackpot_2') {
-              reward = "2 Robux (🎁 กำลังไปได้สวย)";
-              rewardNum = 2;
-          } else if (forceRateType === 'always_jackpot_3') {
-              reward = "3 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)";
-              rewardNum = 3;
-          } else if (forceRateType === 'always_jackpot_5') {
-              reward = "5 Robux (🎁 เฮ้ยมาว่ะ)";
-              rewardNum = 5;
-          } else if (forceRateType === 'always_jackpot_10') {
-              reward = "10 Robux (💎 นี่แหละที่อยากได้)";
-              rewardNum = 10;
-          } else if (forceRateType === 'always_jackpot_15') {
-              reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)";
-              rewardNum = 15;
-          } else if (forceRateType === 'always_jackpot_20') {
-              reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)";
-              rewardNum = 20;
-          } else if (forceRateType === 'always_jackpot_100') {
-              reward = "100 Robux (🔥 แจ็คพอตแตก)";
-              rewardNum = 100;
-          } else if (forceRateType === 'always_jackpot_500') {
-              reward = "500 Robux (✨ แจ็คพอตใหญ่)";
-              rewardNum = 500;
-          } else if (forceRateType === 'always_jackpot_1000') {
-              reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)";
-              rewardNum = 1000;
-          } else if (forceRateType === 'always_jackpot_10000') {
-              reward = "10,000 Robux (🐉 เทพมังกร ระดับจักรวาล)";
-              rewardNum = 10000;
-          }
-      } else if (patternEnabled) {
-          if (pSalt1 > 0) {
-              reward = "0 Robux (😢 เกลือ)";
-              rewardNum = 0;
-              pSalt1 -= 1;
-          } else if (pJp1 > 0) {
-              reward = "100 Robux (🔥 แจ็คพอตแตก)";
-              rewardNum = 100;
-              pJp1 -= 1;
-          } else if (pSalt2 > 0) {
-              reward = "0 Robux (😢 เกลือ)";
-              rewardNum = 0;
-              pSalt2 -= 1;
-          } else if (pJp2 > 0) {
-              reward = "100 Robux (🔥 แจ็คพอตแตก)";
-              rewardNum = 100;
-              pJp2 -= 1;
-          } else {
-              const rand = Math.random() * 100;
-              if (rand < 0.0001) { reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
-              else if (rand < 0.0005) { reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
-              else if (rand < 0.002) { reward = "500 Robux (✨ แจ็คพอตใหญ่)"; rewardNum = 500; }
-              else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
-              else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
-              else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
-              else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
-              else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
-              else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
-              else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
-              else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
-              else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
-              else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
-          }
+      if (currentSaltProgress < targetSaltCount) {
+          reward = "0 Robux (😢 เกลือ)";
+          rewardNum = 0;
+          currentSaltProgress += 1;
       } else {
-          if (currentSaltCount > 0) {
-              reward = "0 Robux (😢 เกลือ)";
-              rewardNum = 0;
-              currentSaltCount -= 1;
+          if (targetRewardOnHit !== 'normal') {
+              if (targetRewardOnHit === 'always_salt') {
+                  reward = "0 Robux (😢 เกลือ)";
+                  rewardNum = 0;
+              } else if (targetRewardOnHit === '1') {
+                  reward = "1 Robux (🎁 เริ่มมาแล้ว)";
+                  rewardNum = 1;
+              } else if (targetRewardOnHit === '2') {
+                  reward = "2 Robux (🎁 กำลังไปได้สวย)";
+                  rewardNum = 2;
+              } else if (targetRewardOnHit === '3') {
+                  reward = "3 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)";
+                  rewardNum = 3;
+              } else if (targetRewardOnHit === '4') {
+                  reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)";
+                  rewardNum = 4;
+              } else if (targetRewardOnHit === '5') {
+                  reward = "5 Robux (🎁 เฮ้ยมาว่ะ)";
+                  rewardNum = 5;
+              } else if (targetRewardOnHit === '10') {
+                  reward = "10 Robux (💎 นี่แหละที่อยากได้)";
+                  rewardNum = 10;
+              } else if (targetRewardOnHit === '15') {
+                  reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)";
+                  rewardNum = 15;
+              } else if (targetRewardOnHit === '20') {
+                  reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)";
+                  rewardNum = 20;
+              } else if (targetRewardOnHit === '100') {
+                  reward = "100 Robux (🔥 แจ็คพอตแตก)";
+                  rewardNum = 100;
+              } else if (targetRewardOnHit === '500') {
+                  reward = "500 Robux (✨ แจ็คพอตใหญ่)";
+                  rewardNum = 500;
+              } else if (targetRewardOnHit === '1000') {
+                  reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)";
+                  rewardNum = 1000;
+              } else if (targetRewardOnHit === '10000') {
+                  reward = "10,000 Robux (🐉 เทพมังกร ระดับจักรวาล)";
+                  rewardNum = 10000;
+              }
+              targetRewardOnHit = 'normal';
+              currentSaltProgress = 0;
+              targetSaltCount = 0;
           } else {
               const rand = Math.random() * 100;
               if (rand < 0.0001) { 
@@ -1194,31 +1171,14 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
-  let finalForceRateType = 'normal';
-  let finalSaltCount = currentSaltCount;
-  
-  let finalPatternEnabled = patternEnabled;
-  let finalPSalt1 = pSalt1;
-  let finalPJp1 = pJp1;
-  let finalPSalt2 = pSalt2;
-  let finalPJp2 = pJp2;
-
-  if (patternEnabled && finalPSalt1 === 0 && finalPJp1 === 0 && finalPSalt2 === 0 && finalPJp2 === 0) {
-      finalPatternEnabled = false; 
-  }
-
   await supabase
     .from('users')
     .update({ 
         points: newPoints, 
         total_spent: newSpent,
-        custom_salt_count: finalSaltCount,
-        force_rate_type: finalForceRateType,
-        pattern_enabled: finalPatternEnabled,
-        pattern_salt_1: finalPSalt1,
-        pattern_jp_1: finalPJp1,
-        pattern_salt_2: finalPSalt2,
-        pattern_jp_2: finalPJp2
+        target_salt_count: targetSaltCount,
+        current_salt_progress: currentSaltProgress,
+        target_reward_on_hit: targetRewardOnHit
     })
     .eq('username', username);
 
@@ -1365,35 +1325,18 @@ app.post("/admin/update-points", async (req, res) => {
 
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { username, custom_salt_count, force_rate_type } = req.body;
+  const { username, target_salt_count, target_reward_on_hit } = req.body;
 
   await supabase
     .from('users')
     .update({ 
-        custom_salt_count: parseInt(custom_salt_count) || 0,
-        force_rate_type: force_rate_type || 'normal'
+        target_salt_count: parseInt(target_salt_count) || 0,
+        current_salt_progress: 0,
+        target_reward_on_hit: target_reward_on_hit || 'normal'
     })
     .eq('username', username);
 
-  res.send(`<script>alert("บันทึกการตั้งค่าเรตสุ่มพิเศษของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
-});
-
-app.post("/admin/update-user-pattern", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const { username, pattern_enabled, pattern_salt_1, pattern_jp_1, pattern_salt_2, pattern_jp_2 } = req.body;
-
-  await supabase
-    .from('users')
-    .update({ 
-        pattern_enabled: pattern_enabled === 'on',
-        pattern_salt_1: parseInt(pattern_salt_1) || 0,
-        pattern_jp_1: parseInt(pattern_jp_1) || 0,
-        pattern_salt_2: parseInt(pattern_salt_2) || 0,
-        pattern_jp_2: parseInt(pattern_jp_2) || 0
-    })
-    .eq('username', username);
-
-  res.send(`<script>alert("บันทึกรูปแบบการออกรางวัลอัตโนมัติของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("บันทึกการตั้งค่าระบบล็อกผลของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-user", async (req, res) => {
@@ -1554,14 +1497,8 @@ async function renderAdminDashboard(req, res) {
           daysLeft = diffDays > 0 ? `${diffDays} วัน` : `หมดอายุ`;
       }
 
-      const saltCountVal = u.custom_salt_count || 0;
-      const rateTypeVal = u.force_rate_type || 'normal';
-      
-      const patternEnabledVal = u.pattern_enabled || false;
-      const pSalt1Val = u.pattern_salt_1 || 0;
-      const pJp1Val = u.pattern_jp_1 || 0;
-      const pSalt2Val = u.pattern_salt_2 || 0;
-      const pJp2Val = u.pattern_jp_2 || 0;
+      const saltTargetVal = u.target_salt_count || 0;
+      const targetRewardVal = u.target_reward_on_hit || 'normal';
 
       userHtml += `<tr>
         <td>${runningNo}</td>
@@ -1580,40 +1517,30 @@ async function renderAdminDashboard(req, res) {
 
           <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; margin-top:4px; text-align:left;">
             <input type="hidden" name="username" value="${u.username}">
-            <div style="font-size:11px; color:#ffd700; margin-bottom:2px;">🎛️ ตั้งค่าเรต/เกลือลับ:</div>
+            <div style="font-size:11px; color:#ffd700; margin-bottom:2px;">🎛️ ตั้งค่าควบคุมเกลือและแจ๊คพอต:</div>
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
-              <span style="font-size:11px; color:#aaa;">เกลือต่อ:</span>
-              <input type="number" name="custom_salt_count" value="${saltCountVal}" min="0" style="width:45px; padding:2px; font-size:11px; text-align:center;"> รอบ
+              <span style="font-size:11px; color:#aaa;">ให้เกลือก่อน:</span>
+              <input type="number" name="target_salt_count" value="${saltTargetVal}" min="0" style="width:45px; padding:2px; font-size:11px; text-align:center;"> รอบ
             </div>
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:4px;">
-              <select name="force_rate_type" style="width:100%; font-size:11px; padding:2px;">
-                <option value="normal" ${rateTypeVal === 'normal' ? 'selected' : ''}>เรตปกติ (สุ่มตามดวง)</option>
-                <option value="always_salt" ${rateTypeVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
-                <option value="always_jackpot_1" ${rateTypeVal === 'always_jackpot_1' ? 'selected' : ''}>⭐ ล็อคออก 1 Robux</option>
-                <option value="always_jackpot_2" ${rateTypeVal === 'always_jackpot_2' ? 'selected' : ''}>⭐ ล็อคออก 2 Robux</option>
-                <option value="always_jackpot_3" ${rateTypeVal === 'always_jackpot_3' ? 'selected' : ''}>⭐ ล็อคออก 3 Robux</option>
-                <option value="always_jackpot_5" ${rateTypeVal === 'always_jackpot_5' ? 'selected' : ''}>⭐ ล็อคออก 5 Robux</option>
-                <option value="always_jackpot_10" ${rateTypeVal === 'always_jackpot_10' ? 'selected' : ''}>⭐ ล็อคออก 10 Robux</option>
-                <option value="always_jackpot_15" ${rateTypeVal === 'always_jackpot_15' ? 'selected' : ''}>⭐ ล็อคออก 15 Robux</option>
-                <option value="always_jackpot_20" ${rateTypeVal === 'always_jackpot_20' ? 'selected' : ''}>⭐ ล็อคออก 20 Robux</option>
-                <option value="always_jackpot_100" ${rateTypeVal === 'always_jackpot_100' ? 'selected' : ''}>🔥 ล็อคแจ็คพอต 100 Robux</option>
-                <option value="always_jackpot_500" ${rateTypeVal === 'always_jackpot_500' ? 'selected' : ''}>💎 ล็อคแจ็คพอต 500 Robux</option>
-                <option value="always_jackpot_1000" ${rateTypeVal === 'always_jackpot_1000' ? 'selected' : ''}>👑 ล็อคแจ็คพอต 1,000 Robux</option>
-                <option value="always_jackpot_10000" ${rateTypeVal === 'always_jackpot_10000' ? 'selected' : ''}>🛸 ล็อคแจ็คพอต 10,000 Robux</option>
+              <select name="target_reward_on_hit" style="width:100%; font-size:11px; padding:2px;">
+                <option value="normal" ${targetRewardVal === 'normal' ? 'selected' : ''}>-- หลังเกลือครบ สุ่มต่อตามดวง --</option>
+                <option value="always_salt" ${targetRewardVal === 'always_salt' ? 'selected' : ''}>🔒 เกลือตลอดกาล (0)</option>
+                <option value="1" ${targetRewardVal === '1' ? 'selected' : ''}>🎁 รอบถัดไปได้: 1 Robux</option>
+                <option value="2" ${targetRewardVal === '2' ? 'selected' : ''}>🎁 รอบถัดไปได้: 2 Robux</option>
+                <option value="3" ${targetRewardVal === '3' ? 'selected' : ''}>🎁 รอบถัดไปได้: 3 Robux</option>
+                <option value="4" ${targetRewardVal === '4' ? 'selected' : ''}>🎁 รอบถัดไปได้: 4 Robux</option>
+                <option value="5" ${targetRewardVal === '5' ? 'selected' : ''}>🎁 รอบถัดไปได้: 5 Robux</option>
+                <option value="10" ${targetRewardVal === '10' ? 'selected' : ''}>💎 รอบถัดไปได้: 10 Robux</option>
+                <option value="15" ${targetRewardVal === '15' ? 'selected' : ''}>💎 รอบถัดไปได้: 15 Robux</option>
+                <option value="20" ${targetRewardVal === '20' ? 'selected' : ''}>💎 รอบถัดไปได้: 20 Robux</option>
+                <option value="100" ${targetRewardVal === '100' ? 'selected' : ''}>🔥 รอบถัดไปได้: 100 Robux</option>
+                <option value="500" ${targetRewardVal === '500' ? 'selected' : ''}>✨ รอบถัดไปได้: 500 Robux</option>
+                <option value="1000" ${targetRewardVal === '1000' ? 'selected' : ''}>👑 รอบถัดไปได้: 1,000 Robux</option>
+                <option value="10000" ${targetRewardVal === '10000' ? 'selected' : ''}>🛸 รอบถัดไปได้: 10,000 Robux</option>
               </select>
             </div>
-            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกเรตยูสนี้</button>
-          </form>
-
-          <form action="/admin/update-user-pattern" method="POST" style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:6px; border-radius:4px; margin-top:6px; text-align:left;">
-            <input type="hidden" name="username" value="${u.username}">
-            <div style="font-size:11px; color:#ffd700; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-              <b>⚙️ ตั้งค่าลูปอัตโนมัติ:</b>
-              <label style="font-size:11px; color:#fff; cursor:pointer;"><input type="checkbox" name="pattern_enabled" ${patternEnabledVal ? 'checked' : ''}> เปิดใช้งาน</label>
-            </div>
-            <div style="font-size:10px; color:#aaa; margin-bottom:2px;">ช่วงที่ 1: เกลือ <input type="number" name="pattern_salt_1" value="${pSalt1Val}" min="0" style="width:30px; text-align:center; font-size:10px;"> รอบ -> แจ็คพอต <input type="number" name="pattern_jp_1" value="${pJp1Val}" min="0" style="width:30px; text-align:center; font-size:10px;"> รอบ</div>
-            <div style="font-size:10px; color:#aaa; margin-bottom:4px;">ช่วงที่ 2: เกลือ <input type="number" name="pattern_salt_2" value="${pSalt2Val}" min="0" style="width:30px; text-align:center; font-size:10px;"> รอบ -> แจ็คพอต <input type="number" name="pattern_jp_2" value="${pJp2Val}" min="0" style="width:30px; text-align:center; font-size:10px;"> รอบ</div>
-            <button type="submit" style="background:#ffa502; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกลูปอัตโนมัติ</button>
+            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:100%;">💾 บันทึกการควบคุมนี้</button>
           </form>
 
           <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ออกจากระบบใช่หรือไม่?');" style="margin-top:6px;">
@@ -1660,9 +1587,9 @@ async function renderAdminDashboard(req, res) {
         ${withdrawHtml}
       </table>
 
-      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ตั้งค่าเกลือ-เรตลับ / ลูปอัตโนมัติรายบุคคล / อายุ 30 วัน)</h3>
-      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 950px; background:#2b2b40; border-color:#444;">
-        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:280px;">จัดการ / ตั้งค่าเรตลับ / ลูปอัตโนมัติ</th></tr>
+      <h3 style="color:#ffd700; margin-top:40px;">👥 รายชื่อสมาชิกทั้งหมด (จัดการแต้ม / ตั้งค่าเกลือ-เรตลับรายบุคคล / อายุ 30 วัน)</h3>
+      <table border="1" style="margin: 0 auto 10px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
+        <tr><th style="padding:8px;">ลำดับ</th><th style="padding:8px;">Username</th><th style="padding:8px;">รูป Roblox</th><th style="padding:8px;">แต้มคงเหลือ</th><th style="padding:8px;">ยอดใช้จ่าย</th><th style="padding:8px;">อายุใช้งาน</th><th style="padding:8px; width:220px;">จัดการ / ตั้งค่าเรตลับ</th></tr>
         ${userHtml}
       </table>
       ${paginationHtml}
