@@ -153,7 +153,7 @@ app.post("/register", upload.single('roblox_img'), async (req, res) => {
   try {
     const { error } = await supabase
       .from('users')
-      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0, custom_salt_count: 0, force_rate_type: 'normal' }]);
+      .insert([{ username, password, roblox_img: robloxImg, points: 0, total_spent: 0, custom_salt_count: 0, force_rate_type: 'normal', current_spin_step: 0 }]);
 
     if (error) {
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
@@ -1059,6 +1059,7 @@ app.post("/open-lootbox", async (req, res) => {
 
   let currentSaltCount = user.custom_salt_count || 0;
   let forceRateType = user.force_rate_type || 'normal';
+  let currentSpinStep = user.current_spin_step || 0; 
 
   for (let i = 0; i < selectedCount; i++) {
       let reward = "";
@@ -1108,32 +1109,61 @@ app.post("/open-lootbox", async (req, res) => {
               rewardNum = 0;
               currentSaltCount -= 1;
           } else {
-              const rand = Math.random() * 100;
-              if (rand < 0.0001) { 
-                  reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; 
-                  rewardNum = 10000; 
+              // --- ระบบควบคุมเรตแบบอัตโนมัติ (Custom Step Pattern) ---
+              // Step 0-4: เกลือ 5 รอบ
+              // Step 5: แจ็คพอต 1 รอบ (กำหนดเช่น 10 Robux หรือตามระบบ)
+              // Step 6-9: รางวัลเล็กอีก 4 รอบ (เช่น 1-5 Robux)
+              // Step 10-14: เกลืออีก 5 รอบ
+              // Step 15+: ได้รางวัลตามที่แอดมินกำหนด (force_rate_type) หรือสุ่มปกติ
+              currentSpinStep = (currentSpinStep + 1) % 20; // วนลูปทุกๆ 20 รอบ
+
+              if (currentSpinStep >= 1 && currentSpinStep <= 5) {
+                  // เกลือ 5 รอบ
+                  reward = "0 Robux (😢 เกลือ)";
+                  rewardNum = 0;
+              } else if (currentSpinStep === 6) {
+                  // แจ็คพอตออก 1 รอบ
+                  reward = "10 Robux (💎 นี่แหละที่อยากได้)";
+                  rewardNum = 10;
+              } else if (currentSpinStep >= 7 && currentSpinStep <= 10) {
+                  // รางวัลเล็กอีก 4 รอบ
+                  reward = "2 Robux (🎁 กำลังไปได้สวย)";
+                  rewardNum = 2;
+              } else if (currentSpinStep >= 11 && currentSpinStep <= 15) {
+                  // เกลืออีก 5 รอบ
+                  reward = "0 Robux (😢 เกลือ)";
+                  rewardNum = 0;
+              } else {
+                  // หลังจากนั้นได้รางวัลตามที่กำหนด หรือสุ่มปกติ
+                  if (forceRateType === 'always_jackpot_100') {
+                      reward = "100 Robux (🔥 แจ็คพอตแตก)";
+                      rewardNum = 100;
+                  } else if (forceRateType === 'always_jackpot_500') {
+                      reward = "500 Robux (✨ แจ็คพอตใหญ่)";
+                      rewardNum = 500;
+                  } else if (forceRateType === 'always_jackpot_1000') {
+                      reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)";
+                      rewardNum = 1000;
+                  } else if (forceRateType === 'always_jackpot_10000') {
+                      reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)";
+                      rewardNum = 10000;
+                  } else {
+                      const rand = Math.random() * 100;
+                      if (rand < 0.0001) { reward = "10,000 Robux (🐉 UFO ถล่มจักรวาล)"; rewardNum = 10000; }
+                      else if (rand < 0.0005) { reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; rewardNum = 1000; }
+                      else if (rand < 0.002) { reward = "500 Robux (✨ แจ็คพอตใหญ่)"; rewardNum = 500; }
+                      else if (rand < 0.01) { reward = "100 Robux (🔥 แจ็คพอตแตก)"; rewardNum = 100; }
+                      else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
+                      else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
+                      else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
+                      else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
+                      else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
+                      else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
+                      else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
+                      else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
+                      else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
+                  }
               }
-              else if (rand < 0.0005) { 
-                  reward = "1,000 Robux (🌟 แจ็คพอตในตำนาน)"; 
-                  rewardNum = 1000; 
-              }
-              else if (rand < 0.002) { 
-                  reward = "500 Robux (✨ แจ็คพอตใหญ่)"; 
-                  rewardNum = 500; 
-              }
-              else if (rand < 0.01) { 
-                  reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
-                  rewardNum = 100; 
-              }
-              else if (rand < 0.02) { reward = "20 Robux (💎 รางวัลใหญ่อยู่ข้างหน้านี้แล้ว)"; rewardNum = 20; }
-              else if (rand < 0.05) { reward = "15 Robux (💎 อย่าพึ่งถอย ลุยเข้ามา)"; rewardNum = 15; }
-              else if (rand < 0.1) { reward = "10 Robux (💎 นี่แหละที่อยากได้)"; rewardNum = 10; }
-              else if (rand < 0.2) { reward = "5 Robux (🎁 เฮ้ยมาว่ะ)"; rewardNum = 5; }
-              else if (rand < 0.3) { reward = "4 Robux (🎁 ว้าว ดวงเริ่มมาว่ะ)"; rewardNum = 4; }
-              else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
-              else if (rand < 1.0) { reward = "2 Robux (🎁 กำลังไปได้สวย)"; rewardNum = 2; }
-              else if (rand < 50.0) { reward = "1 Robux (🎁 เริ่มมาแล้ว)"; rewardNum = 1; }
-              else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
           }
       }
 
@@ -1164,7 +1194,8 @@ app.post("/open-lootbox", async (req, res) => {
         points: newPoints, 
         total_spent: newSpent,
         custom_salt_count: finalSaltCount,
-        force_rate_type: finalForceRateType
+        force_rate_type: finalForceRateType,
+        current_spin_step: currentSpinStep
     })
     .eq('username', username);
 
