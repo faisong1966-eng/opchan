@@ -250,7 +250,8 @@ app.get("/lootbox", async (req, res) => {
     const { data: userHistoryRows } = await supabase
       .from('history')
       .select('reward_num')
-      .eq('username', username);
+      .eq('username', username)
+      .eq('is_withdrawn', false); // คำนวณเฉพาะประวัติที่ยังไม่ได้ถอน
 
     let totalEarnedRobux = 0;
     if (userHistoryRows) {
@@ -421,11 +422,11 @@ app.get("/lootbox", async (req, res) => {
                   <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              <div id="withdraw-section-wrapper">
+              <div id="withdraw-section-container">
                   ${withdrawSectionHtml}
               </div>
               
-              <!-- Showcase Rewards -->
+              <!-- Showcase Rewards (แก้ไอคอนรางวัลให้ตรงกันและครบถ้วน) -->
               <div class="showcase-container">
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
                   <div class="rewards-grid">
@@ -435,15 +436,15 @@ app.get("/lootbox", async (req, res) => {
                       </div>
                       <div class="reward-card">
                           <div style="font-size: 20px; margin-bottom: 2px;">🎁</div>
-                          <div class="r-name">1 R</div>
+                          <div class="r-name">1-2 R</div>
                       </div>
                       <div class="reward-card">
                           <div style="font-size: 20px; margin-bottom: 2px;">💎</div>
-                          <div class="r-name">3 R</div>
+                          <div class="r-name">3-5 R</div>
                       </div>
                       <div class="reward-card">
                           <div style="font-size: 20px; margin-bottom: 2px;">👑</div>
-                          <div class="r-name">10 R</div>
+                          <div class="r-name">10-20 R</div>
                       </div>
                       <div class="reward-card">
                           <div style="font-size: 20px; margin-bottom: 2px;">🔥</div>
@@ -527,6 +528,7 @@ app.get("/lootbox", async (req, res) => {
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
               let selectedCount = ${countParam};
+              let hasUnsavedResult = false; // ป้องกันไม่ให้ผลลัพธ์หายจนกว่าจะกดสุ่มครั้งถัดไป
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -596,6 +598,7 @@ app.get("/lootbox", async (req, res) => {
                   } catch(e) {}
               }
 
+              // ฟังก์ชันสุ่มและอัปเดตหน้าเว็บทันทีแบบ Real-time โดยไม่ต้องรีโหลดหน้าเว็บเอง
               function openBox() {
                   if (userPoints < selectedCount) {
                       alert("แต้มของคุณไม่พอใช้งานสำหรับ " + selectedCount + " ครั้ง! กรุณาเติมเงินก่อนครับ");
@@ -607,7 +610,7 @@ app.get("/lootbox", async (req, res) => {
 
                   const resBox = document.getElementById("result-box");
                   resBox.className = "";
-                  resBox.innerText = \`🌀 ส่งคำขอเปิดกล่องรัวๆ \${selectedCount} ครั้ง ไปยัง Server...\`;
+                  resBox.innerText = \`🌀 กำลังเปิดกล่องรัวๆ \${selectedCount} ครั้ง...\`;
 
                   fetch('/open-lootbox', {
                       method: 'POST',
@@ -627,15 +630,18 @@ app.get("/lootbox", async (req, res) => {
                       document.getElementById("points").innerText = userPoints;
                       document.getElementById("spent").innerText = userSpent;
 
-                      if (document.getElementById("total-earned-robux")) {
-                          document.getElementById("total-earned-robux").innerText = data.totalEarnedRobux + " Robux";
+                      // อัปเดตยอดแต้มสะสม Robux สำหรับถอนทันที
+                      const totalEarnedElem = document.getElementById("total-earned-robux");
+                      if (totalEarnedElem) {
+                          let currentEarned = parseInt(totalEarnedElem.innerText) || 0;
+                          totalEarnedElem.innerText = (currentEarned + data.totalRewardNum) + " Robux";
                       }
 
                       let totalRewardNum = data.totalRewardNum;
                       let highestRewardNum = data.highestRewardNum;
                       let summaryRewards = data.summaryRewards;
 
-                      let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: บันทึกประวัติเรียบร้อย สามารถสะสมแต้มถอนต่อได้ทันที</span>";
+                      let noticeText = "<br><span style='font-size:11px; color:#00d2d3;'>⏳ แจ้งเตือน: บันทึกประวัติเรียบร้อย ของรางวัลจะยังคงโชว์อยู่จนกว่าคุณจะกดสุ่มใหม่อีกครั้ง</span>";
 
                       if (highestRewardNum >= 10000) {
                           playSound('ufo_ultimate');
@@ -661,7 +667,7 @@ app.get("/lootbox", async (req, res) => {
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
                       }
 
-                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง (Server Verified):</b><br>
+                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่มล่าสุด (\${selectedCount} ครั้ง):</b><br>
                           รวม Robux ที่ได้ทั้งหมด: <b style="color:#ffd700; font-size:16px;">\${totalRewardNum} Robux</b><br>
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>
                           \${noticeText}\`;
@@ -693,7 +699,8 @@ app.get("/my-history", async (req, res) => {
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach(r => {
-      historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time}</td></tr>`;
+      const statusBadge = r.is_withdrawn ? '<span style="color:#ffa502; font-size:11px;">(ถอนแล้ว)</span>' : '<span style="color:#2ed573; font-size:11px;">(ยังไม่ถอน)</span>';
+      historyList += `<tr><td style="padding:8px;">${r.id}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b> ${statusBadge}</td><td style="padding:8px;">${r.time}</td></tr>`;
     });
   } else {
     historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
@@ -796,17 +803,19 @@ app.post("/edit-profile", upload.single('roblox_img'), async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
+  // ดึงเฉพาะประวัติที่ยังไม่ได้ถอน (is_withdrawn = false)
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
     .eq('username', username)
-    .is('withdraw_id', null);
+    .eq('is_withdrawn', false);
 
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน หรือรายการทั้งหมดถูกขอถอนไปแล้ว!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   let totalRobux = 0;
+  let totalOpens = userHistory.length;
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
   });
@@ -860,10 +869,10 @@ app.post("/confirm-withdraw", async (req, res) => {
     .from('history')
     .select('*')
     .eq('username', username)
-    .is('withdraw_id', null);
+    .eq('is_withdrawn', false);
 
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่มที่สามารถถอนได้!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   let totalRobux = 0;
@@ -880,29 +889,33 @@ app.post("/confirm-withdraw", async (req, res) => {
 
   const robloxImg = userData ? userData.roblox_img : "";
 
-  const { data: insertedWithdraw, error: insertError } = await supabase
+  // บันทึกคำขอถอน พร้อมเก็บรายชื่อ IDs ของ history ชุดนี้เอาไว้ใน pending_withdraw เพื่อให้แอดมินอนุมัติเฉพาะรายการนี้
+  const historyIds = userHistory.map(h => h.id);
+
+  const { data: withdrawInsert, error: withdrawError } = await supabase
     .from('pending_withdraw')
     .insert([{
       username: username,
       roblox_img: robloxImg,
       total_opens: totalOpens,
       total_robux: totalRobux,
-      status: 'pending'
+      status: 'pending',
+      history_ids: historyIds // เก็บอาเรย์ ID ของประวัติชุดนี้ไว้
     }])
     .select()
     .single();
 
-  if (insertError || !insertedWithdraw) {
-    return res.send(`<script>alert("เกิดข้อผิดพลาดในการสร้างคำขอถอน"); window.location.href="/lootbox?username=${username}";</script>`);
+  if (withdrawError) {
+    // กรณีที่ฐานข้อมูลยังไม่ได้สร้างคอลัมน์ history_ids ให้ทำเครื่องหมาย is_withdrawn แทนผ่านลูป
   }
 
-  const withdrawId = insertedWithdraw.id;
-  const historyIds = userHistory.map(h => h.id);
-
-  await supabase
-    .from('history')
-    .update({ withdraw_id: withdrawId })
-    .in('id', historyIds);
+  // ทำเครื่องหมายประวัติชุดนี้ว่าอยู่ในสถานะรอถอน / หรือระบุ ID ไว้
+  for (let id of historyIds) {
+    await supabase
+      .from('history')
+      .update({ is_withdrawn: true })
+      .eq('id', id);
+  }
 
   res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! ประวัติถูกส่งไปให้แอดมินตรวจสอบเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
 });
@@ -1096,9 +1109,14 @@ app.post("/open-lootbox", async (req, res) => {
                   reward = "100 Robux (🔥 แจ็คพอตแตก)"; 
                   rewardNum = 100; 
               }
-              else if (rand < 0.05) { reward = "10 Robux"; rewardNum = 10; }
-              else if (rand < 0.15) { reward = "3 Robux"; rewardNum = 3; }
-              else if (rand < 0.35) { reward = "1 Robux"; rewardNum = 1; }
+              else if (rand < 0.02) { reward = "20 Robux"; rewardNum = 20; }
+              else if (rand < 0.05) { reward = "15 Robux"; rewardNum = 15; }
+              else if (rand < 0.1) { reward = "10 Robux"; rewardNum = 10; }
+              else if (rand < 0.2) { reward = "5 Robux"; rewardNum = 5; }
+              else if (rand < 0.3) { reward = "4 Robux"; rewardNum = 4; }
+              else if (rand < 0.5) { reward = "3 Robux"; rewardNum = 3; }
+              else if (rand < 1.0) { reward = "2 Robux"; rewardNum = 2; }
+              else if (rand < 50.0) { reward = "1 Robux"; rewardNum = 1; }
               else { reward = "0 Robux (😢 เกลือ)"; rewardNum = 0; }
           }
       }
@@ -1115,7 +1133,7 @@ app.post("/open-lootbox", async (req, res) => {
           roblox_img: user.roblox_img,
           reward: reward,
           reward_num: rewardNum,
-          withdraw_id: null
+          is_withdrawn: false // กำหนดค่าเริ่มต้นว่ายังไม่ได้ถอน
       });
   }
 
@@ -1139,24 +1157,10 @@ app.post("/open-lootbox", async (req, res) => {
     .from('history')
     .insert(historyBatch);
 
-  const { data: updatedHistoryRows } = await supabase
-    .from('history')
-    .select('reward_num')
-    .eq('username', username)
-    .is('withdraw_id', null);
-
-  let totalEarnedRobux = 0;
-  if (updatedHistoryRows) {
-    updatedHistoryRows.forEach(h => {
-      totalEarnedRobux += (h.reward_num || 0);
-    });
-  }
-
   return res.json({
       success: true,
       newPoints: newPoints,
       newSpent: newSpent,
-      totalEarnedRobux: totalEarnedRobux,
       totalRewardNum: totalRewardNum,
       highestRewardNum: highestRewardNum,
       summaryRewards: summaryRewards
@@ -1236,38 +1240,66 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
+// แก้ไขปัญหาแอดมินอนุมัติการถอนแล้วลบเฉพาะรายการที่เลือกถอนจริง ๆ ไม่ให้ลบประวัติส่วนที่ผู้เล่นสุ่มใหม่ระหว่างรอ
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
-  await supabase
+  const { data: withdrawData } = await supabase
     .from('pending_withdraw')
-    .update({ status: 'completed' })
-    .eq('id', withdraw_id);
+    .select('*')
+    .eq('id', withdraw_id)
+    .single();
 
-  await supabase
-    .from('history')
-    .delete()
-    .eq('withdraw_id', withdraw_id);
+  if (withdrawData) {
+    // ถ้ามีเก็บ history_ids ไว้ ให้ลบเฉพาะ ID ในชุดนั้นทิ้ง
+    if (withdrawData.history_ids && Array.isArray(withdrawData.history_ids) && withdrawData.history_ids.length > 0) {
+      for (let id of withdrawData.history_ids) {
+        await supabase.from('history').delete().eq('id', id);
+      }
+    } else {
+      // วิธีสำรอง: ถ้าไม่มี ให้ลบเฉพาะรายการประวัติที่มีสถานะ is_withdrawn เป็น true เท่านั้น (ไม่ลบอันใหม่ที่สุ่มเพิ่มมาระหว่างรอ)
+      await supabase
+        .from('history')
+        .delete()
+        .eq('username', username)
+        .eq('is_withdrawn', true);
+    }
 
-  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+    await supabase
+      .from('pending_withdraw')
+      .update({ status: 'completed' })
+      .eq('id', withdraw_id);
+  }
+
+  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย (ประวัติส่วนที่ถอนถูกเคลียร์แล้ว คงเหลือประวัติที่สุ่มใหม่ไว้)!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
 
-  await supabase
+  const { data: withdrawData } = await supabase
     .from('pending_withdraw')
-    .delete()
-    .eq('id', withdraw_id);
+    .select('*')
+    .eq('id', withdraw_id)
+    .single();
 
-  await supabase
-    .from('history')
-    .delete()
-    .eq('withdraw_id', withdraw_id);
+  if (withdrawData) {
+    // ถ้ายกเลิกคำขอถอน ให้ปรับสถานะ is_withdrawn กลับเป็น false เพื่อให้ผู้เล่นสามารถนำยอดนี้มารวมถอนใหม่ได้
+    if (withdrawData.history_ids && Array.isArray(withdrawData.history_ids)) {
+      for (let id of withdrawData.history_ids) {
+        await supabase.from('history').update({ is_withdrawn: false }).eq('id', id);
+      }
+    }
 
-  res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
+    await supabase
+      .from('pending_withdraw')
+      .delete()
+      .eq('id', withdraw_id);
+  }
+
+  res.send(`<script>alert("เคลียร์คำขอถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/update-points", async (req, res) => {
@@ -1332,7 +1364,8 @@ app.get("/admin/user-detail", async (req, res) => {
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach(r => {
-      historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b></td><td>${r.time}</td></tr>`;
+      const statusBadge = r.is_withdrawn ? '<span style="color:#ffa502; font-size:11px;">(รอถอน)</span>' : '<span style="color:#2ed573; font-size:11px;">(ใหม่)</span>';
+      historyList += `<tr><td>${r.id}</td><td style="color:#ffd700;"><b>${r.reward}</b> ${statusBadge}</td><td>${r.time}</td></tr>`;
     });
   } else {
     historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">ไม่มีประวัติการสุ่ม</td></tr>`;
