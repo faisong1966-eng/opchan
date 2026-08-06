@@ -933,7 +933,7 @@ app.post("/confirm-withdraw", async (req, res) => {
       .in('id', idsToDelete);
   }
 
-  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! แต้มถูกรีเซ็ตเป็น 0 และส่งประวัติให้แอดมินเรียบร้อย"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("กดถอนแต้ม ${totalRobux} Robux สำเร็จแล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
