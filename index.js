@@ -924,7 +924,7 @@ app.post("/confirm-withdraw", async (req, res) => {
       history_snapshot: historyDataSnapshot
     }]);
 
-  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! แอดมินเห็นคำขอและประวัติของคุณแล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอถอน ${totalRobux} Robux สำเร็จ! กรุณารอแอดมินตรวจสอบ"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1258,17 +1258,25 @@ app.post("/admin/approve-withdraw", async (req, res) => {
 
   if (withdrawData) {
     await supabase
-      .from('history')
-      .delete()
-      .eq('username', username);
-
-    await supabase
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
+
+    try {
+      const historyRows = JSON.parse(withdrawData.history_snapshot);
+      if (historyRows && historyRows.length > 0) {
+        let idsToDelete = historyRows.map(h => h.id).filter(id => id);
+        if (idsToDelete.length > 0) {
+          await supabase
+            .from('history')
+            .delete()
+            .in('id', idsToDelete);
+        }
+      }
+    } catch (e) {}
   }
 
-  res.send(`<script>alert("อนุมัติการถอนและเคลียร์ประวัติของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-withdraw", async (req, res) => {
