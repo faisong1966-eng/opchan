@@ -554,33 +554,32 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-              // ขอสิทธิ์แจ้งเตือนเบราว์เซอร์ (Chrome Browser Notification) ตั้งแต่เริ่มเข้าหน้าเว็บ
+              // ขอสิทธิ์แจ้งเตือนของเบราว์เซอร์ (Google Chrome Notification)
               if (window.Notification && Notification.permission !== "granted") {
                   Notification.requestPermission();
               }
 
-              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime (แจ้งเตือนครั้งเดียวเมื่อแอดมินกดอนุมัติจริง)
+              // ฟังก์ชันเช็คสถานะการอนุมัติถอนจากแอดมินแบบ Realtime (ไม่ให้แจ้งเตือนซ้ำซ้อน)
               let hasAlertedApproved = false;
-              let checkInterval = setInterval(() => {
+              setInterval(() => {
+                  if (hasAlertedApproved) return;
+
                   fetch('/check-withdraw-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (data.status === 'approved' && !hasAlertedApproved) {
-                          hasAlertedApproved = true;
-                          clearInterval(checkInterval); // หยุดการเช็คซ้ำทันทีเมื่อแจ้งเตือนแล้วรอบนึง
+                          hasAlertedApproved = true; // ล็อคไว้ไม่ให้แจ้งเตือนซ้ำอีก
 
-                          const msg = "🎉 แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ";
-                          
-                          // แจ้งเตือนผ่าน Google Chrome Desktop Notification (ถ้าผู้ใช้อนุญาต)
+                          // แจ้งเตือนผ่าน Browser (Desktop Notification)
                           if (window.Notification && Notification.permission === "granted") {
-                              new Notification("Roblox Robux Box - แจ้งเตือนการถอน", {
-                                  body: msg,
+                              new Notification("🎉 แอดมินอนุมัติยอดถอนแล้ว!", {
+                                  body: "แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว กรุณาเช็คในเกม",
                                   icon: "${robloxImg}"
                               });
                           }
-                          
-                          // แจ้งเตือนผ่าน Popup หน้าเว็บ
-                          alert(msg);
+
+                          // แจ้งเตือนผ่าน Alert บนหน้าเว็บ
+                          alert("🎉 แจ้งเตือนจากระบบ: แอดมินได้ทำการอนุมัติยอดถอน Robux ของคุณเรียบร้อยแล้ว! ยอดเข้าเกมแล้ว กรุณาเข้าไปเช็คในเกมได้เลยครับ");
                           location.reload();
                       }
                   }).catch(err => {});
@@ -1278,7 +1277,7 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// อนุมัติถอน: ลบประวัติส่วนที่ถอนไปแล้วออกจาก history ทันที เพื่อให้ยอดปัจจุบันหักเหลือ 0 และเริ่มสะสมใหม่ได้ถูกต้อง
+// อนุมัติถอน: เคลียร์ยอดปัจจุบันให้เป็น 0 โดยลบเฉพาะประวัติส่วนที่ถอนออกไป
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
