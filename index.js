@@ -1004,7 +1004,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีรายชิ้นอิสระสมบูรณ์แบบ & ไอคอนตรงกัน) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (แก้ไขจุดที่ 1 & 3: การันตีรีเซ็ตทั้งหมด + รูป/อิโมจิรางวัลตรงจริง) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1046,13 +1046,14 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
 
-    const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, pity_target');
+    const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, rarity, title, pity_target');
     const targetAccList = allTargetAccounts || [];
 
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
         let wonAccId = null; 
+        let isGuaranteeHit = false; // ตรวจสอบว่ารอบนี้ได้จากระบบการันตีหรือไม่
 
         // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
@@ -1065,8 +1066,19 @@ app.post("/open-lootbox", async (req, res) => {
                 let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
                 let matchedAcc = availableAccounts.find(a => a.title === cleanRewardName);
                 let exactRarity = matchedAcc ? matchedAcc.rarity : "Normal";
-                reward = `🛡️ [${exactRarity}] ${cleanRewardName}`;
-                if (matchedAcc) wonAccId = matchedAcc.id;
+                
+                // แก้ไขจุดที่ 3: กำหนดอิโมจิและรูปแบบให้ตรงกับคลังจริง (เหมือนหน้าจอ UI)
+                let iconSymbol = "🛡️";
+                if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
+                else if (exactRarity === "SSR") iconSymbol = "👑";
+                else if (exactRarity === "SS+") iconSymbol = "⚔️";
+                else if (exactRarity === "S") iconSymbol = "🔮";
+
+                reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
+                if (matchedAcc) {
+                    wonAccId = matchedAcc.id;
+                    isGuaranteeHit = true;
+                }
 
                 steps[s].reward = 'normal'; 
                 handled = true;
@@ -1083,8 +1095,15 @@ app.post("/open-lootbox", async (req, res) => {
             });
 
             if (pityTargetAcc) {
-                reward = `🛡️ [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
+                let badgeColorIcon = "🛡️";
+                if (pityTargetAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                else if (pityTargetAcc.rarity === "SSR") badgeColorIcon = "👑";
+                else if (pityTargetAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                else if (pityTargetAcc.rarity === "S") badgeColorIcon = "🔮";
+
+                reward = `${badgeColorIcon} [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
                 wonAccId = pityTargetAcc.id; 
+                isGuaranteeHit = true;
                 
                 await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
                 availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
@@ -1107,8 +1126,25 @@ app.post("/open-lootbox", async (req, res) => {
 
             if (winningAccIndex !== -1) {
                 const wonNormalAcc = availableAccounts[winningAccIndex];
-                reward = `🛡️ [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
+                
+                let badgeColorIcon = "🛡️";
+                if (wonNormalAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                else if (wonNormalAcc.rarity === "SSR") badgeColorIcon = "👑";
+                else if (wonNormalAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                else if (wonNormalAcc.rarity === "S") badgeColorIcon = "🔮";
+
+                reward = `${badgeColorIcon} [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
                 wonAccId = wonNormalAcc.id;
+                
+                // ตรวจสอบว่าไอเทมที่สุ่มได้ตามเรตปกตินี้ มีการตั้งค่าระบบการันตีไว้ด้วยหรือไม่ ถ้ามี และแต้มถึงเป้าหมาย ให้ถือเป็นการตีแตกการันตีด้วยเช่นกัน
+                const matchedTargetConfig = targetAccList.find(t => t.id === wonNormalAcc.id);
+                if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
+                    const currentC = pityCounters[wonNormalAcc.id] || 0;
+                    if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
+                        isGuaranteeHit = true;
+                    }
+                }
+
                 availableAccounts.splice(winningAccIndex, 1);
 
                 await supabase
@@ -1120,16 +1156,29 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        targetAccList.forEach(acc => {
-            const target = parseInt(acc.pity_target) || 0;
-            if (target > 0) {
-                if (wonAccId === acc.id) {
+        // แก้ไขจุดที่ 1: เงื่อนไขการนับหรือรีเซ็ตแต้มการันตี
+        // หากผู้เล่นสุ่มได้ไอเทมการันตีตัวใดตัวหนึ่ง (isGuaranteeHit เป็น true) ให้รีเซ็ตแต้มการันตีของ "ทุกไอเทมทั้งหมด" เป็น 0 ทันที
+        // หากสุ่มได้ไอเทมอื่นที่ไม่ใช่การันตี (หรือได้เกลือ) ห้ามรีเซ็ต ให้สะสมบวกเพิ่มต่อไปเรื่อยๆ
+        if (isGuaranteeHit) {
+            targetAccList.forEach(acc => {
+                const target = parseInt(acc.pity_target) || 0;
+                if (target > 0) {
                     pityCounters[acc.id] = 0; 
-                } else {
-                    pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
                 }
-            }
-        });
+            });
+        } else {
+            targetAccList.forEach(acc => {
+                const target = parseInt(acc.pity_target) || 0;
+                if (target > 0) {
+                    // เฉพาะไอเทมที่มีการตั้งค่าการันตี และรอบนี้ไม่ได้รางวัลนั้น ให้สะสมแต้มเพิ่มขึ้นเท่ากันหรือสะสมตามปกติ
+                    if (wonAccId === acc.id) {
+                        pityCounters[acc.id] = 0;
+                    } else {
+                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
+                    }
+                }
+            });
+        }
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
 
@@ -1313,6 +1362,8 @@ app.post("/admin/delete-user", async (req, res) => {
   res.send(`<script>alert("ลบสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
+// ------------------- ADMIN DASHBOARD RENDER (แก้ไขจุดที่ 2: เพิ่มปุ่มกดดูประวัติ และซ่อนประวัติทั้งหมดไม่ให้รกหน้าจอ) -------------------
+
 async function renderAdminDashboard(req, res) {
   const { data: usersRows } = await supabase.from('users').select('*').order('id', { ascending: false });
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending');
@@ -1355,7 +1406,7 @@ async function renderAdminDashboard(req, res) {
       let detailedItemsHtml = "";
       try {
         const parsed = JSON.parse(w.history_snapshot);
-        rewardsList = parsed.join(", ");
+        rewardsList = parsed.slice(0, 3).join(", ") + (parsed.length > 3 ? ` และอื่นๆ (${parsed.length} รายการ)` : '');
         parsed.forEach((item, idx) => {
             detailedItemsHtml += `<li>${idx + 1}. ${item}</li>`;
         });
@@ -1369,10 +1420,11 @@ async function renderAdminDashboard(req, res) {
         <td><b>${w.username}</b></td>
         <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
         <td style="color:#ffd700; font-size:12px; text-align:left;">
-           <b>สรุป:</b> ${rewardsList} <br>
-           <details style="margin-top:5px; color:#fff; cursor:pointer;">
-               <summary style="color:#00d2d3; font-weight:bold; font-size:11px;">🔍 กดดูประวัติการสุ่มทั้งหมด (${w.total_opens} ครั้ง)</summary>
-               <ul style="padding-left:15px; margin:5px 0; font-size:11px; color:#a4b0be; max-height:100px; overflow-y:auto;">
+           <b>รายการหลัก:</b> ${rewardsList} <br>
+           <!-- แก้ไขจุดที่ 2: เพิ่มปุ่มกดดูประวัติแบบซ่อนรายละเอียดไว้ ไม่ให้รกหน้าจอ -->
+           <details style="margin-top:6px; background:rgba(0,0,0,0.2); padding:4px 8px; border-radius:4px; border:1px solid #444;">
+               <summary style="color:#00d2d3; font-weight:bold; font-size:12px; cursor:pointer;">🔍 [ปุ่มกดดูประวัติ] แสดงประวัติการกดขอรับรางวัลทั้งหมด (${w.total_opens} ครั้ง)</summary>
+               <ul style="padding-left:18px; margin:6px 0; font-size:11px; color:#a4b0be; max-height:120px; overflow-y:auto;">
                    ${detailedItemsHtml}
                </ul>
            </details>
@@ -1470,7 +1522,7 @@ async function renderAdminDashboard(req, res) {
 
       <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการสุ่ม (ซ่อนรายละเอียดไว้ กดดูได้)</th><th>จัดการ</th></tr>
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการขอรับรางวัล (กดปุ่มดูเพื่อขยาย)</th><th>จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
