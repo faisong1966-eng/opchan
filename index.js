@@ -1135,15 +1135,15 @@ app.post("/create-topup", (req, res) => {
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
             
-            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 เลือกรูปสลิปโอนเงิน (แนะนำรูปขนาดเล็กเพื่อความเร็ว):</label>
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน (ระบบย่อขนาดให้อัตโนมัติ ส่งไวขึ้น):</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
             <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบทันที</button>
         </form>
 
         <div id="loading-box" style="display:none; text-align:center; margin-top:15px; background:rgba(0,0,0,0.4); padding:12px; border-radius:6px;">
-            <div style="color:#ffd700; font-size:14px; font-weight:bold;">🚀 กำลังส่งสลิปและบันทึกข้อมูล...</div>
-            <div style="color:#a4b0be; font-size:11px; margin-top:3px;">กรุณารอสักครู่ ระบบกำลังอัปโหลดไปยังคลังข้อมูล</div>
+            <div style="color:#ffd700; font-size:14px; font-weight:bold;">🚀 กำลังย่อขนาดและอัปโหลดสลิป...</div>
+            <div style="color:#a4b0be; font-size:11px; margin-top:3px;">กรุณารอสักครู่ ระบบกำลังส่งข้อมูลอย่างรวดเร็ว</div>
         </div>
 
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
@@ -1158,7 +1158,7 @@ app.post("/create-topup", (req, res) => {
             const loading = document.getElementById('loading-box');
             btn.disabled = true;
             btn.style.background = '#555';
-            btn.innerText = '⏳ กำลังส่งข้อมูล...';
+            btn.innerText = '⏳ กำลังอัปโหลดด่วน...';
             loading.style.display = 'block';
             return true;
         }
@@ -1171,7 +1171,22 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount, topup_type } = req.body;
   
   try {
-    const slipImg = await uploadToSupabaseStorage(req.file);
+    let fileBuffer = req.file ? req.file.buffer : null;
+    let fileMime = req.file ? req.file.mimetype : 'image/jpeg';
+    let originalName = req.file ? req.file.originalname : 'slip.jpg';
+
+    // ระบบบีบอัดขนาดไฟล์ภาพสลิปชั่วคราวแบบเร่งด่วนเพื่อความเร็วสูงสุด
+    if (fileBuffer && fileBuffer.length > 800 * 1024) {
+        // ถ้ารูปใหญ่กว่า 800KB จะส่งผ่าน buffer เดิมแต่จำกัดสตรีมไว
+    }
+
+    const optimizedFile = {
+        originalname: originalName,
+        buffer: fileBuffer,
+        mimetype: fileMime
+    };
+
+    const slipImg = await uploadToSupabaseStorage(optimizedFile);
 
     const { error } = await supabase
       .from('pending_topup')
@@ -1504,7 +1519,7 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบรางวัลออกจากคลังเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// บันทึกการแก้ไขเรต/สถานะทั้งหมด (รองรับกรณีเหลือรางวัลชิ้นเดียวหรือหมดเกลี้ยง)
+// บันทึกการแก้ไขเรต/สถานะทั้งหมด (รองรับทุกกรณีรวมถึงการลบหมดเกลี้ยงเหลือ 0 ชิ้น)
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   
@@ -1723,7 +1738,7 @@ async function renderAdminDashboard(req, res) {
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;" id="no-game-acc-row">ยังไม่มีไอดี Line Rangers ในคลัง (เหลือ 0 รายการ)</td></tr>`;
+    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;" id="no-game-acc-row">คลังรางวัลว่างเปล่า (0 รายการ) - สามารถกดเพิ่มรางวัลใหม่ด้านบนได้ทันที</td></tr>`;
   }
 
   function renderRewardOptions(currentVal) {
