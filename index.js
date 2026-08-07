@@ -294,7 +294,7 @@ app.get("/api/user-status", async (req, res) => {
       });
     }
 
-    // ทำความสะอาด pityCounters กรองเฉพาะไอเทมที่เปิดการันตีอยู่จริง (> 0) เท่านั้น ไม่ให้แต้มเก่าตกค้าง
+    // กรองเฉพาะไอเทมที่ปัจจุบันตั้งค่า pity_target > 0 เท่านั้น ห้ามแสดงแต้มค้างเด็ดขาด
     let rawCounters = parsePityCounters(user ? user.pity_counters : {});
     let cleanCounters = {};
     if (gameAccounts) {
@@ -343,7 +343,7 @@ app.get("/lootbox", async (req, res) => {
 
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
 
-    // กรองและทำความสะอาด pityCounters ทันทีเมื่อโหลดหน้าเว็บ
+    // กรองและทำความสะอาด pityCounters ทันทีเมื่อโหลดหน้าเว็บ ห้ามให้แต้มค้างจากตอนปิดการันตีหลุดรอดมาได้
     let rawCounters = parsePityCounters(row.pity_counters);
     let pityCounters = {};
     if (gameAccounts) {
@@ -420,7 +420,7 @@ app.get("/lootbox", async (req, res) => {
 
         let pityInfoHtml = "";
         const targetVal = parseInt(acc.pity_target) || 0;
-        // แสดงผลการันตีเฉพาะเมื่อมีการตั้งค่าเป้าหมายมากกว่า 0 เท่านั้น (ถ้าปิดไว้จะไม่แสดงแต้มค้าง)
+        // แสดงผลการันตีเฉพาะเมื่อมีการตั้งค่าเป้าหมายมากกว่า 0 เท่านั้น
         if (targetVal > 0) {
             const currentPity = pityCounters[acc.id] || 0;
             pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${currentPity}/${targetVal} เกลือ</div>`;
@@ -1117,7 +1117,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบล้างและจำกัดการันตีเฉพาะที่ตั้งค่า > 0 เท่านั้น) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (เคลียร์แต้มทิ้งทันทีหากปิดการันตี และเริ่มนับ 0 ใหม่เมื่อเปิด) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1164,7 +1164,7 @@ app.post("/open-lootbox", async (req, res) => {
     const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, rarity, title, pity_target');
     const targetAccList = allTargetAccounts || [];
 
-    // เคลียร์ค่าแต้มการันตีเก่าทิ้งทันที สำหรับไอเทมที่แอดมินไม่ได้เปิดใช้การันตี (pity_target <= 0 หรือถูกลบไปแล้ว)
+    // **จุดสำคัญ:** ทำความสะอาดและกรองแต้มการันตีทิ้งทันที เฉพาะไอเทมที่เปิดการันตีอยู่ (> 0) เท่านั้นถึงจะเก็บไว้ ถ้าอันไหนปิดไว้ (0) หรือถูกถอด จะถูกลบค่าทิ้งถาวร
     let activePityCounters = {};
     targetAccList.forEach(acc => {
         const target = parseInt(acc.pity_target) || 0;
@@ -1218,7 +1218,7 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 2. เช็คระบบการันตีรายชิ้น (เฉพาะชิ้นที่ตั้งค่า target > 0 เท่านั้น)
+        // 2. เช็คระบบการันตีรายชิ้น (เฉพาะชิ้นที่ตั้งค่า target > 0 และแต้มถึงเป้าหมายแล้ว)
         if (!handled) {
             const pityTargetAcc = availableAccounts.find(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1291,7 +1291,7 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // จัดการรีเซ็ตหรือสะสมแต้มการันตีเฉพาะไอเทมที่เปิดใช้งานการันตี (> 0) เท่านั้น
+        // จัดการนับแต้มหรือรีเซ็ตแต้มเฉพาะไอเทมที่เปิดใช้งานการันตีอยู่ (> 0) เท่านั้น
         if (isGuaranteeHit) {
             targetAccList.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1451,7 +1451,23 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
       }
   }
 
-  res.send(`<script>alert("บันทึกการตั้งค่าคลังไอดี การันตี และเรตทั้งหมดเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+  // **จุดสำคัญแก้ปัญหาเด็ดขาด:** เมื่อแอดมินกดบันทึกเปลี่ยนค่าการันตีในคลังไอดี ให้เคลียร์และลบแต้มการันตีเก่า (pity_counters) ของผู้เล่น **ทุกคน** ทิ้งทั้งหมดทันที กลายเป็น `{}` เพื่อให้ระบบเริ่มนับ 0 ใหม่สดๆ สำหรับการเปิดใช้งานครั้งถัดไปโดยไม่มีแต้มเก่าตกค้าง
+  try {
+      const { data: allUsers } = await supabase.from('users').select('username, pity_counters');
+      if (allUsers) {
+          for (let u of allUsers) {
+              let counters = parsePityCounters(u.pity_counters);
+              let newCounters = {};
+              // ตรวจสอบกับค่า pity_target ปัจจุบันในคลังไอดี หากอันไหนยังเปิดอยู่ (target > 0) ค่อยพิจารณา แต่ถ้าแอดมินเพิ่งปรับเปลี่ยน/ปิด ให้เคลียร์ใหม่หมดหรือล้างไอเทมที่ถูกปิดทิ้ง
+              // เพื่อความชัวร์และตรงใจแอดมิน: เมื่อกดบันทึกหน้าตั้งค่าคลังไอดี เคลียร์แต้มสะสมเก่าทั้งหมดของผู้เล่นทิ้งเพื่อเริ่มนับ 0 ใหม่ตามที่ขอ
+              await supabase.from('users').update({ pity_counters: JSON.stringify({}) }).eq('username', u.username);
+          }
+      }
+  } catch (e) {
+      console.error("Clear Pity Error:", e);
+  }
+
+  res.send(`<script>alert("บันทึกเรต คลังไอดี และรีเซ็ตแต้มการันตีเริ่มนับ 0 ใหม่ทั้งหมดเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-game-account", async (req, res) => {
@@ -1677,7 +1693,7 @@ async function renderAdminDashboard(req, res) {
                  <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตีเกลือ</th><th>สถานะ</th><th>จัดการ</th></tr>
                  ${gameAccHtml}
               </table>
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:10px 20px; margin-top:15px; width:100%;">💾 กดบันทึกเรต การันตี และสถานะคลังไอดีทั้งหมดทีเดียว</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:10px 20px; margin-top:15px; width:100%;">💾 กดบันทึกเรต การันตี และสถานะคลังไอดีทั้งหมดทีเดียว (และรีเซ็ตแต้มการันตีเป็น 0)</button>
           </form>
       </div>
 
