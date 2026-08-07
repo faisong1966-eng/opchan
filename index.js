@@ -254,7 +254,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Realtime Status API (optimized to fetch in parallel)
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
@@ -1167,7 +1166,6 @@ app.post("/create-topup", (req, res) => {
   `);
 });
 
-// Optimized Fast Slip Upload Route
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount, topup_type } = req.body;
   
@@ -1390,7 +1388,7 @@ app.post("/open-lootbox", async (req, res) => {
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
             step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
@@ -1473,68 +1471,71 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/add-game-account", upload.single('image_file'), async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
+// เพิ่มไอดีเกม/รางวัลใหม่ (รับค่าแบบ JSON ไม่รีเฟรชหน้าเว็บ)
+app.post("/admin/add-game-account-json", upload.single('image_file'), async (req, res) => {
+  if (!req.session.isAdmin) return res.status(403).json({ success: false, message: "Unauthorized" });
   const { title, rarity, rate, pity_target } = req.body;
 
   let imageUrl = await uploadToSupabaseStorage(req.file);
 
-  await supabase.from('game_accounts').insert([{
+  const { data, error } = await supabase.from('game_accounts').insert([{
       title,
       rarity,
       rate: parseFloat(rate) || 1.0,
       pity_target: parseInt(pity_target) || 0,
       image_url: imageUrl,
       status: 'available'
-  }]);
+  }]).select();
 
-  res.send(`<script>alert("เพิ่มรางวัล Line Rangers เข้าสู่คลังสำเร็จ!"); window.location.href="/admin";</script>`);
+  if (error) {
+      return res.json({ success: false, message: error.message });
+  }
+
+  res.json({ success: true, newAccount: data[0] });
 });
 
+// บันทึกการตั้งค่าทั้งหมด / อัปเดต / ลบรางวัลทีเดียวแบบเบ็ดเสร็จ (Unified Master Save Route)
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { ids, rates, pity_targets, old_image_urls, statuses } = req.body;
+  
+  const { ids, rates, pity_targets, old_image_urls, statuses, delete_flags } = req.body;
 
   if (ids) {
       const idArray = Array.isArray(ids) ? ids : [ids];
       
-      const updatePromises = idArray.map(async (accId, i) => {
-          const newRate = Array.isArray(rates) ? parseFloat(rates[i]) : parseFloat(rates);
-          const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
-          const oldImage = Array.isArray(old_image_urls) ? old_image_urls[i] : old_image_urls;
-          const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
+      const processPromises = idArray.map(async (accId, i) => {
+          const isDeleted = Array.isArray(delete_flags) ? delete_flags[i] === "1" : delete_flags === "1";
+          
+          if (isDeleted) {
+              // ถ้าติ๊กเครื่องหมายลบ ให้ลบออกจาก DB
+              return supabase.from('game_accounts').delete().eq('id', accId);
+          } else {
+              // ถ้าไม่ได้ลบ ให้อัปเดตข้อมูลตามฟอร์ม
+              const newRate = Array.isArray(rates) ? parseFloat(rates[i]) : parseFloat(rates);
+              const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
+              const oldImage = Array.isArray(old_image_urls) ? old_image_urls[i] : old_image_urls;
+              const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
 
-          let finalImageUrl = oldImage || '';
-          const uploadedFile = req.files.find(f => f.fieldname === `image_file_${accId}`);
-          if (uploadedFile) {
-              const newUploadedUrl = await uploadToSupabaseStorage(uploadedFile);
-              if (newUploadedUrl) finalImageUrl = newUploadedUrl;
+              let finalImageUrl = oldImage || '';
+              const uploadedFile = req.files.find(f => f.fieldname === `image_file_${accId}`);
+              if (uploadedFile) {
+                  const newUploadedUrl = await uploadToSupabaseStorage(uploadedFile);
+                  if (newUploadedUrl) finalImageUrl = newUploadedUrl;
+              }
+
+              return supabase.from('game_accounts').update({
+                  rate: isNaN(newRate) ? 0 : newRate,
+                  pity_target: isNaN(newPity) ? 0 : newPity,
+                  image_url: finalImageUrl,
+                  status: newStatus || 'available'
+              }).eq('id', accId);
           }
-
-          return supabase.from('game_accounts').update({
-              rate: isNaN(newRate) ? 0 : newRate,
-              pity_target: isNaN(newPity) ? 0 : newPity,
-              image_url: finalImageUrl,
-              status: newStatus || 'available'
-          }).eq('id', accId);
       });
 
-      await Promise.all(updatePromises);
+      await Promise.all(processPromises);
   }
 
-  res.send(`<script>alert("ตั้งค่าสำเร็จ"); window.location.href="/admin";</script>`);
-});
-
-// แก้ไขฟังก์ชันลบไอดี/รางวัลในหลังบ้านแอดมินให้ครอบคลุมและทำงานได้ชัวร์ 100%
-app.post("/admin/delete-game-account", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const accountId = req.body.account_id;
-  
-  if (accountId) {
-      await supabase.from('game_accounts').delete().eq('id', accountId);
-  }
-
-  res.send(`<script>alert("ลบรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("บันทึกข้อมูลและอัปเดตคลังรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/adjust-user-points", async (req, res) => {
@@ -1686,7 +1687,7 @@ async function renderAdminDashboard(req, res) {
       const isOut = acc.status === 'out_of_stock';
       let thumbImg = acc.image_url ? `<a href="${acc.image_url}" target="_blank"><img src="${acc.image_url}" style="width:30px; height:30px; object-fit:cover; border-radius:4px; vertical-align:middle;"></a>` : '<span style="font-size:10px; color:#aaa;">ไม่มีรูป</span>';
 
-      gameAccHtml += `<tr>
+      gameAccHtml += `<tr id="row-acc-${acc.id}">
         <td>${i+1}</td>
         <td><b>${acc.title}</b></td>
         <td style="color:#ffd700;">${acc.rarity}</td>
@@ -1708,15 +1709,13 @@ async function renderAdminDashboard(req, res) {
            </select>
         </td>
         <td>
-          <form action="/admin/delete-game-account" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันต้องการลบรางวัลนี้ใช่หรือไม่?');">
-             <input type="hidden" name="account_id" value="${acc.id}">
-             <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️ ลบ</button>
-          </form>
+          <input type="hidden" name="delete_flags" value="0" id="del-flag-${acc.id}">
+          <button type="button" onclick="markRowForDeletion(${acc.id})" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️ ลบ</button>
         </td>
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
+    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;" id="no-game-acc-row">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
   }
 
   function renderRewardOptions(currentVal) {
@@ -1781,29 +1780,31 @@ async function renderAdminDashboard(req, res) {
       </table>
 
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
-          <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง</h3>
-          <form action="/admin/add-game-account" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
-              <input type="text" name="title" placeholder="ชื่อรางวัล เช่น ID SSR" required style="padding:8px; flex:2;">
-              <select name="rarity" style="padding:8px;">
+          <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง (เพิ่มทันทีไม่ต้องรีหน้า)</h3>
+          <form id="add-game-form" onsubmit="addGameAccountDynamic(event)" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
+              <input type="text" id="new-title" placeholder="ชื่อรางวัล เช่น ID SSR" required style="padding:8px; flex:2;">
+              <select id="new-rarity" style="padding:8px;">
                   <option value="Normal">ระดับ Normal</option>
                   <option value="S">ระดับ S</option>
                   <option value="SS+">ระดับ SS+</option>
                   <option value="SSR">ระดับ SSR</option>
                   <option value="เทพมังกร">ระดับ เทพมังกร</option>
               </select>
-              <input type="number" step="0.0001" name="rate" placeholder="อัตรา %" required style="padding:8px; width:70px;">
-              <input type="number" name="pity_target" placeholder="การันตี" style="padding:8px; width:70px;">
-              <input type="file" name="image_file" accept="image/*" style="padding:5px; background:#fff; color:#000; border-radius:4px; width:140px;">
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่มไอดี</button>
+              <input type="number" step="0.0001" id="new-rate" placeholder="อัตรา %" required style="padding:8px; width:70px;">
+              <input type="number" id="new-pity" placeholder="การันตี" style="padding:8px; width:70px;">
+              <input type="file" id="new-image" accept="image/*" style="padding:5px; background:#fff; color:#000; border-radius:4px; width:140px;">
+              <button type="submit" id="add-btn-submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่มไอดี</button>
           </form>
 
-          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตี / อัปโหลดรูปภาพ</h4>
+          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตี / ลบ / แก้ไข (กดปุ่มบันทึกด้านล่างสุดครั้งเดียว)</h4>
           <form action="/admin/update-all-game-accounts" method="POST" enctype="multipart/form-data">
               <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
                  <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตี</th><th>🖼️ รูปภาพ (เปลี่ยนไฟล์)</th><th>สถานะ</th><th>จัดการ</th></tr>
-                 ${gameAccHtml}
+                 <tbody id="game-accounts-tbody">
+                     ${gameAccHtml}
+                 </tbody>
               </table>
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:10px 20px; margin-top:15px; width:100%;">💾 บันทึกการตั้งค่าทั้งหมด</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:12px 20px; margin-top:15px; width:100%; font-size:14px; box-shadow:0 0 10px rgba(46,213,115,0.4);">💾 บันทึกการตั้งค่าทั้งหมด (กดปุ่มนี้ครั้งเดียวเซฟทุกอย่าง)</button>
           </form>
       </div>
 
@@ -1818,6 +1819,105 @@ async function renderAdminDashboard(req, res) {
         <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้มปัจจุบัน</th><th>จัดการแต้ม / ตั้งค่าเรตเกลือ</th></tr>
         ${userHtml}
       </table>
+
+      <script>
+          // ฟังก์ชันกดลบรางวัลในตารางแบบไม่รีเฟรชหน้าเว็บ (ซ่อนแถวและตั้งค่าธงลบ)
+          function markRowForDeletion(accId) {
+              const row = document.getElementById('row-acc-' + accId);
+              const flag = document.getElementById('del-flag-' + accId);
+              if (row && flag) {
+                  flag.value = "1"; // สั่งให้ตอนกดบันทึกรวม ทำการลบข้อมูลนี้ออกจาก Database
+                  row.style.background = "rgba(255, 71, 87, 0.2)";
+                  row.style.opacity = "0.4";
+                  row.style.textDecoration = "line-through";
+                  alert("ทำเครื่องหมายลบรางวัลนี้แล้ว! กรุณากดปุ่ม 'บันทึกการตั้งค่าทั้งหมด' ด้านล่างสุดเพื่อยืนยันการลบ");
+              }
+          }
+
+          // ฟังก์ชันเพิ่มรางวัลใหม่แบบไดนามิกเข้าตารางทันทีโดยไม่ต้องรีเฟรชหน้าเว็บ
+          async function addGameAccountDynamic(event) {
+              event.preventDefault();
+              const title = document.getElementById('new-title').value;
+              const rarity = document.getElementById('new-rarity').value;
+              const rate = document.getElementById('new-rate').value;
+              const pity = document.getElementById('new-pity').value;
+              const imageFile = document.getElementById('new-image').files[0];
+
+              const formData = new FormData();
+              formData.append('title', title);
+              formData.append('rarity', rarity);
+              formData.append('rate', rate);
+              formData.append('pity_target', pity);
+              if (imageFile) {
+                  formData.append('image_file', imageFile);
+              }
+
+              const btn = document.getElementById('add-btn-submit');
+              btn.disabled = true;
+              btn.innerText = 'กำลังเพิ่ม...';
+
+              try {
+                  const res = await fetch('/admin/add-game-account-json', {
+                      method: 'POST',
+                      body: formData
+                  });
+                  const result = await res.json();
+                  if (result.success) {
+                      const acc = result.newAccount;
+                      const tbody = document.getElementById('game-accounts-tbody');
+                      
+                      // ลบข้อความ "ยังไม่มีไอดี" ออกถ้ามี
+                      const noRow = document.getElementById('no-game-acc-row');
+                      if (noRow) noRow.remove();
+
+                      const newRow = document.createElement('tr');
+                      newRow.id = 'row-acc-' + acc.id;
+                      newRow.style.background = "rgba(46, 213, 115, 0.15)";
+                      
+                      let thumb = acc.image_url ? \`<a href="\${acc.image_url}" target="_blank"><img src="\${acc.image_url}" style="width:30px; height:30px; object-fit:cover; border-radius:4px; vertical-align:middle;"></a>\` : '<span style="font-size:10px; color:#aaa;">ไม่มีรูป</span>';
+
+                      newRow.innerHTML = \`
+                        <td>ใหม่</td>
+                        <td><b>\${acc.title}</b></td>
+                        <td style="color:#ffd700;">\${acc.rarity}</td>
+                        <td>
+                           <input type="hidden" name="ids" value="\${acc.id}">
+                           <input type="number" step="0.0001" name="rates" value="\${acc.rate || 0}" style="width:50px; padding:3px; text-align:center;"> %
+                        </td>
+                        <td>
+                           <input type="number" name="pity_targets" value="\${acc.pity_target || 0}" placeholder="0 = ปิด" style="width:45px; padding:3px; text-align:center; color:#ff6b81; font-weight:bold;"> ครั้ง
+                        </td>
+                        <td>
+                           <input type="hidden" name="old_image_urls" value="\${acc.image_url || ''}">
+                           \${thumb} <input type="file" name="image_file_\${acc.id}" accept="image/*" style="font-size:10px; width:120px; color:#fff;">
+                        </td>
+                        <td>
+                           <select name="statuses" style="padding:3px; font-size:11px;">
+                              <option value="available" selected>🟢 มีของ</option>
+                              <option value="out_of_stock">❌ หมด</option>
+                           </select>
+                        </td>
+                        <td>
+                          <input type="hidden" name="delete_flags" value="0" id="del-flag-\${acc.id}">
+                          <button type="button" onclick="markRowForDeletion(\${acc.id})" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️ ลบ</button>
+                        </td>
+                      \`;
+                      tbody.appendChild(newRow);
+
+                      // รีเซ็ตฟอร์มกรอก
+                      document.getElementById('add-game-form').reset();
+                      alert("เพิ่มรางวัลเข้าคลังสำเร็จ! (ข้อมูลอยู่ในตารางแล้ว สามารถแก้ไขหรือกดปุ่มบันทึกด้านล่างสุดเมื่อต้องการ)");
+                  } else {
+                      alert("เกิดข้อผิดพลาด: " + result.message);
+                  }
+              } catch (e) {
+                  alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+              } finally {
+                  btn.disabled = false;
+                  btn.innerText = 'เพิ่มไอดี';
+              }
+          }
+      </script>
     </body>
   `);
 }
