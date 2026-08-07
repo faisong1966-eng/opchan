@@ -94,8 +94,8 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- SHARED CSS STYLES FOR SCI-FI SPACE THEME -------------------
-const sciFiGlobalCSS = `
+// ------------------- EXACT MATCH SCI-FI THEME WITH CHARACTERS -------------------
+const exactSciFiCSS = `
     * { box-sizing: border-box; }
     body { 
         background: radial-gradient(circle at 50% 30%, #291157 0%, #10062b 50%, #05020d 100%);
@@ -107,17 +107,43 @@ const sciFiGlobalCSS = `
         overflow-x: hidden;
         position: relative;
     }
-    /* Space background lighting effects */
+    /* Space Background Lighting & Lightning Effects */
     body::before {
         content: '';
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
         background: 
-            radial-gradient(circle at 20% 20%, rgba(138, 43, 226, 0.25) 0%, transparent 40%),
-            radial-gradient(circle at 80% 30%, rgba(0, 210, 211, 0.2) 0%, transparent 40%),
-            radial-gradient(circle at 50% 80%, rgba(255, 71, 87, 0.15) 0%, transparent 50%);
+            radial-gradient(circle at 15% 25%, rgba(138, 43, 226, 0.3) 0%, transparent 40%),
+            radial-gradient(circle at 85% 30%, rgba(0, 210, 211, 0.25) 0%, transparent 40%),
+            radial-gradient(circle at 50% 80%, rgba(255, 71, 87, 0.2) 0%, transparent 50%);
         pointer-events: none;
         z-index: 0;
+    }
+    /* Side Character Artwork Overlays matching reference */
+    .space-chars-left {
+        position: fixed;
+        left: 0; bottom: 0;
+        width: 320px;
+        height: 100vh;
+        background: url('https://i.ibb.co/68v1r52/ranger-chars-left.png') no-repeat bottom left;
+        background-size: contain;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.85;
+    }
+    .space-chars-right {
+        position: fixed;
+        right: 0; bottom: 0;
+        width: 320px;
+        height: 100vh;
+        background: url('https://i.ibb.co/3r1w7ZJ/ranger-chars-right.png') no-repeat bottom right;
+        background-size: contain;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.85;
+    }
+    @media(max-width: 900px) {
+        .space-chars-left, .space-chars-right { display: none; }
     }
     .top-lang-bar {
         position: absolute;
@@ -127,7 +153,7 @@ const sciFiGlobalCSS = `
         font-size: 13px;
     }
     .lang-badge {
-        background: rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.6);
         border: 1px solid rgba(255,255,255,0.2);
         padding: 4px 12px;
         border-radius: 20px;
@@ -135,7 +161,7 @@ const sciFiGlobalCSS = `
         backdrop-filter: blur(5px);
     }
     .audio-btn {
-        background: rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.6);
         border: 1px solid rgba(255,255,255,0.2);
         width: 35px; height: 35px; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
@@ -144,7 +170,7 @@ const sciFiGlobalCSS = `
     .main-title-container {
         position: relative;
         padding-top: 25px;
-        z-index: 2;
+        z-index: 4;
     }
     .game-logo-badge {
         background: linear-gradient(90deg, #ffd700, #ff8c00);
@@ -178,14 +204,14 @@ const sciFiGlobalCSS = `
     }
     /* Sci-Fi Container Box with Neon Border */
     .scifi-box {
-        background: rgba(13, 15, 30, 0.88);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        background: rgba(13, 15, 30, 0.92);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
         border: 2px solid #00d2d3;
         border-radius: 24px;
-        box-shadow: 0 0 40px rgba(0, 210, 211, 0.3), inset 0 0 20px rgba(0, 210, 211, 0.1);
+        box-shadow: 0 0 50px rgba(0, 210, 211, 0.4), inset 0 0 25px rgba(0, 210, 211, 0.15);
         position: relative;
-        z-index: 3;
+        z-index: 4;
         margin: 20px auto;
         padding: 25px;
         width: 92%;
@@ -195,7 +221,7 @@ const sciFiGlobalCSS = `
         content: '';
         position: absolute;
         top: -6px; left: -6px; right: -6px; bottom: -6px;
-        border: 1px solid rgba(255, 0, 127, 0.5);
+        border: 1px solid rgba(255, 0, 127, 0.6);
         border-radius: 28px;
         pointer-events: none;
     }
@@ -206,7 +232,7 @@ const sciFiGlobalCSS = `
         margin-top: 25px;
         padding-top: 15px;
         border-top: 1px solid rgba(255,255,255,0.1);
-        z-index: 3;
+        z-index: 4;
         position: relative;
         max-width: 440px;
         margin-left: auto;
@@ -234,7 +260,7 @@ const sciFiGlobalCSS = `
         font-size: 10px;
         color: #718093;
         margin: 20px 0 15px 0;
-        z-index: 3;
+        z-index: 4;
         position: relative;
         letter-spacing: 0.5px;
     }
@@ -252,7 +278,7 @@ app.get("/", (req, res) => {
         <title>🛡️ LINE RANGERS BOX - หน้าแรก</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
         <style>
-            ${sciFiGlobalCSS}
+            ${exactSciFiCSS}
             .btn-scifi {
                 display: block;
                 width: 100%;
@@ -291,6 +317,9 @@ app.get("/", (req, res) => {
         </style>
     </head>
     <body>
+        <div class="space-chars-left"></div>
+        <div class="space-chars-right"></div>
+
         <div class="top-lang-bar">
             <div class="audio-btn">🔊</div>
             <div class="lang-badge">🌐 ไทย ∨</div>
@@ -299,15 +328,15 @@ app.get("/", (req, res) => {
         <div class="main-title-container">
             <div class="game-logo-badge">LINE RANGERS</div>
             <h1 class="main-title">LINE<br>RANGERS<br><span style="font-size: 20px; letter-spacing: 6px; color: #00d2d3;">--- B O X ---</span></h1>
-            <div class="sub-title-box">✨ ศูนย์รวมพลังฮีโร่ ปกป้องโลกและพิชิตทุกภารกิจ! ✨</div>
+            <div class="sub-title-box">✨ ยินดีต้อนรับสู่โลกของ Line Rangers รวมพลังฮีโร่ ปกป้องโลกและพิชิตทุกภารกิจ! ✨</div>
         </div>
 
         <div class="scifi-box">
-            <div style="color: #00ff87; font-weight: bold; font-size: 14px; margin-bottom: 15px;">
+            <div style="color: #00ff87; font-weight: bold; font-size: 15px; margin-bottom: 5px;">
                 🛡️ LINE RANGERS BOX
             </div>
-            <div style="font-size: 12px; color: #a4b0be; margin-bottom: 20px;">
-                ✦ เข้าสู่ระบบเพื่อเริ่มต้นการผจญภัยสุดเร้าใจ ✦
+            <div style="font-size: 12px; color: #00d2d3; margin-bottom: 20px;">
+                ✦ เข้าสู่ระบบเพื่อเริ่มต้นการผจญภัย ✦
             </div>
 
             <a href="/login" class="btn-scifi btn-login">🔑 เข้าสู่ระบบ</a>
@@ -347,8 +376,8 @@ app.get("/register", (req, res) => {
         <title>สมัครสมาชิก</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            ${sciFiGlobalCSS}
-            .container { background: #13151f; padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #00d2d3; margin-top:20px; box-shadow:0 0 25px rgba(0,210,211,0.3); }
+            ${exactSciFiCSS}
+            .container { background: rgba(19, 21, 31, 0.92); padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #00d2d3; margin-top:20px; box-shadow:0 0 25px rgba(0,210,211,0.3); position:relative; z-index:4; }
             h2 { color: #00ff87; text-align: center; margin-top:0; font-size: 20px; }
             label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
             input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
@@ -357,6 +386,9 @@ app.get("/register", (req, res) => {
         </style>
     </head>
     <body>
+        <div class="space-chars-left"></div>
+        <div class="space-chars-right"></div>
+        
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
             <p style="font-size:11px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
@@ -417,8 +449,8 @@ app.get("/login", (req, res) => {
         <title>เข้าสู่ระบบ</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            ${sciFiGlobalCSS}
-            .container { background: #13151f; padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; box-shadow:0 0 25px rgba(0,210,211,0.3); }
+            ${exactSciFiCSS}
+            .container { background: rgba(19, 21, 31, 0.92); padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; box-shadow:0 0 25px rgba(0,210,211,0.3); position:relative; z-index:4; }
             h2 { color: #ffd700; text-align: center; margin-top:0; font-size:20px; }
             label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
             input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
@@ -427,6 +459,9 @@ app.get("/login", (req, res) => {
         </style>
     </head>
     <body>
+        <div class="space-chars-left"></div>
+        <div class="space-chars-right"></div>
+        
         <div class="container">
             <h2>🔑 เข้าสู่ระบบ</h2>
             <form action="/login" method="POST">
@@ -534,7 +569,7 @@ app.get("/api/user-status", async (req, res) => {
   }
 });
 
-// ------------------- MAIN LOOTBOX PAGE (SCI-FI STYLE MATCHING REFERENCE) -------------------
+// ------------------- MAIN LOOTBOX PAGE WITH FULL SIDE CHARACTERS -------------------
 
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
@@ -679,7 +714,7 @@ app.get("/lootbox", async (req, res) => {
           <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
           <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
           <style>
-              ${sciFiGlobalCSS}
+              ${exactSciFiCSS}
               .user-bar { background: #1b1e2e; border: 1px solid #00d2d3; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
               .btn-history { background: #00d2d3; color: #000; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
 
@@ -724,6 +759,9 @@ app.get("/lootbox", async (req, res) => {
           </style>
       </head>
       <body>
+          <div class="space-chars-left"></div>
+          <div class="space-chars-right"></div>
+
           <div class="top-lang-bar">
               <div class="audio-btn">🔊</div>
               <div class="lang-badge">🌐 ไทย ∨</div>
@@ -1269,14 +1307,17 @@ app.get("/my-history", async (req, res) => {
         <title>ประวัติการสุ่มของฉัน</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            ${sciFiGlobalCSS}
-            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #00d2d3; margin-top:30px; }
+            ${exactSciFiCSS}
+            .container { background: rgba(43, 43, 64, 0.95); padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #00d2d3; margin-top:30px; position:relative; z-index:4; }
             table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
             th { padding: 10px; background: #3d3d5c; color: #ffd700; }
             a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
         </style>
     </head>
     <body>
+        <div class="space-chars-left"></div>
+        <div class="space-chars-right"></div>
+        
         <div class="container">
             <h2 style="color:#ffd700;">📜 ประวัติการสุ่มของ: ${username}</h2>
             <table border="1">
@@ -1366,35 +1407,39 @@ app.post("/create-topup", (req, res) => {
   res.send(`
     <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${titleText}</title>
     <style>
-        ${sciFiGlobalCSS}
-        .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; }
+        ${exactSciFiCSS}
+        .box { background: rgba(43, 43, 64, 0.95); padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; position:relative; z-index:4; }
     </style></head>
-    <body><div class="box">
-        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center; font-size:18px;">${titleText}</h2>
-        ${infoHtml}
+    <body>
+        <div class="space-chars-left"></div>
+        <div class="space-chars-right"></div>
         
-        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
-        
-        <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
-
-        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="return handleUpload(this)">
-            <input type="hidden" name="username" value="${username}">
-            <input type="hidden" name="exact_amount" value="${exactAmount}">
-            <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
+        <div class="box">
+            <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center; font-size:18px;">${titleText}</h2>
+            ${infoHtml}
             
-            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
-            <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
+            <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
             
-            <button type="submit" id="submit-slip-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
-        </form>
+            <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-        <div id="loading-box" style="display:none; text-align:center; margin-top:12px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; color:#ffd700; font-size:12px; font-weight:bold;">
-            ⏳ กำลังส่งสลิป กรุณารอสักครู่...
+            <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="return handleUpload(this)">
+                <input type="hidden" name="username" value="${username}">
+                <input type="hidden" name="exact_amount" value="${exactAmount}">
+                <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
+                
+                <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
+                <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
+                
+                <button type="submit" id="submit-slip-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
+            </form>
+
+            <div id="loading-box" style="display:none; text-align:center; margin-top:12px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; color:#ffd700; font-size:12px; font-weight:bold;">
+                ⏳ กำลังส่งสลิป กรุณารอสักครู่...
+            </div>
+
+            <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
         </div>
-
-        <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
-    </div>
-    <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
+        <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
     <script>
         let isUploading = false;
         function handleUpload(form) {
@@ -1642,7 +1687,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
