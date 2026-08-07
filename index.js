@@ -306,7 +306,7 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const createdAt = row.created_at;
 
-    const { data: gameAccounts } = await supabase.from('game_accounts').select('*');
+    const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
 
     const { data: pendingRows } = await supabase
       .from('pending_topup')
@@ -317,7 +317,8 @@ app.get("/lootbox", async (req, res) => {
     let pendingHtml = "";
     if (pendingRows && pendingRows.length > 0) {
       pendingRows.forEach(p => {
-        pendingHtml += `<li style="color:#ffa502;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
+        const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
+        pendingHtml += `<li style="color:#ffa502;">ยอดโอน <b>${p.exact_amount} บาท</b> ${typeBadge} (รอแอดมินตรวจสอบสลิป)</li>`;
       });
     } else {
       pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
@@ -375,11 +376,17 @@ app.get("/lootbox", async (req, res) => {
         else if (acc.rarity === "SS+") badgeColor = "#a4b0be";
         else if (acc.rarity === "S") badgeColor = "#70a1ff";
 
+        const isOutOfStock = acc.status === 'out_of_stock';
+        const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6; position:relative;' : `border-color:${badgeColor};`;
+        const stockStatusHtml = isOutOfStock 
+            ? `<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px; text-shadow:0 0 5px rgba(255,71,87,0.5);">❌ หมด</div>` 
+            : `<div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity}</div>`;
+
         showcaseCardsHtml += `
-          <div class="reward-card" style="border-color:${badgeColor}">
+          <div class="reward-card" style="${cardStyle}">
               <div style="font-size:20px;">🛡️</div>
-              <div class="r-name" style="color:${badgeColor}">${acc.title}</div>
-              <div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity}</div>
+              <div class="r-name" style="color:${isOutOfStock ? '#ff4757' : badgeColor}">${acc.title}</div>
+              ${stockStatusHtml}
           </div>
         `;
       });
@@ -409,7 +416,7 @@ app.get("/lootbox", async (req, res) => {
               .user-bar { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
               .btn-history { background: #00d2d3; color: #000; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
 
-              .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 12px; font-weight: bold; color: #ffd700; }
+              .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-around: space-around; font-size: 14px; margin-bottom: 12px; font-weight: bold; color: #ffd700; }
               
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
@@ -588,7 +595,8 @@ app.get("/lootbox", async (req, res) => {
                       let pendingHtml = "";
                       if (data.pendingRows && data.pendingRows.length > 0) {
                           data.pendingRows.forEach(p => {
-                              pendingHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>\`;
+                              const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
+                              pendingHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)</li>\`;
                           });
                       } else {
                           pendingHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
@@ -667,10 +675,10 @@ app.get("/lootbox", async (req, res) => {
                       let winDetails = "";
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
-                          summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
+                          summaryListHtml += \`• \${rew}<br>\`;
                           if (!rew.includes("เกลือ")) {
                               hasWin = true;
-                              winDetails += \`<b>\${rew}</b> (\${count} ชิ้น) \`;
+                              winDetails += \`<b>\${rew}</b><br>\`;
                           }
                       }
 
@@ -688,7 +696,7 @@ app.get("/lootbox", async (req, res) => {
                           modalCard.style.boxShadow = "0 0 30px rgba(255,215,0,0.6)";
                           modalTitle.style.color = "#ffd700";
                           modalTitle.innerText = "🎉 ยินดีด้วย! แจ็คพอตแตก 🎉";
-                          modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
+                          modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
                       } else {
                           playSadSound();
                           modalCard.style.borderColor = "#ff4757";
@@ -707,7 +715,7 @@ app.get("/lootbox", async (req, res) => {
               }
 
               function closeModal() {
-                  document.getElementById("resultModal").style.display = "none";
+                  window.location.reload(); 
               }
           </script>
       </body>
@@ -913,7 +921,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (คำนวณ % อัตราออก) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ตัดไอดีที่หมดออกจากสุ่ม) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -933,10 +941,15 @@ app.post("/open-lootbox", async (req, res) => {
     if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
-    const { data: gameAccounts } = await supabase.from('game_accounts').select('*');
+    // ดึงเฉพาะไอดีที่ยังมีสถานะ 'available' หรือไม่ใช่ 'out_of_stock'
+    const { data: gameAccounts } = await supabase
+      .from('game_accounts')
+      .select('*')
+      .neq('status', 'out_of_stock');
 
     let historyBatch = [];
     let summaryRewards = {};
+    let accountsToUpdateStatus = [];
 
     let steps = [
       { salt: user.step1_salt || 0, reward: user.step1_reward || 'normal' },
@@ -967,16 +980,20 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // สุ่มตามเรตปกติ
+        // สุ่มตามเรตปกติ (เลือกสุ่มเฉพาะไอดีที่มีของ)
         if (!handled) {
             const rand = Math.random() * 100;
             let currentAcc = null;
 
             if (gameAccounts && gameAccounts.length > 0) {
-                for (let acc of gameAccounts) {
+                for (let accIndex = 0; accIndex < gameAccounts.length; accIndex++) {
+                    const acc = gameAccounts[accIndex];
                     const rate = parseFloat(acc.rate) || 0;
                     if (rand < rate) {
                         currentAcc = acc;
+                        // ลบไอดีนี้ออกจาก Array เพื่อไม่ให้สุ่มได้ซ้ำอีกในรอบเดียวกัน
+                        gameAccounts.splice(accIndex, 1);
+                        accountsToUpdateStatus.push(acc.id);
                         break;
                     }
                 }
@@ -1000,23 +1017,26 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
+    // อัปเดตไอดีที่สุ่มออกไปแล้วให้เป็น out_of_stock
+    if (accountsToUpdateStatus.length > 0) {
+        await supabase
+          .from('game_accounts')
+          .update({ status: 'out_of_stock' })
+          .in('id', accountsToUpdateStatus);
+    }
+
     const newPoints = user.points - selectedCount;
     const newSpent = (user.total_spent || 0) + selectedCount;
 
-    // อัปเดตข้อมูลผู้เล่น พร้อมแปลงค่า Integer ป้องกัน Mismatch Error
-    const { error: updateUserErr } = await supabase.from('users').update({ 
+    await supabase.from('users').update({ 
         points: parseInt(newPoints) || 0, 
         total_spent: parseInt(newSpent) || 0,
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
         step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
-        step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
+        step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[5].reward || 'normal'
     }).eq('username', username);
-
-    if (updateUserErr) {
-        console.error("Update User Error:", updateUserErr);
-    }
 
     const { error: histError } = await supabase.from('history').insert(historyBatch);
     if (histError) {
@@ -1113,10 +1133,14 @@ app.post("/admin/add-game-account", async (req, res) => {
 
 app.post("/admin/update-game-account-rate", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { account_id, rate } = req.body;
+  const { account_id, rate, status } = req.body;
 
-  await supabase.from('game_accounts').update({ rate: parseFloat(rate) || 0 }).eq('id', account_id);
-  res.send(`<script>alert("อัปเดตอัตรา % สำเร็จ!"); window.location.href="/admin";</script>`);
+  await supabase.from('game_accounts').update({ 
+      rate: parseFloat(rate) || 0,
+      status: status || 'available'
+  }).eq('id', account_id);
+
+  res.send(`<script>alert("อัปเดตข้อมูลไอดีเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-game-account", async (req, res) => {
@@ -1168,9 +1192,14 @@ async function renderAdminDashboard(req, res) {
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
     pendingRows.forEach((p, index) => {
+      let topupBadge = p.topup_type === 'truemoney' 
+          ? `<span style="background:#ff4757; color:#fff; padding:3px 6px; border-radius:4px; font-size:11px; font-weight:bold;">🧡 True Wallet</span>` 
+          : `<span style="background:#2ed573; color:#fff; padding:3px 6px; border-radius:4px; font-size:11px; font-weight:bold;">📱 PromptPay</span>`;
+
       pendingSlipHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${p.username}</b></td>
+        <td>${topupBadge}</td>
         <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b></td>
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:50px; height:70px; object-fit:cover;"></a></td>
         <td>
@@ -1186,7 +1215,7 @@ async function renderAdminDashboard(req, res) {
       </tr>`;
     });
   } else {
-    pendingSlipHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
+    pendingSlipHtml = `<tr><td colspan="6" style="color:#aaa; padding:12px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
   }
 
   let withdrawHtml = "";
@@ -1219,15 +1248,20 @@ async function renderAdminDashboard(req, res) {
   let gameAccHtml = "";
   if (gameAccounts && gameAccounts.length > 0) {
     gameAccounts.forEach((acc, i) => {
+      const isOut = acc.status === 'out_of_stock';
       gameAccHtml += `<tr>
         <td>${i+1}</td>
         <td><b>${acc.title}</b></td>
         <td style="color:#ffd700;">${acc.rarity}</td>
         <td>
-          <form action="/admin/update-game-account-rate" method="POST" style="display:inline-flex; gap:4px; margin:0;">
+          <form action="/admin/update-game-account-rate" method="POST" style="display:inline-flex; gap:4px; align-items:center; margin:0;">
              <input type="hidden" name="account_id" value="${acc.id}">
-             <input type="number" step="0.0001" name="rate" value="${acc.rate || 0}" style="width:70px; padding:3px; text-align:center;"> %
-             <button type="submit" style="background:#70a1ff; color:#000; border:none; padding:3px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px;">💾 ปรับเรต</button>
+             <input type="number" step="0.0001" name="rate" value="${acc.rate || 0}" style="width:65px; padding:3px; text-align:center;"> %
+             <select name="status" style="padding:3px; font-size:11px;">
+                <option value="available" ${!isOut ? 'selected' : ''}>🟢 มีของ</option>
+                <option value="out_of_stock" ${isOut ? 'selected' : ''}>❌ หมด</option>
+             </select>
+             <button type="submit" style="background:#70a1ff; color:#000; border:none; padding:4px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px;">💾 บันทึก</button>
           </form>
         </td>
         <td>
@@ -1310,14 +1344,14 @@ async function renderAdminDashboard(req, res) {
 
           <h4 style="color:#ffd700; margin-top:20px;">📦 คลังรางวัล และ การตั้งค่าอัตราออก (%)</h4>
           <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-             <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>จัดการ</th></tr>
+             <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%) / สถานะ</th><th>จัดการ</th></tr>
              ${gameAccHtml}
           </table>
       </div>
 
       <h3 style="color:#ffd700;">📥 รายการสลิปเติมเงินรอตรวจสอบ</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:750px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>ยอดเงิน</th><th>สลิป</th><th>จัดการ</th></tr>
+      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:800px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>ช่องทาง</th><th>ยอดเงิน</th><th>สลิป</th><th>จัดการ</th></tr>
         ${pendingSlipHtml}
       </table>
 
