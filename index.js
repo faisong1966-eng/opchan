@@ -91,7 +91,7 @@ app.get("/", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <title>🛡️ Line Rangers LootBox - สุ่มไอดีเกมสุดอลังการ</title>
+        <title>🛡️ Line Rangers LootBox - หน้าแรก</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
         <style>
             body { background: linear-gradient(135deg, #0d1117, #161b22); color: #ffffff; text-align: center; padding-top: 80px; font-family: 'Kanit', sans-serif; }
@@ -107,7 +107,7 @@ app.get("/", (req, res) => {
     <body>
         <div class="container">
             <h1>🛡️ LINE RANGERS BOX</h1>
-            <p>เว็บสุ่มไอดี Line Rangers ระดับเทพ ลุ้นไอดี SSR!</p>
+            <p>เว็บสุ่มไอดี Line Rangers ลุ้นรางวัลสุดอลังการ!</p>
             <a href="/login">🔑 เข้าสู่ระบบ</a>
             <a href="/register" class="reg-btn">📝 สมัครสมาชิก</a>
         </div>
@@ -148,7 +148,7 @@ app.get("/register", (req, res) => {
                 
                 <label>ลิงก์ Facebook ส่วนตัวของคุณ:</label>
                 <input type="url" name="facebook_url" placeholder="https://www.facebook.com/your.profile" required>
-                <span style="font-size:11px; color:#8b949e; display:block; margin-top:4px;">*แนบลิงก์เฟซบุ๊กเพื่อรับรางวัลเมื่อสุ่มได้ไอดีเทพ</span>
+                <span style="font-size:11px; color:#8b949e; display:block; margin-top:4px;">*คัดลอกลิงก์ Facebook มาวาง เพื่อให้แอดมินติดต่อส่งรางวัล</span>
 
                 <button type="submit">ยืนยันการสมัครสมาชิก</button>
             </form>
@@ -168,7 +168,7 @@ app.post("/register", async (req, res) => {
       .insert([{ 
           username, 
           password, 
-          roblox_img: facebook_url, // ใช้ฟีลด์ roblox_img ในการเก็บ facebook_url เพื่อไม่ต้องเปลี่ยนโครงสร้าง DB
+          roblox_img: facebook_url, 
           points: 0, 
           total_spent: 0, 
           step1_salt: 0, step1_reward: 'normal',
@@ -179,7 +179,7 @@ app.post("/register", async (req, res) => {
       }]);
 
     if (error) {
-      return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
+      return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
     }
     res.send(`<script>alert("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
   } catch (err) {
@@ -249,7 +249,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// API Realtime สถานะยูสเซอร์
+// API Realtime สถานะยูสเซอร์ (เงินเข้าปุ๊บ แต้มเด้งปั๊บ)
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
@@ -261,17 +261,41 @@ app.get("/api/user-status", async (req, res) => {
       .eq('username', username)
       .single();
 
+    const { data: pendingWithdrawRow } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending')
+      .single();
+
     const { data: pendingRows } = await supabase
       .from('pending_topup')
       .select('*')
       .eq('username', username)
       .eq('status', 'pending');
 
+    const { data: userHistoryRows } = await supabase
+      .from('history')
+      .select('*')
+      .eq('username', username)
+      .eq('is_withdrawn', false);
+
+    let hasClaimableRewards = false;
+    if (userHistoryRows) {
+      userHistoryRows.forEach(h => {
+        if (h.reward && !h.reward.includes("เกลือ")) {
+          hasClaimableRewards = true;
+        }
+      });
+    }
+
     res.json({
       success: true,
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
-      pendingRows: pendingRows || []
+      hasPendingWithdraw: !!pendingWithdrawRow,
+      pendingRows: pendingRows || [],
+      hasClaimableRewards: hasClaimableRewards
     });
   } catch (e) {
     res.json({ success: false });
@@ -298,8 +322,8 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const createdAt = row.created_at;
 
-    // ดึงคลังไอดีเกมที่แอดมินตั้งไว้มาโชว์ที่หน้าบ้าน
-    const { data: gameAccounts } = await supabase.from('game_accounts').select('*').eq('status', 'available');
+    // ดึงคลังไอดีเกมที่แอดมินตั้งไว้
+    const { data: gameAccounts } = await supabase.from('game_accounts').select('*');
 
     const { data: pendingRows } = await supabase
       .from('pending_topup')
@@ -316,7 +340,52 @@ app.get("/lootbox", async (req, res) => {
       pendingHtml = `<span style="color:#8b949e; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
     }
 
-    // สรรค์สร้างการ์ดโชว์ไอดี (Showcase Grid)
+    // เช็คประวัติสุ่มที่ยังไม่ได้อนุมัติถอน
+    const { data: unwithdrawnHistory } = await supabase
+      .from('history')
+      .select('*')
+      .eq('username', username)
+      .eq('is_withdrawn', false);
+
+    let hasRewardsToClaim = false;
+    if (unwithdrawnHistory) {
+      unwithdrawnHistory.forEach(h => {
+        if (h.reward && !h.reward.includes("เกลือ")) {
+          hasRewardsToClaim = true;
+        }
+      });
+    }
+
+    const { data: pendingWithdrawRow } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending')
+      .single();
+
+    let withdrawSectionHtml = "";
+    if (pendingWithdrawRow) {
+      withdrawSectionHtml = `
+        <div style="background:rgba(210,153,34,0.15); border:1px solid #d29922; padding:10px; border-radius:8px; margin-top:12px; font-size:13px; color:#d29922; text-align:center;">
+            ⏳ มีคำขอรับรางวัลกำลังรอแอดมินตรวจสอบ (แอดมินจะทักเฟซส่วนตัวไปมอบให้) <br>
+            <span style="font-size:11px; color:#8b949e;">*คุณยังคงสามารถกดสุ่มเล่นต่อได้ตามปกติครับ*</span>
+        </div>
+      `;
+    }
+
+    let claimBtnHtml = "";
+    if (hasRewardsToClaim) {
+      claimBtnHtml = `
+        <form action="/request-withdraw" method="POST" style="margin-top:10px;">
+            <input type="hidden" name="username" value="${username}">
+            <button type="submit" style="width:100%; background:#238636; color:#fff; padding:12px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; border:1px solid #2ea043; box-shadow:0 0 10px rgba(46,160,67,0.4);">
+                🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
+            </button>
+        </form>
+      `;
+    }
+
+    // การ์ดโชว์ไอดี
     let showcaseCardsHtml = "";
     if (gameAccounts && gameAccounts.length > 0) {
       gameAccounts.forEach(acc => {
@@ -335,12 +404,8 @@ app.get("/lootbox", async (req, res) => {
       });
     } else {
       showcaseCardsHtml = `
-        <div class="reward-card" style="grid-column: span 4;">
-            <div style="font-size:18px; color:#8b949e;">📦 เกลือ 0 Point</div>
-        </div>
-        <div class="reward-card legendary" style="grid-column: span 4;">
-            <div style="font-size:22px;">🐉</div>
-            <div class="r-name" style="color:#d29922;">ไอดี Line Rangers ระดับ SSR / เทพมังกร</div>
+        <div class="reward-card" style="grid-column: span 2;">
+            <div style="font-size:18px; color:#8b949e;">📦 เกลือ (0 Point)</div>
         </div>
       `;
     }
@@ -388,9 +453,9 @@ app.get("/lootbox", async (req, res) => {
               input[type="number"] { width: 100%; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; font-family:'Kanit'; }
               .topup-sub-btn { width: 100%; padding: 8px; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; font-family:'Kanit'; }
               
-              /* Modal Winner Effect */
+              /* Modal Winner / Salt Effect */
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
-              .modal-content { background: linear-gradient(135deg, #161b22, #21262d); border: 2px solid #d29922; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 360px; text-align: center; box-shadow: 0 0 30px rgba(210,153,34,0.6); animation: popup 0.4s ease-out; }
+              .modal-content { background: linear-gradient(135deg, #161b22, #21262d); border: 2px solid #30363d; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 360px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
           </style>
       </head>
@@ -399,7 +464,7 @@ app.get("/lootbox", async (req, res) => {
               
               <div class="banner-header">
                   <h2>🛡️ LINE RANGERS BOX</h2>
-                  <p>✨ สุ่มไอดีเกมสุดเทพ ลุ้นไอดี SSR และรางวัลใหญ่! ✨</p>
+                  <p>✨ สุ่มไอดีเกมสุดเทพ ลุ้นรางวัลใหญ่! ✨</p>
               </div>
 
               <div class="user-bar">
@@ -419,7 +484,10 @@ app.get("/lootbox", async (req, res) => {
                   <div>🎯 สุ่มไปแล้ว: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              <div class="showcase-container">
+              ${withdrawSectionHtml}
+              <div id="claim-btn-wrapper">${claimBtnHtml}</div>
+
+              <div class="showcase-container" style="margin-top:12px;">
                   <div class="showcase-title">🏆 คลังไอดี Line Rangers ที่มีในกล่องสุ่ม</div>
                   <div class="rewards-grid">
                       ${showcaseCardsHtml}
@@ -472,13 +540,12 @@ app.get("/lootbox", async (req, res) => {
               <a href="/" style="display:block; margin-top:20px; color:#f85149; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
 
-          <!-- Popup Effect Modal เมื่อได้ไอดีเทพ -->
-          <div id="winModal" class="modal">
-              <div class="modal-content">
-                  <h2 style="color:#d29922; margin:0 0 10px 0;">🎉 ยินดีด้วย! แจ็คพอตแตก 🎉</h2>
-                  <p style="font-size:14px; color:#fff;" id="winModalText"></p>
-                  <p style="font-size:11px; color:#8b949e;">แอดมินจะทักแชท Facebook ไปส่งมอบไอดีให้คุณโดยเร็วที่สุด!</p>
-                  <button onclick="closeModal()" style="background:#238636; color:#fff; border:none; padding:10px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ตกลง</button>
+          <!-- Popup Modal ผลลัพธ์ -->
+          <div id="resultModal" class="modal">
+              <div class="modal-content" id="modalCard">
+                  <h2 id="modalTitle" style="margin:0 0 10px 0;"></h2>
+                  <div id="modalBody" style="font-size:14px; margin-bottom:15px;"></div>
+                  <button onclick="closeModal()" style="background:#238636; color:#fff; border:none; padding:10px 25px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ตกลง</button>
               </div>
           </div>
 
@@ -488,6 +555,78 @@ app.get("/lootbox", async (req, res) => {
               let selectedCount = ${countParam};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              // Web Audio API สำหรับเล่นเสียงเอฟเฟกต์
+              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              function playSadSound() {
+                  try {
+                      const osc = audioCtx.createOscillator();
+                      const gain = audioCtx.createGain();
+                      osc.type = 'sawtooth';
+                      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                      osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.6);
+                      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                      osc.connect(gain);
+                      gain.connect(audioCtx.destination);
+                      osc.start();
+                      osc.stop(audioCtx.currentTime + 0.6);
+                  } catch(e){}
+              }
+
+              function playWinSound() {
+                  try {
+                      const osc = audioCtx.createOscillator();
+                      const gain = audioCtx.createGain();
+                      osc.type = 'triangle';
+                      osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
+                      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                      osc.connect(gain);
+                      gain.connect(audioCtx.destination);
+                      osc.start();
+                      osc.stop(audioCtx.currentTime + 0.5);
+                  } catch(e){}
+              }
+
+              // Realtime Polling ตรวจสอบยอดเงินอัปเดตแบบไม่ต้องรีเฟรชหน้า
+              setInterval(() => {
+                  fetch('/api/user-status?username=${username}')
+                  .then(res => res.json())
+                  .then(data => {
+                      if (!data.success) return;
+                      if (userPoints !== data.points) {
+                          userPoints = data.points;
+                          document.getElementById("points").innerText = userPoints;
+                      }
+                      if (userSpent !== data.total_spent) {
+                          userSpent = data.total_spent;
+                          document.getElementById("spent").innerText = userSpent;
+                      }
+
+                      let pendingHtml = "";
+                      if (data.pendingRows && data.pendingRows.length > 0) {
+                          data.pendingRows.forEach(p => {
+                              pendingHtml += \`<li style="color:#f1e05a;">ยอดโอน <b>\${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>\`;
+                          });
+                      } else {
+                          pendingHtml = \`<span style="color:#8b949e; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
+                      }
+                      document.getElementById("pending-list-container").innerHTML = pendingHtml;
+
+                      if (data.hasClaimableRewards) {
+                          document.getElementById("claim-btn-wrapper").innerHTML = \`
+                            <form action="/request-withdraw" method="POST" style="margin-top:10px;">
+                                <input type="hidden" name="username" value="${username}">
+                                <button type="submit" style="width:100%; background:#238636; color:#fff; padding:12px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; border:1px solid #2ea043; box-shadow:0 0 10px rgba(46,160,67,0.4);">
+                                    🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
+                                </button>
+                            </form>
+                          \`;
+                      }
+                  }).catch(e => {});
+              }, 3000);
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -551,19 +690,35 @@ app.get("/lootbox", async (req, res) => {
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
                           if (!rew.includes("เกลือ")) {
                               hasWinAccount = true;
-                              winDetails += rew + " ";
+                              winDetails += \`<b>\${rew}</b> (\${count} ชิ้น) \`;
                           }
                       }
 
                       resBox.innerHTML = \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>\`;
 
-                      // หากสุ่มได้ไอดีเทพ ให้จุดพลุ Confetti + แสดง Modal
+                      const modalCard = document.getElementById("modalCard");
+                      const modalTitle = document.getElementById("modalTitle");
+                      const modalBody = document.getElementById("modalBody");
+
                       if (hasWinAccount) {
-                          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-                          document.getElementById("winModalText").innerText = "คุณสุ่มได้: " + winDetails;
-                          document.getElementById("winModal").style.display = "block";
+                          playWinSound();
+                          confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                          modalCard.style.borderColor = "#d29922";
+                          modalCard.style.boxShadow = "0 0 30px rgba(210,153,34,0.8)";
+                          modalTitle.style.color = "#d29922";
+                          modalTitle.innerText = "🎉 ยินดีด้วย! แจ็คพอตแตก 🎉";
+                          modalBody.innerHTML = \`คุณสุ่มได้ไอดีเกม Line Rangers!<br><br>\${winDetails}<br><br><span style="font-size:11px; color:#8b949e;">กดปุ่ม "ขอรับรางวัล" หน้าเว็บ เพื่อส่งข้อมูลให้แอดมินส่งมอบทางเฟซบุ๊กได้เลย!</span>\`;
+                      } else {
+                          playSadSound();
+                          modalCard.style.borderColor = "#f85149";
+                          modalCard.style.boxShadow = "0 0 20px rgba(248,81,73,0.5)";
+                          modalTitle.style.color = "#f85149";
+                          modalTitle.innerText = "😢 เสียใจด้วย...";
+                          modalBody.innerHTML = \`<span style="color:#f85149; font-size:16px;">คุณสุ่มได้ <b>เกลือ (0 Point)</b></span><br>อย่าเพิ่งท้อ ลองเติมเงินแล้วสุ่มใหม่อีกครั้ง!\`;
                       }
+
+                      document.getElementById("resultModal").style.display = "block";
                   })
                   .catch(err => {
                       openBtn.disabled = false;
@@ -572,7 +727,7 @@ app.get("/lootbox", async (req, res) => {
               }
 
               function closeModal() {
-                  document.getElementById("winModal").style.display = "none";
+                  document.getElementById("resultModal").style.display = "none";
               }
           </script>
       </body>
@@ -583,7 +738,7 @@ app.get("/lootbox", async (req, res) => {
   }
 });
 
-// ประวัติการสุ่ม
+// ประวัติการสุ่ม (แสดงเฉพาะชุดปัจจุบันที่ยังไม่ได้ลบ)
 app.get("/my-history", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
@@ -592,6 +747,7 @@ app.get("/my-history", async (req, res) => {
     .from('history')
     .select('*')
     .eq('username', username)
+    .eq('is_withdrawn', false)
     .order('id', { ascending: false });
 
   let historyList = "";
@@ -600,7 +756,7 @@ app.get("/my-history", async (req, res) => {
       historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#d29922;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#8b949e;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#8b949e;">คุณยังไม่มีประวัติการสุ่มคงเหลือ</td></tr>`;
   }
 
   res.send(`
@@ -632,7 +788,61 @@ app.get("/my-history", async (req, res) => {
   `);
 });
 
-// เติมเงินและสลิป (รูปแบบเดิม)
+// ส่งคำขอรับรางวัลไปหลังบ้านแอดมิน
+app.post("/request-withdraw", async (req, res) => {
+  const { username } = req.body;
+
+  const { data: userHistory } = await supabase
+    .from('history')
+    .select('*')
+    .eq('username', username)
+    .eq('is_withdrawn', false);
+
+  if (!userHistory || userHistory.length === 0) {
+    return res.send(`<script>alert("ไม่พบประวัติรางวัลที่จะรับ!"); window.location.href="/lootbox?username=${username}";</script>`);
+  }
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('roblox_img')
+    .eq('username', username)
+    .single();
+
+  const facebookUrl = userData ? userData.roblox_img : "";
+
+  // รวมรายการรางวัลทั้งหมดที่ผู้เล่นสุ่มได้
+  let rewardsSummaryList = [];
+  let idsToUpdate = [];
+
+  userHistory.forEach(h => {
+    if (h.reward && !h.reward.includes("เกลือ")) {
+      rewardsSummaryList.push(h.reward);
+    }
+    idsToUpdate.push(h.id);
+  });
+
+  await supabase
+    .from('pending_withdraw')
+    .insert([{
+      username: username,
+      roblox_img: facebookUrl, // ลิงก์ Facebook ยูสเซอร์
+      total_opens: userHistory.length,
+      total_robux: rewardsSummaryList.length,
+      status: 'pending',
+      history_snapshot: JSON.stringify(rewardsSummaryList)
+    }]);
+
+  if (idsToUpdate.length > 0) {
+    await supabase
+      .from('history')
+      .update({ is_withdrawn: true })
+      .in('id', idsToUpdate);
+  }
+
+  res.send(`<script>alert("ส่งคำขอรับรางวัลเรียบร้อย! แอดมินจะทักแชท Facebook ไปส่งมอบให้ครับ"); window.location.href="/lootbox?username=${username}";</script>`);
+});
+
+// เติมเงินและสลิป
 app.post("/create-topup", (req, res) => {
   const { username, amount, topup_type } = req.body;
   const exactAmount = parseFloat(amount).toFixed(2);
@@ -678,7 +888,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบเกลือ 5 สเต็ปเดิม) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (คำนวณ % อัตราออก) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -687,8 +897,7 @@ app.post("/open-lootbox", async (req, res) => {
   const { data: user } = await supabase.from('users').select('*').eq('username', username).single();
   if (!user || user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอ!" });
 
-  // ดึงคลังไอดีเกม Line Rangers ทั้งหมดที่มีในระบบ
-  const { data: gameAccounts } = await supabase.from('game_accounts').select('*').eq('status', 'available');
+  const { data: gameAccounts } = await supabase.from('game_accounts').select('*');
 
   let historyBatch = [];
   let summaryRewards = {};
@@ -705,7 +914,7 @@ app.post("/open-lootbox", async (req, res) => {
       let reward = "";
       let handled = false;
 
-      // เช็คระบบ 5 สเต็ปของแอดมิน
+      // ระบบ 5 สเต็ปของแอดมิน
       for (let s = 0; s < steps.length; s++) {
           if (steps[s].salt > 0) {
               reward = "🧂 เกลือ (0 Point)";
@@ -713,7 +922,6 @@ app.post("/open-lootbox", async (req, res) => {
               handled = true;
               break;
           } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
-              // ออกรางวัลตาม ID ไอดีเกมที่แอดมินตั้งสเปกไว้ในสเต็ป
               reward = `🛡️ ${steps[s].reward}`;
               steps[s].reward = 'normal';
               handled = true;
@@ -721,13 +929,23 @@ app.post("/open-lootbox", async (req, res) => {
           }
       }
 
-      // สุ่มเรตปกติ หากไม่ได้ติดสเต็ป
+      // คำนวณเรตสุ่ม % ปกติจากที่แอดมินตั้งค่าไว้
       if (!handled) {
-          const rand = Math.random() * 100;
-          
-          if (gameAccounts && gameAccounts.length > 0 && rand < 5.0) { // มีโอกาส 5% หลุดไอดีเกม
-              const randomAccount = gameAccounts[Math.floor(Math.random() * gameAccounts.length)];
-              reward = `🛡️ [${randomAccount.rarity}] ${randomAccount.title}`;
+          const rand = Math.random() * 100; // สุ่มเลข 0 ถึง 100
+          let currentAcc = null;
+
+          if (gameAccounts && gameAccounts.length > 0) {
+              for (let acc of gameAccounts) {
+                  const rate = parseFloat(acc.rate) || 0;
+                  if (rand < rate) {
+                      currentAcc = acc;
+                      break;
+                  }
+              }
+          }
+
+          if (currentAcc) {
+              reward = `🛡️ [${currentAcc.rarity}] ${currentAcc.title}`;
           } else {
               reward = "🧂 เกลือ (0 Point)";
           }
@@ -737,7 +955,7 @@ app.post("/open-lootbox", async (req, res) => {
 
       historyBatch.push({
           username: username,
-          roblox_img: user.roblox_img, // ลิงก์ Facebook ยูสเซอร์
+          roblox_img: user.roblox_img,
           reward: reward,
           reward_num: 0,
           is_withdrawn: false
@@ -753,8 +971,8 @@ app.post("/open-lootbox", async (req, res) => {
       step1_salt: steps[0].salt, step1_reward: steps[0].reward,
       step2_salt: steps[1].salt, step2_reward: steps[1].reward,
       step3_salt: steps[2].salt, step3_reward: steps[2].reward,
-      step4_salt: steps[3].salt, step4_reward: steps[3].reward,
-      step5_salt: steps[4].salt, step5_reward: steps[4].reward
+      step4_salt: steps[4].salt, step4_reward: steps[4].reward,
+      step5_salt: steps[5].salt, step5_reward: steps[5].reward
   }).eq('username', username);
 
   await supabase.from('history').insert(historyBatch);
@@ -798,7 +1016,7 @@ app.get("/admin/logout", (req, res) => {
   req.session.destroy(() => res.redirect("/admin"));
 });
 
-// แอดมินอนุมัติสลิปเติมเงิน (ระบบเดิม)
+// อนุมัติสลิปเติมเงิน
 app.post("/admin/approve-topup", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { topup_id, username, exact_amount } = req.body;
@@ -818,29 +1036,48 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// แอดมินเพิ่มไอดี Line Rangers เข้าคลัง
+// อนุมัติการส่งมอบไอดี/รางวัล (ลบรายการและประวัติสุ่มเดิมของผู้เล่นทันที)
+app.post("/admin/approve-withdraw", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { withdraw_id, username } = req.body;
+
+  await supabase.from('pending_withdraw').delete().eq('id', withdraw_id);
+  await supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true);
+
+  res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติเดิมถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
+});
+
+// เพิ่มรางวัล/ไอดีเข้าคลัง
 app.post("/admin/add-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { title, rarity, account_data, rate } = req.body;
+  const { title, rarity, rate } = req.body;
 
   await supabase.from('game_accounts').insert([{
       title,
       rarity,
-      account_data,
       rate: parseFloat(rate) || 1.0,
       status: 'available'
   }]);
 
-  res.send(`<script>alert("เพิ่มไอดี Line Rangers เข้าสู่กล่องสุ่มสำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("เพิ่มรางวัล Line Rangers เข้าสู่คลังสำเร็จ!"); window.location.href="/admin";</script>`);
+});
+
+// อัปเดต % เรตการออกของไอดีในคลัง
+app.post("/admin/update-game-account-rate", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { account_id, rate } = req.body;
+
+  await supabase.from('game_accounts').update({ rate: parseFloat(rate) || 0 }).eq('id', account_id);
+  res.send(`<script>alert("อัปเดตอัตรา % การออกสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   await supabase.from('game_accounts').delete().eq('id', req.body.account_id);
-  res.send(`<script>alert("ลบไอดีเกมสำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ลบไอดีสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// แอดมินตั้งค่าเรตเกลือ 5 สเต็ปของยูสเซอร์ (ระบบเดิม)
+// ตั้งค่าเรตเกลือ 5 สเต็ป
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { 
@@ -863,13 +1100,14 @@ app.post("/admin/update-user-luck", async (req, res) => {
   res.send(`<script>alert("บันทึกเรต 5 สเต็ปให้ ${username} สำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// แสดงผลแดชบอร์ดหลังบ้าน
+// แดชบอร์ดหลังบ้าน
 async function renderAdminDashboard(req, res) {
   const { data: usersRows } = await supabase.from('users').select('*').order('id', { ascending: false });
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending');
+  const { data: pendingWithdrawRows } = await supabase.from('pending_withdraw').select('*').eq('status', 'pending');
   const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: false });
 
-  // รายการสลิปเติมเงิน
+  // สลิปเติมเงิน
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
     pendingRows.forEach((p, index) => {
@@ -881,11 +1119,11 @@ async function renderAdminDashboard(req, res) {
         <td>
           <form action="/admin/approve-topup" method="POST" style="display:inline;">
             <input type="hidden" name="topup_id" value="${p.id}"><input type="hidden" name="username" value="${p.username}"><input type="hidden" name="exact_amount" value="${p.exact_amount}">
-            <button type="submit" style="background:#238636; color:#fff; border:none; padding:5px 8px; border-radius:4px;">✅ อนุมัติ</button>
+            <button type="submit" style="background:#238636; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
           </form>
           <form action="/admin/delete-topup" method="POST" style="display:inline;">
             <input type="hidden" name="topup_id" value="${p.id}">
-            <button type="submit" style="background:#f85149; color:#fff; border:none; padding:5px 8px; border-radius:4px;">🗑️ ลบ</button>
+            <button type="submit" style="background:#f85149; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบ</button>
           </form>
         </td>
       </tr>`;
@@ -894,7 +1132,35 @@ async function renderAdminDashboard(req, res) {
     pendingSlipHtml = `<tr><td colspan="5" style="color:#8b949e; padding:10px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
   }
 
-  // รายการไอดีเกม Line Rangers ในคลัง
+  // คำขอรับรางวัลจากผู้เล่น
+  let withdrawHtml = "";
+  if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
+    pendingWithdrawRows.forEach((w, index) => {
+      let rewardsList = "";
+      try {
+        const parsed = JSON.parse(w.history_snapshot);
+        rewardsList = parsed.join(", ");
+      } catch(e) { rewardsList = "ไอดี Line Rangers"; }
+
+      withdrawHtml += `<tr>
+        <td>${index + 1}</td>
+        <td><b>${w.username}</b></td>
+        <td><a href="${w.roblox_img}" target="_blank" style="background:#1f6beb; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
+        <td style="color:#d29922; font-size:12px;">${rewardsList}</td>
+        <td>
+          <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
+            <input type="hidden" name="withdraw_id" value="${w.id}">
+            <input type="hidden" name="username" value="${w.username}">
+            <button type="submit" style="background:#238636; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบแล้ว</button>
+          </form>
+        </td>
+      </tr>`;
+    });
+  } else {
+    withdrawHtml = `<tr><td colspan="5" style="color:#8b949e; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
+  }
+
+  // ไอดี Line Rangers ในคลัง + ช่องปรับ % เรต
   let gameAccHtml = "";
   if (gameAccounts && gameAccounts.length > 0) {
     gameAccounts.forEach((acc, i) => {
@@ -902,7 +1168,13 @@ async function renderAdminDashboard(req, res) {
         <td>${i+1}</td>
         <td><b>${acc.title}</b></td>
         <td style="color:#d29922;">${acc.rarity}</td>
-        <td><code>${acc.account_data}</code></td>
+        <td>
+          <form action="/admin/update-game-account-rate" method="POST" style="display:inline-flex; gap:4px; margin:0;">
+             <input type="hidden" name="account_id" value="${acc.id}">
+             <input type="number" step="0.0001" name="rate" value="${acc.rate || 0}" style="width:70px; padding:3px; text-align:center;"> %
+             <button type="submit" style="background:#58a6ff; color:#000; border:none; padding:3px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px;">💾 ปรับเรต</button>
+          </form>
+        </td>
         <td>
           <form action="/admin/delete-game-account" method="POST" style="margin:0;">
              <input type="hidden" name="account_id" value="${acc.id}">
@@ -915,7 +1187,6 @@ async function renderAdminDashboard(req, res) {
     gameAccHtml = `<tr><td colspan="5" style="color:#8b949e; padding:10px;">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
   }
 
-  // ตัวเลือกรางวัลในสเต็ปสุ่ม
   function renderRewardOptions(currentVal) {
       let opts = `<option value="normal" ${currentVal==='normal'?'selected':''}>--- สุ่มตามเรตปกติ ---</option>`;
       opts += `<option value="always_salt" ${currentVal==='always_salt'?'selected':''}>🔒 บังคับเกลือ</option>`;
@@ -928,7 +1199,7 @@ async function renderAdminDashboard(req, res) {
       return opts;
   }
 
-  // รายชื่อสมาชิกและการปรับเรตเกลือ
+  // สมาชิกและตั้งค่าเรตความเกลือ 5 สเต็ป
   let userHtml = "";
   if (usersRows && usersRows.length > 0) {
     usersRows.forEach((u, index) => {
@@ -958,11 +1229,18 @@ async function renderAdminDashboard(req, res) {
       <h2>🛠️ ระบบหลังบ้านแอดมิน (Line Rangers LootBox)</h2>
       <a href="/admin/logout" style="color:#f85149;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#58a6ff;">🏠 ไปหน้าแรก</a>
 
-      <!-- ส่วนที่ 1: เพิ่มไอดีเกม Line Rangers -->
+      <!-- ส่วนคำขอรับรางวัลจากผู้เล่น -->
+      <h3 style="color:#d29922; margin-top:20px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#161b22; border-color:#30363d;">
+        <tr style="background:#21262d;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>รางวัลที่สุ่มได้</th><th>จัดการ</th></tr>
+        ${withdrawHtml}
+      </table>
+
+      <!-- ส่วนเพิ่มและจัดการไอดีเกม Line Rangers และปรับ % เรต -->
       <div style="background:#161b22; padding:20px; border-radius:10px; border:1px solid #30363d; width:850px; margin:20px auto; text-align:left;">
-          <h3 style="color:#2ea043; margin-top:0;">➕ เพิ่มไอดีเกม Line Rangers เข้าคลังสุ่ม</h3>
-          <form action="/admin/add-game-account" method="POST" style="display:grid; grid-template-columns: 2fr 1fr 2fr 1fr; gap:10px;">
-              <input type="text" name="title" placeholder="ชื่อไอดี เช่น ID Line Rangers SSR" required style="padding:8px;">
+          <h3 style="color:#2ea043; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง</h3>
+          <form action="/admin/add-game-account" method="POST" style="display:flex; gap:10px; align-items:center;">
+              <input type="text" name="title" placeholder="ชื่อรางวัล เช่น ID Line Rangers SSR" required style="padding:8px; flex:2;">
               <select name="rarity" style="padding:8px;">
                   <option value="Normal">ระดับ Normal</option>
                   <option value="S">ระดับ S</option>
@@ -970,25 +1248,25 @@ async function renderAdminDashboard(req, res) {
                   <option value="SSR">ระดับ SSR</option>
                   <option value="เทพมังกร">ระดับ เทพมังกร</option>
               </select>
-              <input type="text" name="account_data" placeholder="ข้อมูลไอดี/รหัสผ่าน" required style="padding:8px;">
-              <button type="submit" style="background:#238636; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">บันทึกไอดี</button>
+              <input type="number" step="0.0001" name="rate" placeholder="อัตรา % เช่น 0.0005" required style="padding:8px; width:120px;">
+              <button type="submit" style="background:#238636; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:9px 15px;">บันทึกรางวัล</button>
           </form>
 
-          <h4 style="color:#d29922; margin-top:20px;">📦 รายการไอดี Line Rangers ในคลังระบบ</h4>
+          <h4 style="color:#d29922; margin-top:20px;">📦 คลังรางวัล และ การตั้งค่าอัตราออก (%)</h4>
           <table border="1" style="width:100%; border-collapse:collapse; background:#0d1117; border-color:#30363d; font-size:12px; text-align:center;">
-             <tr style="background:#21262d;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>ข้อมูลไอดี</th><th>จัดการ</th></tr>
+             <tr style="background:#21262d;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>จัดการ</th></tr>
              ${gameAccHtml}
           </table>
       </div>
 
-      <!-- ส่วนที่ 2: สลิปเติมเงินรอตรวจสอบ -->
+      <!-- รายการสลิปเติมเงิน -->
       <h3 style="color:#d29922;">📥 รายการสลิปเติมเงินรอตรวจสอบ</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:700px; background:#161b22; border-color:#30363d;">
+      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:750px; background:#161b22; border-color:#30363d;">
         <tr style="background:#21262d;"><th>ลำดับ</th><th>Username</th><th>ยอดเงิน</th><th>สลิป</th><th>จัดการ</th></tr>
         ${pendingSlipHtml}
       </table>
 
-      <!-- ส่วนที่ 3: จัดการสมาชิกและเรตสเต็ปความเกลือ -->
+      <!-- จัดการสมาชิกและเรตเกลือ 5 สเต็ป -->
       <h3 style="color:#d29922;">👥 รายชื่อสมาชิก และ การปรับแต่งเรตเกลือ 5 สเต็ป</h3>
       <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:900px; background:#161b22; border-color:#30363d;">
         <tr style="background:#21262d;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้ม</th><th>ตั้งค่าเรตความเกลือ (5 สเต็ป)</th></tr>
@@ -999,5 +1277,5 @@ async function renderAdminDashboard(req, res) {
 }
 
 app.listen(PORT, () => {
-  console.log("Line Rangers Lootbox Server running on port " + PORT);
+  console.log("Line Rangers Lootbox Server running smoothly on port " + PORT);
 });
