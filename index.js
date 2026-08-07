@@ -654,7 +654,6 @@ app.get("/lootbox", async (req, res) => {
                       const now = audioCtx.currentTime;
 
                       if (highestRarity === 'เทพมังกร') {
-                          // เสียงเทพมังกร: อลังการ รัวโน้ตทรงพลังที่สุด
                           for (let i = 0; i < 7; i++) {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -668,7 +667,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (i * 0.08) + 0.35);
                           }
                       } else if (highestRarity === 'SSR') {
-                          // เสียง SSR: ยิ่งใหญ่ ตื่นเต้น
                           [440, 554.37, 659.25, 880].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -682,7 +680,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (idx * 0.1) + 0.4);
                           });
                       } else if (highestRarity === 'SS+') {
-                          // เสียง SS+: รองลงมา สนุกสนาน
                           [370, 554.37, 740].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -696,7 +693,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (idx * 0.1) + 0.3);
                           });
                       } else if (highestRarity === 'S') {
-                          // เสียง S: กระดิ่งใสๆ สั้นๆ
                           const osc = audioCtx.createOscillator();
                           const gain = audioCtx.createGain();
                           osc.type = 'sine';
@@ -708,7 +704,6 @@ app.get("/lootbox", async (req, res) => {
                           osc.start(now);
                           osc.stop(now + 0.25);
                       } else if (highestRarity === 'Normal') {
-                          // เสียง Normal (รางวัลระดับทั่วไป): โทนเสียงกลาง นุ่มนวล ไม่ใช่เกลือ
                           [330, 440].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -722,7 +717,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (idx * 0.08) + 0.2);
                           });
                       } else {
-                          // เสียงเกลือ (Salt / ไม่ได้รางวัล): เสียงทุ้มต่ำตัดสั้น ให้ความรู้สึกเฟลชัดเจน
                           const osc = audioCtx.createOscillator();
                           const gain = audioCtx.createGain();
                           osc.type = 'sawtooth';
@@ -1450,7 +1444,7 @@ app.post("/open-lootbox", async (req, res) => {
         pity_counters: JSON.stringify(pityCounters),
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
@@ -1586,10 +1580,16 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   res.send(`<script>alert("ตั้งค่าสำเร็จ"); window.location.href="/admin";</script>`);
 });
 
+// แก้ไขฟังก์ชันรับค่าลบไอดีเกม/รางวัล ให้ทำงานได้อย่างถูกต้องและเคลียร์ชัวร์
 app.post("/admin/delete-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  await supabase.from('game_accounts').delete().eq('id', req.body.account_id);
-  res.send(`<script>alert("ลบไอดีสำเร็จ!"); window.location.href="/admin";</script>`);
+  const accountId = req.body.account_id;
+  
+  if (accountId) {
+      await supabase.from('game_accounts').delete().eq('id', accountId);
+  }
+
+  res.send(`<script>alert("ลบไอดีหรือรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/adjust-user-points", async (req, res) => {
@@ -1754,7 +1754,7 @@ async function renderAdminDashboard(req, res) {
            </select>
         </td>
         <td>
-          <form action="/admin/delete-game-account" method="POST" style="margin:0;">
+          <form action="/admin/delete-game-account" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันต้องการลบรางวัลนี้ใช่หรือไม่?');">
              <input type="hidden" name="account_id" value="${acc.id}">
              <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️ ลบ</button>
           </form>
