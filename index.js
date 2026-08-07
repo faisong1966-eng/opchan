@@ -654,33 +654,36 @@ app.get("/lootbox", async (req, res) => {
                       const now = audioCtx.currentTime;
 
                       if (highestRarity === 'เทพมังกร') {
-                          for (let i = 0; i < 5; i++) {
+                          // เสียงระดับเทพมังกร: อลังการ รัวโน้ตทรงพลังที่สุด
+                          for (let i = 0; i < 7; i++) {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
                               osc.type = 'sawtooth';
-                              osc.frequency.setValueAtTime(300 + (i * 150), now + (i * 0.1));
-                              gain.gain.setValueAtTime(0.4, now + (i * 0.1));
-                              gain.gain.exponentialRampToValueAtTime(0.01, now + (i * 0.1) + 0.3);
+                              osc.frequency.setValueAtTime(250 + (i * 120), now + (i * 0.08));
+                              gain.gain.setValueAtTime(0.4, now + (i * 0.08));
+                              gain.gain.exponentialRampToValueAtTime(0.01, now + (i * 0.08) + 0.35);
                               osc.connect(gain);
                               gain.connect(audioCtx.destination);
-                              osc.start(now + (i * 0.1));
-                              osc.stop(now + (i * 0.1) + 0.3);
+                              osc.start(now + (i * 0.08));
+                              osc.stop(now + (i * 0.08) + 0.35);
                           }
                       } else if (highestRarity === 'SSR') {
-                          [523.25, 659.25, 783.99].forEach((freq, idx) => {
+                          // เสียงระดับ SSR: ยิ่งใหญ่ ตื่นเต้น
+                          [440, 554.37, 659.25, 880].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
                               osc.type = 'triangle';
-                              osc.frequency.setValueAtTime(freq, now + (idx * 0.12));
-                              gain.gain.setValueAtTime(0.35, now + (idx * 0.12));
-                              gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.12) + 0.4);
+                              osc.frequency.setValueAtTime(freq, now + (idx * 0.1));
+                              gain.gain.setValueAtTime(0.35, now + (idx * 0.1));
+                              gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.1) + 0.4);
                               osc.connect(gain);
                               gain.connect(audioCtx.destination);
-                              osc.start(now + (idx * 0.12));
-                              osc.stop(now + (idx * 0.12) + 0.4);
+                              osc.start(now + (idx * 0.1));
+                              osc.stop(now + (idx * 0.1) + 0.4);
                           });
                       } else if (highestRarity === 'SS+') {
-                          [440, 659.25].forEach((freq, idx) => {
+                          // เสียงระดับ SS+: รองลงมา สนุกสนาน
+                          [370, 554.37, 740].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
                               osc.type = 'sine';
@@ -693,28 +696,30 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (idx * 0.1) + 0.3);
                           });
                       } else if (highestRarity === 'S') {
+                          // เสียงระดับ S: เสียงกระดิ่งใสๆ สั้นๆ
                           const osc = audioCtx.createOscillator();
                           const gain = audioCtx.createGain();
                           osc.type = 'sine';
-                          osc.frequency.setValueAtTime(440, now);
+                          osc.frequency.setValueAtTime(587.33, now);
                           gain.gain.setValueAtTime(0.25, now);
-                          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
                           osc.connect(gain);
                           gain.connect(audioCtx.destination);
                           osc.start(now);
-                          osc.stop(now + 0.3);
+                          osc.stop(now + 0.25);
                       } else {
+                          // เสียงเกลือ (Normal): เสียงทุ้มต่ำตัดสั้น ความรู้สึกเฟลแบบเฉพาะตัว ไม่ซ้ำใคร
                           const osc = audioCtx.createOscillator();
                           const gain = audioCtx.createGain();
                           osc.type = 'sawtooth';
-                          osc.frequency.setValueAtTime(140, now);
-                          osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
-                          gain.gain.setValueAtTime(0.2, now);
-                          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                          osc.frequency.setValueAtTime(110, now);
+                          osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+                          gain.gain.setValueAtTime(0.25, now);
+                          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
                           osc.connect(gain);
                           gain.connect(audioCtx.destination);
                           osc.start(now);
-                          osc.stop(now + 0.4);
+                          osc.stop(now + 0.25);
                       }
                   } catch(e){}
               }
@@ -1262,7 +1267,6 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
     
-    // ดึงข้อมูลคลังไอดีครั้งเดียวจบ ไม่ query ซ้ำซ้อนตอนวนลูป
     const { data: allTargetAccounts } = await supabase.from('game_accounts').select('*');
     let availableAccounts = (allTargetAccounts || []).filter(a => a.status === 'available' || !a.status);
     const targetAccList = allTargetAccounts || [];
@@ -1415,7 +1419,6 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
-    // อัปเดตสถานะไอดีในคลังแบบ Bulk ครั้งเดียวจบ ลดดีเลย์มหาศาล
     if (successfulWonAccIds.length > 0) {
         await supabase
             .from('game_accounts')
@@ -1437,7 +1440,6 @@ app.post("/open-lootbox", async (req, res) => {
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
-    // บันทึกประวัติแบบ Bulk Insert ครั้งเดียวจบ
     if (historyBatch.length > 0) {
         await supabase.from('history').insert(historyBatch);
     }
@@ -1535,14 +1537,16 @@ app.post("/admin/add-game-account", upload.single('image_file'), async (req, res
   res.send(`<script>alert("เพิ่มรางวัล Line Rangers เข้าสู่คลังสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
+// ปรับปรุงหลังบ้านให้บันทึกแบบ Fast Bulk Update รวดเร็วทันใจ ไม่หน่วง
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { ids, rates, pity_targets, old_image_urls, statuses } = req.body;
 
   if (ids) {
       const idArray = Array.isArray(ids) ? ids : [ids];
-      for (let i = 0; i < idArray.length; i++) {
-          const accId = idArray[i];
+      
+      // ประมวลผลแบบขนาน (Promise.all) เพื่อความเร็วสูงสุด ไม่ให้เซิร์ฟเวอร์ค้าง
+      const updatePromises = idArray.map(async (accId, i) => {
           const newRate = Array.isArray(rates) ? parseFloat(rates[i]) : parseFloat(rates);
           const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
           const oldImage = Array.isArray(old_image_urls) ? old_image_urls[i] : old_image_urls;
@@ -1555,24 +1559,15 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
               if (newUploadedUrl) finalImageUrl = newUploadedUrl;
           }
 
-          await supabase.from('game_accounts').update({
+          return supabase.from('game_accounts').update({
               rate: isNaN(newRate) ? 0 : newRate,
               pity_target: isNaN(newPity) ? 0 : newPity,
               image_url: finalImageUrl,
               status: newStatus || 'available'
           }).eq('id', accId);
-      }
-  }
+      });
 
-  try {
-      const { data: allUsers } = await supabase.from('users').select('username, pity_counters');
-      if (allUsers) {
-          for (let u of allUsers) {
-              await supabase.from('users').update({ pity_counters: JSON.stringify({}) }).eq('username', u.username);
-          }
-      }
-  } catch (e) {
-      console.error("Clear Pity Error:", e);
+      await Promise.all(updatePromises);
   }
 
   res.send(`<script>alert("ตั้งค่าสำเร็จ"); window.location.href="/admin";</script>`);
