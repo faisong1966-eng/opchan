@@ -94,7 +94,7 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- FRONTEND ROUTES (ULTRA VIBRANT FULL-PAGE DESIGN) -------------------
+// ------------------- FRONTEND ROUTES (ULTRA GLOWING & SPARKLE DESIGN) -------------------
 
 app.get("/", (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -108,9 +108,9 @@ app.get("/", (req, res) => {
         <style>
             * { box-sizing: border-box; }
             body { 
-                background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+                background: linear-gradient(135deg, #070514, #1a103c, #0b132b);
                 background-size: 400% 400%;
-                animation: gradientBG 12s ease infinite;
+                animation: gradientBG 15s ease infinite;
                 color: #ffffff; 
                 text-align: center; 
                 margin: 0;
@@ -119,51 +119,95 @@ app.get("/", (req, res) => {
                 justify-content: center;
                 align-items: center;
                 font-family: 'Kanit', sans-serif; 
-                overflow-x: hidden;
+                overflow: hidden;
+                position: relative;
             }
             @keyframes gradientBG {
                 0% { background-position: 0% 50%; }
                 50% { background-position: 100% 50%; }
                 100% { background-position: 0% 50%; }
             }
-            .sparkle-overlay {
-                position: fixed;
+            /* Glowing background ambient lights */
+            .ambient-glow-1 {
+                position: absolute;
+                width: 350px;
+                height: 350px;
+                background: rgba(0, 255, 135, 0.15);
+                top: 10%;
+                left: 15%;
+                border-radius: 50%;
+                filter: blur(80px);
+                z-index: 1;
+                animation: pulseGlow 6s ease-in-out infinite alternate;
+            }
+            .ambient-glow-2 {
+                position: absolute;
+                width: 400px;
+                height: 400px;
+                background: rgba(255, 0, 127, 0.15);
+                bottom: 10%;
+                right: 15%;
+                border-radius: 50%;
+                filter: blur(90px);
+                z-index: 1;
+                animation: pulseGlow 8s ease-in-out infinite alternate;
+            }
+            @keyframes pulseGlow {
+                0% { transform: scale(1); opacity: 0.6; }
+                100% { transform: scale(1.25); opacity: 1; }
+            }
+            /* Sparkles & Stars Effect */
+            .sparkles {
+                position: absolute;
                 width: 100%;
                 height: 100%;
                 top: 0; left: 0;
-                background-image: radial-gradient(white 1px, transparent 1px), radial-gradient(rgba(255,215,0,0.5) 1px, transparent 1px);
-                background-size: 50px 50px;
-                background-position: 0 0, 25px 25px;
-                opacity: 0.15;
-                pointer-events: none;
+                background-image: 
+                    radial-gradient(2px 2px at 40px 60px, #ffffff, rgba(0,0,0,0)),
+                    radial-gradient(2px 2px at 120px 180px, #ffd700, rgba(0,0,0,0)),
+                    radial-gradient(3px 3px at 250px 90px, #00ff87, rgba(0,0,0,0)),
+                    radial-gradient(2px 2px at 380px 240px, #00d2d3, rgba(0,0,0,0)),
+                    radial-gradient(2px 2px at 500px 150px, #ff4757, rgba(0,0,0,0)),
+                    radial-gradient(3px 3px at 650px 320px, #ffffff, rgba(0,0,0,0)),
+                    radial-gradient(2px 2px at 780px 80px, #ffd700, rgba(0,0,0,0)),
+                    radial-gradient(2px 2px at 900px 380px, #00ff87, rgba(0,0,0,0));
+                background-repeat: repeat;
+                background-size: 1000px 500px;
+                opacity: 0.6;
                 z-index: 1;
+                animation: sparkleMove 20s linear infinite;
+            }
+            @keyframes sparkleMove {
+                from { transform: translateY(0) translateX(0); }
+                to { transform: translateY(-250px) translateX(-100px); }
             }
             .container { 
-                background: rgba(15, 17, 26, 0.85); 
-                backdrop-filter: blur(20px);
+                background: rgba(18, 20, 32, 0.82); 
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
                 padding: 45px 35px; 
                 border-radius: 28px; 
                 display: inline-block; 
-                box-shadow: 0 0 60px rgba(0, 255, 128, 0.3), 0 20px 50px rgba(0,0,0,0.9); 
-                width: 420px; 
-                border: 2px solid rgba(0, 255, 128, 0.5);
+                box-shadow: 0 0 50px rgba(0, 255, 135, 0.25), 0 25px 60px rgba(0,0,0,0.9); 
+                width: 430px; 
+                border: 2px solid rgba(0, 255, 135, 0.4);
                 position: relative;
                 z-index: 2;
                 animation: floatBox 4s ease-in-out infinite;
             }
             @keyframes floatBox {
                 0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
+                50% { transform: translateY(-8px); }
             }
             .container::before {
                 content: '';
                 position: absolute;
-                top: -4px; left: -4px; right: -4px; bottom: -4px;
-                background: linear-gradient(45deg, #00ff87, #60efff, #ff007f, #ffaa00);
+                top: -3px; left: -3px; right: -3px; bottom: -3px;
+                background: linear-gradient(45deg, #00ff87, #00d2d3, #ff007f, #ffd700);
                 border-radius: 30px;
                 z-index: -1;
-                opacity: 0.8;
-                animation: borderGlow 5s linear infinite;
+                opacity: 0.7;
+                animation: borderGlow 6s linear infinite;
                 background-size: 400% 400%;
             }
             @keyframes borderGlow {
@@ -176,7 +220,7 @@ app.get("/", (req, res) => {
                 font-size: 30px;
                 font-weight: 800;
                 margin-bottom: 12px;
-                text-shadow: 0 0 25px rgba(0, 255, 135, 0.8);
+                text-shadow: 0 0 20px rgba(0, 255, 135, 0.8), 0 0 40px rgba(0, 255, 135, 0.4);
             }
             p {
                 color: #dcdde1;
@@ -195,25 +239,41 @@ app.get("/", (req, res) => {
                 text-decoration: none; 
                 font-weight: bold; 
                 font-size: 16px; 
-                box-shadow: 0 6px 20px rgba(0, 176, 155, 0.5);
+                box-shadow: 0 6px 20px rgba(0, 176, 155, 0.4);
                 transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }
+            .btn-glow::after {
+                content: '';
+                position: absolute;
+                top: -50%; left: -50%; width: 200%; height: 200%;
+                background: linear-gradient(rgba(255,255,255,0.2), transparent);
+                transform: rotate(45deg) translateY(-100%);
+                transition: transform 0.5s ease;
+            }
+            .btn-glow:hover::after {
+                transform: rotate(45deg) translateY(100%);
             }
             .btn-glow:hover { 
-                transform: translateY(-4px);
-                box-shadow: 0 10px 30px rgba(0, 255, 135, 0.8);
-                filter: brightness(1.2);
+                transform: translateY(-3px);
+                box-shadow: 0 10px 30px rgba(0, 255, 135, 0.7);
+                filter: brightness(1.15);
             }
             .btn-reg { 
-                background: linear-gradient(135deg, #3a7bd5, #3a6073); 
-                box-shadow: 0 6px 20px rgba(58, 123, 213, 0.5);
+                background: linear-gradient(135deg, #3a7bd5, #00d2d3); 
+                box-shadow: 0 6px 20px rgba(58, 123, 213, 0.4);
             }
             .btn-reg:hover {
-                box-shadow: 0 10px 30px rgba(58, 123, 213, 0.8);
+                box-shadow: 0 10px 30px rgba(0, 210, 211, 0.7);
             }
         </style>
     </head>
     <body>
-        <div class="sparkle-overlay"></div>
+        <div class="ambient-glow-1"></div>
+        <div class="ambient-glow-2"></div>
+        <div class="sparkles"></div>
+        
         <div class="container">
             <h1>🛡️ LINE RANGERS BOX</h1>
             <p>✨ เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ เรตแตกง่าย การันตีแน่นๆ! ✨</p>
@@ -1501,7 +1561,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
