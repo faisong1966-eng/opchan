@@ -105,7 +105,7 @@ app.get("/", (req, res) => {
             <h1>🛡️ LINE RANGERS BOX</h1>
             <p>เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ!</p>
             <a href="/login">🔑 เข้าสู่ระบบ</a>
-            <a href="/register" style="background-color: #1f6beb;">📝 สมัครสมาชิก</a>
+            <a href="/register" style="background-color: #1f6beb; text-decoration: none;">📝 สมัครสมาชิก</a>
         </div>
     </body>
     </html>
@@ -404,10 +404,10 @@ app.get("/lootbox", async (req, res) => {
             ? `<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px;">❌ หมด</div>` 
             : `<div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity}</div>`;
 
-        // แสดงข้อความการันตีตัวเล็กๆ ใต้ไอคอนของขวัญแต่ละชิ้น
         let pityInfoHtml = "";
-        if (acc.pity_target && acc.pity_target > 0) {
-            pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${acc.pity_target} เกลือ</div>`;
+        const targetVal = parseInt(acc.pity_target) || 0;
+        if (targetVal > 0) {
+            pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${pityCurrent}/${targetVal} เกลือ</div>`;
         }
 
         showcaseCardsHtml += `
@@ -675,8 +675,9 @@ app.get("/lootbox", async (req, res) => {
                                   : \`<div style="font-size:10px; color:#aaa;">ระดับ: \${acc.rarity}</div>\`;
 
                               let pityInfoHtml = "";
-                              if (acc.pity_target && acc.pity_target > 0) {
-                                  pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${acc.pity_target} เกลือ</div>\`;
+                              const targetVal = parseInt(acc.pity_target) || 0;
+                              if (targetVal > 0) {
+                                  pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${data.pityCurrent || 0}/\${targetVal} เกลือ</div>\`;
                               }
 
                               showcaseHtml += \`
@@ -1007,7 +1008,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีแยกรายชิ้นไอดี) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีรายชิ้นไอดี) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1070,12 +1071,16 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 2. เช็คระบบการันตีรายชิ้นไอดี (ถ้ามีไอดีไหนตั้งเป้าหมายเกลือไว้ และจำนวนเกลือถึงแล้ว)
+        // 2. เช็คระบบการันตีรายชิ้นไอดี
         if (!handled) {
-            const pityTargetAcc = availableAccounts.find(acc => acc.pity_target && pityCounter >= acc.pity_target && acc.status !== 'out_of_stock');
+            const pityTargetAcc = availableAccounts.find(acc => {
+                const target = parseInt(acc.pity_target) || 0;
+                return target > 0 && pityCounter >= target && acc.status !== 'out_of_stock';
+            });
+
             if (pityTargetAcc) {
                 reward = `🛡️ [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                pityCounter = 0; // รีเซ็ตการันตีเป็น 0
+                pityCounter = 0; // รีเซ็ตแต้มเกลือเมื่อได้การันตี
                 await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
                 availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
                 handled = true;
@@ -1099,7 +1104,7 @@ app.post("/open-lootbox", async (req, res) => {
                 const wonAcc = availableAccounts[winningAccIndex];
                 reward = `🛡️ [${wonAcc.rarity}] ${wonAcc.title}`;
                 availableAccounts.splice(winningAccIndex, 1);
-                pityCounter = 0; // ได้รางวัลปกติ รีเซ็ตการันตีเป็น 0
+                pityCounter = 0; // ได้รางวัลปกติ รีเซ็ตเกลือเป็น 0
 
                 await supabase
                   .from('game_accounts')
@@ -1107,7 +1112,7 @@ app.post("/open-lootbox", async (req, res) => {
                   .eq('id', wonAcc.id);
             } else {
                 reward = "🧂 เกลือ";
-                pityCounter += 1; // เกลือปกติ นับบวกการันตีเพิ่ม 1
+                pityCounter += 1; // เกลือปกติ นับบวกสะสมการันตีเพิ่ม 1
             }
         }
 
@@ -1243,14 +1248,14 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
           const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
 
           await supabase.from('game_accounts').update({
-              rate: newRate || 0,
-              pity_target: newPity || 0,
+              rate: isNaN(newRate) ? 0 : newRate,
+              pity_target: isNaN(newPity) ? 0 : newPity,
               status: newStatus || 'available'
           }).eq('id', accId);
       }
   }
 
-  res.send(`<script>alert("บันทึกการตั้งค่าคลังไอดีและเรตทั้งหมดเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("บันทึกการตั้งค่าคลังไอดี การันตี และเรตทั้งหมดเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-game-account", async (req, res) => {
