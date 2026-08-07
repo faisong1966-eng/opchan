@@ -82,6 +82,16 @@ async function checkUserExpiration(username) {
     return false; 
 }
 
+function parsePityCounters(val) {
+    if (!val) return {};
+    if (typeof val === 'object') return val;
+    try {
+        return JSON.parse(val);
+    } catch (e) {
+        return {};
+    }
+}
+
 // ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", (req, res) => {
@@ -163,7 +173,7 @@ app.post("/register", async (req, res) => {
           facebook_url: facebook_url || '',
           points: 0, 
           total_spent: 0, 
-          pity_counters: {},
+          pity_counters: JSON.stringify({}),
           step1_salt: 0, step1_reward: 'normal',
           step2_salt: 0, step2_reward: 'normal',
           step3_salt: 0, step3_reward: 'normal',
@@ -288,7 +298,7 @@ app.get("/api/user-status", async (req, res) => {
       success: true,
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
-      pityCounters: user ? (user.pity_counters || {}) : {},
+      pityCounters: user ? parsePityCounters(user.pity_counters) : {},
       pendingRows: pendingRows || [],
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
@@ -317,7 +327,7 @@ app.get("/lootbox", async (req, res) => {
 
     const currentPoints = row.points;
     const totalSpent = row.total_spent || 0;
-    const pityCounters = row.pity_counters || {};
+    const pityCounters = parsePityCounters(row.pity_counters);
     const createdAt = row.created_at;
 
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
@@ -1010,7 +1020,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีสะสมรวมเมื่อได้ไอดีการันตี) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีสะสมแยกรายชิ้น) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1040,7 +1050,7 @@ app.post("/open-lootbox", async (req, res) => {
     let historyBatch = [];
     let summaryRewards = {};
 
-    let pityCounters = user.pity_counters || {};
+    let pityCounters = parsePityCounters(user.pity_counters);
 
     let steps = [
       { salt: user.step1_salt || 0, reward: user.step1_reward || 'normal' },
@@ -1055,7 +1065,7 @@ app.post("/open-lootbox", async (req, res) => {
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
-        let wonPityId = null; // เก็บ ID ไอดีที่ออกจากการันตีรอบนี้
+        let wonPityId = null;
 
         // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
@@ -1118,24 +1128,20 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // เช็คว่ารอบนี้ได้ไอดีที่มีการตั้งค่าการันตีไว้จริงๆ หรือไม่ (ไม่ว่าจะได้จากการันตีถึงแต้ม หรือสุ่มได้เองตามเรต)
         const hitAnyPityItem = availableAccounts.some(acc => {
             const target = parseInt(acc.pity_target) || 0;
             return target > 0 && (wonPityId === acc.id || (wonNormalAcc && wonNormalAcc.id === acc.id));
         });
 
-        // อัปเดตแต้มการันตี
-        // ตามกฎของคุณ: ถ้าได้ไอดีที่มีการันตีตัวใดตัวหนึ่ง จะรีเซ็ตแต้มทุกชิ้นเป็น 0 พร้อมกัน
-        // แต่ถ้าไม่ได้ (ได้เกลือหรือได้ไอดีธรรมดา) ทุกชิ้นที่มีเป้าหมายการันตีจะบวกแต้มสะสมเพิ่มขึ้นต่อเนื่อง
         const allTargetAccounts = await supabase.from('game_accounts').select('id, pity_target');
         if (allTargetAccounts.data) {
             allTargetAccounts.data.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
                 if (target > 0) {
                     if (hitAnyPityItem) {
-                        pityCounters[acc.id] = 0; // รีเซ็ตทุกชิ้นเป็น 0 เมื่อได้ไอดีที่มีการันตี
+                        pityCounters[acc.id] = 0;
                     } else {
-                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; // สะสมแต้มต่อเนื่องไปเรื่อยๆ
+                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1;
                     }
                 }
             });
@@ -1158,10 +1164,10 @@ app.post("/open-lootbox", async (req, res) => {
     await supabase.from('users').update({ 
         points: parseInt(newPoints) || 0, 
         total_spent: parseInt(newSpent) || 0,
-        pity_counters: pityCounters,
+        pity_counters: JSON.stringify(pityCounters),
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
