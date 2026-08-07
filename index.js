@@ -507,7 +507,7 @@ app.get("/lootbox", async (req, res) => {
 
               <div class="pity-box">
                   <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:3px;">
-                      <span>🎯 การันตีเกลือ:</span>
+                      <span>🎯 การันตีเกลือออกไอดี:</span>
                       <span><b id="pity-current">${pityCurrent}</b> / <span id="pity-max">${pityMax}</span> ครั้ง</span>
                   </div>
                   <div style="font-size:11px; color:#ffd700;">🎁 รับไอดีการันตีเมื่อครบ: <span id="pity-reward-text">${pityReward}</span></div>
@@ -1017,7 +1017,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีที่แม่นยำ) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีแม่นยำ รองรับทุกจำนวนครั้ง) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1063,6 +1063,7 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
 
+    // ลูปจำลองการเปิดทีละครั้งเพื่อให้ตัวนับเกลือและเรตถูกต้อง 100% ทุกครั้งที่เปิดไม่ว่าจะกี่ครั้งก็ตาม
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
@@ -1084,10 +1085,10 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 2. ถ้าไม่อยู่ใน 5 สเต็ป ให้เช็คว่าถึงรอบการันตีเกลือหรือยัง
+        // 2. เช็คระบบการันตีเกลือ (Pity Max)
         if (!handled) {
             if (pityCounter >= pityMax) {
-                pityCounter = 0; // รีเซ็ตการันตีเป็น 0 ทันทีที่ครบกำหนด
+                pityCounter = 0; // ครบกำหนด รีเซ็ตการันตีเป็น 0 ทันที
                 if (pityRewardTitle) {
                     const targetAcc = availableAccounts.find(acc => acc.title === pityRewardTitle && acc.status !== 'out_of_stock');
                     if (targetAcc) {
@@ -1149,7 +1150,7 @@ app.post("/open-lootbox", async (req, res) => {
         pity_counter: parseInt(pityCounter) || 0,
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[3] || steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
