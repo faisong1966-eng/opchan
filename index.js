@@ -831,7 +831,7 @@ app.get("/lootbox", async (req, res) => {
                       }
 
                   }).catch(e => {});
-              }, 4000);
+              }, 2000);
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -874,7 +874,7 @@ app.get("/lootbox", async (req, res) => {
                   openBtn.disabled = true;
 
                   const resBox = document.getElementById("result-box");
-                  resBox.innerText = \`🌀 กำลังเปิดกล่องรวดเร็ว \${selectedCount} ครั้ง...\`;
+                  resBox.innerText = \`🌀 กำลังเปิดกล่องทันที \${selectedCount} ครั้ง...\`;
 
                   fetch('/open-lootbox', {
                       method: 'POST',
@@ -883,7 +883,13 @@ app.get("/lootbox", async (req, res) => {
                   })
                   .then(response => response.json())
                   .then(data => {
-                      openBtn.disabled = false; 
+                      if (!hasAvailableStock) {
+                          openBtn.disabled = true;
+                          openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
+                      } else {
+                          openBtn.disabled = false;
+                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${selectedCount} ครั้ง / ใช้ \${selectedCount} แต้ม)\`;
+                      }
 
                       if (!data.success) {
                           alert(data.message || "เกิดข้อผิดพลาดในการเปิดกล่อง");
@@ -1130,7 +1136,7 @@ app.post("/create-topup", (req, res) => {
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-        <form action="/upload-slip" method="POST" enctype="multipart/form-data">
+        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="return handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
@@ -1138,11 +1144,31 @@ app.post("/create-topup", (req, res) => {
             <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
-            <button type="submit" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
+            <button type="submit" id="submit-slip-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
 
+        <div id="loading-box" style="display:none; text-align:center; margin-top:12px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; color:#ffd700; font-size:12px; font-weight:bold;">
+            ⏳ กำลังส่งสลิป กรุณารอสักครู่...
+        </div>
+
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
-    </div></body></html>
+    </div>
+    <script>
+        let isUploading = false;
+        function handleUpload(form) {
+            if (isUploading) return false;
+            isUploading = true;
+            
+            const btn = document.getElementById('submit-slip-btn');
+            const loading = document.getElementById('loading-box');
+            btn.disabled = true;
+            btn.style.background = '#555';
+            btn.innerText = '⏳ กำลังอัปโหลดด่วน...';
+            loading.style.display = 'block';
+            return true;
+        }
+    </script>
+    </body></html>
   `);
 });
 
@@ -1189,7 +1215,17 @@ app.post("/open-lootbox", async (req, res) => {
 
     const user = userRes.data;
     if (!user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
-    if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
+
+    const targetAccList = allTargetAccountsRes.data || [];
+    let availableAccounts = targetAccList.filter(a => a.status === 'available' || !a.status);
+
+    if (availableAccounts.length === 0) {
+        return res.json({ success: false, message: "ขออภัย ไอดีในคลังหมดเกลี้ยงแล้ว!", outOfStock: true });
+    }
+
+    if (user.points < selectedCount) {
+        return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
+    }
 
     let historyBatch = [];
     let summaryRewards = {};
@@ -1205,9 +1241,6 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
     
-    const targetAccList = allTargetAccountsRes.data || [];
-    let availableAccounts = targetAccList.filter(a => a.status === 'available' || !a.status);
-
     let activePityCounters = {};
     targetAccList.forEach(acc => {
         const target = parseInt(acc.pity_target) || 0;
@@ -1451,7 +1484,6 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
 });
 
-// เพิ่มไอดีเกม/รางวัลใหม่
 app.post("/admin/add-game-account-json", upload.single('image_file'), async (req, res) => {
   if (!req.session.isAdmin) return res.status(403).json({ success: false, message: "Unauthorized" });
   const { title, rarity, rate, pity_target } = req.body;
@@ -1474,7 +1506,6 @@ app.post("/admin/add-game-account-json", upload.single('image_file'), async (req
   res.json({ success: true, newAccount: data[0] });
 });
 
-// ลบรางวัลเกมรายชิ้นแบบปลอดภัย
 app.post("/admin/delete-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { acc_id } = req.body;
@@ -1483,17 +1514,12 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบรางวัลออกจากคลังเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// ปุ่มใหม่: เคลียร์คลังรางวัลทิ้งทั้งหมดเกลี้ยง 100% ในคลิกเดียว
 app.post("/admin/clear-all-game-accounts", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  
-  // ใช้คำสั่งลบทั้งหมดในตาราง game_accounts ทิ้งจนเกลี้ยง
   await supabase.from('game_accounts').delete().neq('id', 0);
-  
   res.send(`<script>alert("ลบและเคลียร์คลังรางวัลทั้งหมดเกลี้ยงจนเหลือ 0 รายการเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// บันทึกการแก้ไขเรต/สถานะทั้งหมด (รองรับทุกกรณีรวมถึงการลบหมดเกลี้ยง)
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   
