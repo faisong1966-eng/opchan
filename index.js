@@ -917,7 +917,7 @@ app.get("/lootbox", async (req, res) => {
 
                       let clashNoticeHtml = "";
                       if (data.clashDetected) {
-                          clashNoticeHtml = \`<div style="color:#ffa502; font-size:12px; margin-bottom:8px; background:rgba(255,165,2,0.1); padding:6px; border-radius:4px;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (รางวัลชิ้นนี้โดนคนอื่นได้ไปแล้ว) ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้วครับ</div>\`;
+                          clashNoticeHtml = \`<div style="color:#ff4757; font-size:12px; margin-bottom:8px; background:rgba(255,71,87,0.1); padding:6px; border-radius:4px; font-weight:bold;">😢 เสียใจด้วย รางวัลนี้มีคนอื่นได้ไปแล้ว! (ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้ว)</div>\`;
                       }
 
                       resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
@@ -1431,7 +1431,7 @@ app.post("/open-lootbox", async (req, res) => {
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
         step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
-        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
