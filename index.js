@@ -613,45 +613,52 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-              // Web Audio API สำหรับสร้างเสียงเอฟเฟกต์ตื่นตาอลังการ
-              function playSound(type) {
+              // Web Audio API สำหรับสร้างเสียงเอฟเฟกต์ตามระดับรางวัล
+              function playSound(level) {
                   try {
                       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                      const osc = audioCtx.createOscillator();
-                      const gain = audioCtx.createGain();
-                      osc.connect(gain);
-                      gain.connect(audioCtx.destination);
-
-                      if (type === 'spin') {
-                          osc.type = 'triangle';
-                          osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                          osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
-                          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                          gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
+                      
+                      if (level === 1) {
+                          // ระดับ 1: เสียงต่ำ หดหู่ / เศร้าเสียใจ
+                          const osc = audioCtx.createOscillator();
+                          const gain = audioCtx.createGain();
+                          osc.type = 'sawtooth';
+                          osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                          osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.4);
+                          osc.connect(gain);
+                          gain.connect(audioCtx.destination);
+                          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                          gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
                           osc.start();
-                          osc.stop(audioCtx.currentTime + 0.15);
-                      } else if (type === 'epic') {
-                          // เสียงแจ็คพอตรัวๆ อลังการ
+                          osc.stop(audioCtx.currentTime + 0.4);
+                      } else if (level === 2) {
+                          // ระดับ 2: ดีใจนิดๆ เสียงใสสั้นๆ
+                          const osc = audioCtx.createOscillator();
+                          const gain = audioCtx.createGain();
+                          osc.type = 'sine';
+                          osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                          osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.2);
+                          osc.connect(gain);
+                          gain.connect(audioCtx.destination);
+                          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                          gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+                          osc.start();
+                          osc.stop(audioCtx.currentTime + 0.2);
+                      } else if (level >= 3) {
+                          // ระดับ 3: อลังการขั้นสุด แจ็คพอตแตก
                           let now = audioCtx.currentTime;
-                          [300, 450, 600, 900, 1200].forEach((freq, idx) => {
+                          [250, 400, 550, 800, 1100, 1500].forEach((freq, idx) => {
                               let o = audioCtx.createOscillator();
                               let g = audioCtx.createGain();
-                              o.type = 'sawtooth';
-                              o.frequency.setValueAtTime(freq, now + idx * 0.08);
+                              o.type = 'triangle';
+                              o.frequency.setValueAtTime(freq, now + idx * 0.06);
                               o.connect(g);
                               g.connect(audioCtx.destination);
-                              g.gain.setValueAtTime(0.2, now + idx * 0.08);
-                              g.gain.linearRampToValueAtTime(0, now + idx * 0.08 + 0.25);
-                              o.start(now + idx * 0.08);
-                              o.stop(now + idx * 0.08 + 0.25);
+                              g.gain.setValueAtTime(0.2, now + idx * 0.06);
+                              g.gain.linearRampToValueAtTime(0, now + idx * 0.06 + 0.3);
+                              o.start(now + idx * 0.06);
+                              o.stop(now + idx * 0.06 + 0.3);
                           });
-                      } else {
-                          osc.type = 'sine';
-                          osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-                          gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                          gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
-                          osc.start();
-                          osc.stop(audioCtx.currentTime + 0.1);
                       }
                   } catch(e) {}
               }
@@ -701,26 +708,41 @@ app.get("/lootbox", async (req, res) => {
                   mainWrapper.classList.add('shake-anim');
                   setTimeout(() => mainWrapper.classList.remove('shake-anim'), 400);
 
-                  playSound('epic');
+                  let soundLevel = 1;
 
                   if (highestReward >= 1000) {
+                      soundLevel = 3;
                       icon.innerHTML = "🐉✨";
                       title.innerHTML = "🌟 แจ็คพอตในตำนาน / เทพมังกรจักรวาล! 🌟";
                       title.style.color = "#ffd700";
+                      title.style.fontFamily = "'Arial Black', sans-serif";
                   } else if (highestReward >= 100) {
+                      soundLevel = 3;
                       icon.innerHTML = "🔥💎";
                       title.innerHTML = "🔥 แจ็คพอตสุดเดือด! 🔥";
                       title.style.color = "#ff4757";
+                      title.style.fontFamily = "'Impact', sans-serif";
                   } else if (highestReward >= 10) {
+                      soundLevel = 2;
                       icon.innerHTML = "💎🎉";
                       title.innerHTML = "✨ รางวัลใหญ่ระดับพรีเมียม! ✨";
                       title.style.color = "#00d2d3";
-                  } else {
+                      title.style.fontFamily = "'Verdana', sans-serif";
+                  } else if (highestReward > 0) {
+                      soundLevel = 2;
                       icon.innerHTML = "🎁👍";
-                      title.innerHTML = "🎉 สุ่มเปิดกล่องสำเร็จ!";
+                      title.innerHTML = "🎉 ยินดีด้วย คุณได้รับรางวัล!";
                       title.style.color = "#2ed573";
+                      title.style.fontFamily = "'Tahoma', sans-serif";
+                  } else {
+                      soundLevel = 1;
+                      icon.innerHTML = "😢📦";
+                      title.innerHTML = "เกลือล้วน ๆ รอบนี้ยังไม่มาว่ะ...";
+                      title.style.color = "#a4b0be";
+                      title.style.fontFamily = "'Courier New', monospace";
                   }
 
+                  playSound(soundLevel);
                   desc.innerHTML = \`คุณได้รับ Robux รวมรอบนี้: <b style="color:#ffd700; font-size:22px;">+\${totalReward} Robux</b>\`;
                   overlay.style.display = 'flex';
               }
@@ -737,7 +759,6 @@ app.get("/lootbox", async (req, res) => {
                   const resBox = document.getElementById("result-box");
                   resBox.className = "";
                   resBox.innerText = \`🌀 กำลังเปิดกล่องรัวๆ \...\`;
-                  playSound('spin');
 
                   fetch('/open-lootbox', {
                       method: 'POST',
@@ -779,7 +800,6 @@ app.get("/lootbox", async (req, res) => {
                       let highestRewardNum = data.highestRewardNum;
                       let summaryRewards = data.summaryRewards;
 
-                      // เรียกใช้เอฟเฟกต์แสง สี เสียงสุดอลังการ
                       triggerEpicEffect(highestRewardNum, totalRewardNum);
 
                       let summaryListHtml = "";
@@ -990,7 +1010,7 @@ app.post("/confirm-withdraw", async (req, res) => {
     .eq('is_withdrawn', false);
 
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("เกิดข้อผิดพลาด Khôngพบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   let totalRobux = 0;
