@@ -241,7 +241,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Realtime Status API (ดึงสถิติต่างๆ รวมคลังสินค้า)
+// Realtime Status API
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
@@ -384,9 +384,12 @@ app.get("/lootbox", async (req, res) => {
     if (gameAccounts && gameAccounts.length > 0) {
       gameAccounts.forEach(acc => {
         let badgeColor = "#2ed573";
-        if (acc.rarity === "SSR" || acc.rarity === "เทพมังกร") badgeColor = "#ffd700";
-        else if (acc.rarity === "SS+") badgeColor = "#a4b0be";
-        else if (acc.rarity === "S") badgeColor = "#70a1ff";
+        let iconSymbol = "🛡️";
+
+        if (acc.rarity === "เทพมังกร") { badgeColor = "#ff4757"; iconSymbol = "🐲"; }
+        else if (acc.rarity === "SSR") { badgeColor = "#ffd700"; iconSymbol = "👑"; }
+        else if (acc.rarity === "SS+") { badgeColor = "#ffa502"; iconSymbol = "⚔️"; }
+        else if (acc.rarity === "S") { badgeColor = "#70a1ff"; iconSymbol = "🔮"; }
 
         const isOutOfStock = acc.status === 'out_of_stock';
         if (!isOutOfStock) availableCount++;
@@ -398,7 +401,7 @@ app.get("/lootbox", async (req, res) => {
 
         showcaseCardsHtml += `
           <div class="reward-card" style="${cardStyle}">
-              <div style="font-size:20px;">🛡️</div>
+              <div style="font-size:22px; text-shadow: 0 0 8px ${badgeColor};">${iconSymbol}</div>
               <div class="r-name" style="color:${isOutOfStock ? '#ff4757' : badgeColor}">${acc.title}</div>
               ${stockStatusHtml}
           </div>
@@ -407,7 +410,7 @@ app.get("/lootbox", async (req, res) => {
     } else {
       showcaseCardsHtml = `
         <div class="reward-card" style="grid-column: span 2;">
-            <div style="font-size:18px; color:#aaa;">📦 เกลือ (0 Point)</div>
+            <div style="font-size:18px; color:#aaa;">🧂 เกลือ</div>
         </div>
       `;
     }
@@ -595,7 +598,6 @@ app.get("/lootbox", async (req, res) => {
                   } catch(e){}
               }
 
-              // Realtime Polling ทุก 3 วินาที
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
@@ -633,7 +635,6 @@ app.get("/lootbox", async (req, res) => {
                           \`;
                       }
 
-                      // อัปเดตคลังรางวัลแบบ Realtime
                       hasAvailableStock = data.hasAvailableStock;
                       const openBtn = document.getElementById("open-box-btn");
                       if (!hasAvailableStock) {
@@ -648,9 +649,12 @@ app.get("/lootbox", async (req, res) => {
                           let showcaseHtml = "";
                           data.gameAccounts.forEach(acc => {
                               let badgeColor = "#2ed573";
-                              if (acc.rarity === "SSR" || acc.rarity === "เทพมังกร") badgeColor = "#ffd700";
-                              else if (acc.rarity === "SS+") badgeColor = "#a4b0be";
-                              else if (acc.rarity === "S") badgeColor = "#70a1ff";
+                              let iconSymbol = "🛡️";
+
+                              if (acc.rarity === "เทพมังกร") { badgeColor = "#ff4757"; iconSymbol = "🐲"; }
+                              else if (acc.rarity === "SSR") { badgeColor = "#ffd700"; iconSymbol = "👑"; }
+                              else if (acc.rarity === "SS+") { badgeColor = "#ffa502"; iconSymbol = "⚔️"; }
+                              else if (acc.rarity === "S") { badgeColor = "#70a1ff"; iconSymbol = "🔮"; }
 
                               const isOutOfStock = acc.status === 'out_of_stock';
                               const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6;' : \`border-color:\${badgeColor};\`;
@@ -660,7 +664,7 @@ app.get("/lootbox", async (req, res) => {
 
                               showcaseHtml += \`
                                 <div class="reward-card" style="\${cardStyle}">
-                                    <div style="font-size:20px;">🛡️</div>
+                                    <div style="font-size:22px; text-shadow: 0 0 8px \${badgeColor};">\${iconSymbol}</div>
                                     <div class="r-name" style="color:\${isOutOfStock ? '#ff4757' : badgeColor}">\${acc.title}</div>
                                     \${stockStatusHtml}
                                 </div>
@@ -739,10 +743,10 @@ app.get("/lootbox", async (req, res) => {
                       let winDetails = "";
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
-                          summaryListHtml += \`• \${rew}<br>\`;
+                          summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
                           if (!rew.includes("เกลือ")) {
                               hasWin = true;
-                              winDetails += \`<b>\${rew}</b><br>\`;
+                              winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
                           }
                       }
 
@@ -767,7 +771,7 @@ app.get("/lootbox", async (req, res) => {
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:16px;">คุณสุ่มได้ <b>เกลือ (0 Point)</b></span><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
+                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
                       }
 
                       document.getElementById("resultModal").style.display = "block";
@@ -1029,22 +1033,20 @@ app.post("/open-lootbox", async (req, res) => {
         let reward = "";
         let handled = false;
 
-        // เช็คระบบ 5 สเต็ป
         for (let s = 0; s < steps.length; s++) {
             if (steps[s].salt > 0) {
-                reward = "🧂 เกลือ (0 Point)";
-                steps[s].salt -= 1; // ลบจำนวนเกลือลง 1 ครั้ง
+                reward = "🧂 เกลือ";
+                steps[s].salt -= 1; 
                 handled = true;
                 break;
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
                 reward = `🛡️ ${steps[s].reward}`;
-                steps[s].reward = 'normal'; // เมื่อแจกรางวัลในสเต็ปนี้แล้ว ปรับกลับเป็น normal
+                steps[s].reward = 'normal'; 
                 handled = true;
                 break;
             }
         }
 
-        // สุ่มตาม % เรตปกติถ้าไม่อยู่ในเงื่อนไขสเต็ป
         if (!handled) {
             const rand = Math.random() * 100;
             let winningAccIndex = -1;
@@ -1068,7 +1070,7 @@ app.post("/open-lootbox", async (req, res) => {
                   .update({ status: 'out_of_stock' })
                   .eq('id', wonAcc.id);
             } else {
-                reward = "🧂 เกลือ (0 Point)";
+                reward = "🧂 เกลือ";
             }
         }
 
@@ -1092,7 +1094,7 @@ app.post("/open-lootbox", async (req, res) => {
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
         step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
-        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
+        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
