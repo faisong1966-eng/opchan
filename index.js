@@ -942,7 +942,7 @@ app.get("/lootbox", async (req, res) => {
                               modalCard.style.boxShadow = "0 0 50px rgba(255,71,87,0.9)";
                               modalTitle.style.color = "#ff4757";
                               modalTitle.innerText = "🐲 แจ็คพอตระดับเทพมังกรสุดอลังการ! 🐲";
-                          } else if (highestRarity === 'SSR') {
+                          } else if (highestRarityFound === 'SSR') {
                               confetti({ particleCount: 180, spread: 100, origin: { y: 0.6 } });
                               modalCard.style.borderColor = "#ffd700";
                               modalCard.style.boxShadow = "0 0 40px rgba(255,215,0,0.8)";
@@ -962,13 +962,13 @@ app.get("/lootbox", async (req, res) => {
                               modalTitle.innerText = "🎉 ยินดีด้วย! คุณได้รับรางวัล! 🎉";
                           }
 
-                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (รางวัลชิ้นนี้โดนคนอื่นได้ไปแล้ว / ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
+                          modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
                       } else {
                           modalCard.style.borderColor = "#ff4757";
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (รางวัลชิ้นนี้โดนคนอื่นได้ไปแล้ว / ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
+                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
                       }
 
                       document.getElementById("resultModal").style.display = "block";
@@ -1581,6 +1581,29 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบไอดีสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
+app.post("/admin/adjust-user-points", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { username, action_type, point_amount } = req.body;
+  const val = parseInt(point_amount) || 0;
+
+  if (val <= 0) {
+      return res.send(`<script>alert("กรุณากรอกจำนวนแต้มให้ถูกต้อง!"); window.location.href="/admin";</script>`);
+  }
+
+  const { data: user } = await supabase.from('users').select('points').eq('username', username).single();
+  if (user) {
+      let newPoints = user.points;
+      if (action_type === 'add') {
+          newPoints += val;
+      } else if (action_type === 'subtract') {
+          newPoints = Math.max(0, newPoints - val);
+      }
+      await supabase.from('users').update({ points: newPoints }).eq('username', username);
+  }
+
+  res.send(`<script>alert("ปรับแต้มสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { 
@@ -1750,8 +1773,18 @@ async function renderAdminDashboard(req, res) {
         <td>${index + 1}</td>
         <td><b>${u.username}</b></td>
         <td><a href="${u.facebook_url || '#'}" target="_blank" style="color:#70a1ff;">🔗 เฟซบุ๊กผู้เล่น</a></td>
-        <td>${u.points} แต้ม</td>
+        <td><b style="color:#ffd700;">${u.points}</b> แต้ม</td>
         <td>
+          <form action="/admin/adjust-user-points" method="POST" style="background:rgba(0,0,0,0.2); padding:6px; border-radius:6px; margin-bottom:8px; display:flex; gap:5px; align-items:center;">
+            <input type="hidden" name="username" value="${u.username}">
+            <select name="action_type" style="padding:3px; font-size:11px;">
+               <option value="add">➕ เพิ่ม</option>
+               <option value="subtract">➖ ลด</option>
+            </select>
+            <input type="number" name="point_amount" placeholder="จำนวนแต้ม" min="1" required style="width:70px; padding:3px; margin:0; font-size:11px;">
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:11px;">ยืนยันแต้ม</button>
+          </form>
+
           <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; text-align:left;">
             <input type="hidden" name="username" value="${u.username}">
             <div style="font-size:11px; color:#ffd700; margin-bottom:3px;">⚙️ ตั้งค่าเรต 5 สเต็ปยูสนี้:</div>
@@ -1815,9 +1848,9 @@ async function renderAdminDashboard(req, res) {
         ${pendingSlipHtml}
       </table>
 
-      <h3 style="color:#ffd700;">👥 รายชื่อสมาชิกทั้งหมด และ การตั้งค่าเรตเกลือ 5 สเต็ป</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:900px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้ม</th><th>ตั้งค่าเรตความเกลือ (5 สเต็ป)</th></tr>
+      <h3 style="color:#ffd700;">👥 รายชื่อสมาชิกทั้งหมด และ จัดการแต้ม / เรตเกลือ</h3>
+      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:950px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้มปัจจุบัน</th><th>จัดการแต้ม / ตั้งค่าเรตเกลือ</th></tr>
         ${userHtml}
       </table>
     </body>
