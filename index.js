@@ -94,9 +94,10 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- FRONTEND ROUTES (STYLISH FULL-PAGE DESIGN) -------------------
+// ------------------- FRONTEND ROUTES (ULTRA VIBRANT FULL-PAGE DESIGN) -------------------
 
 app.get("/", (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.send(`
     <!DOCTYPE html>
     <html lang="th">
@@ -107,7 +108,9 @@ app.get("/", (req, res) => {
         <style>
             * { box-sizing: border-box; }
             body { 
-                background: radial-gradient(circle at 50% 30%, #1e2235 0%, #0b0c10 70%); 
+                background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+                background-size: 400% 400%;
+                animation: gradientBG 12s ease infinite;
                 color: #ffffff; 
                 text-align: center; 
                 margin: 0;
@@ -118,41 +121,49 @@ app.get("/", (req, res) => {
                 font-family: 'Kanit', sans-serif; 
                 overflow-x: hidden;
             }
-            .bg-glow-effect {
-                position: absolute;
+            @keyframes gradientBG {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+            .sparkle-overlay {
+                position: fixed;
                 width: 100%;
                 height: 100%;
                 top: 0; left: 0;
-                background: radial-gradient(circle at 50% 50%, rgba(0, 185, 0, 0.1) 0%, transparent 50%);
+                background-image: radial-gradient(white 1px, transparent 1px), radial-gradient(rgba(255,215,0,0.5) 1px, transparent 1px);
+                background-size: 50px 50px;
+                background-position: 0 0, 25px 25px;
+                opacity: 0.15;
                 pointer-events: none;
                 z-index: 1;
             }
             .container { 
-                background: rgba(19, 21, 31, 0.9); 
-                backdrop-filter: blur(16px);
+                background: rgba(15, 17, 26, 0.85); 
+                backdrop-filter: blur(20px);
                 padding: 45px 35px; 
-                border-radius: 24px; 
+                border-radius: 28px; 
                 display: inline-block; 
-                box-shadow: 0 0 50px rgba(0, 185, 0, 0.25), 0 20px 40px rgba(0,0,0,0.9); 
-                width: 400px; 
-                border: 1px solid rgba(0, 185, 0, 0.4);
+                box-shadow: 0 0 60px rgba(0, 255, 128, 0.3), 0 20px 50px rgba(0,0,0,0.9); 
+                width: 420px; 
+                border: 2px solid rgba(0, 255, 128, 0.5);
                 position: relative;
                 z-index: 2;
                 animation: floatBox 4s ease-in-out infinite;
             }
             @keyframes floatBox {
                 0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-8px); }
+                50% { transform: translateY(-10px); }
             }
             .container::before {
                 content: '';
                 position: absolute;
-                top: -3px; left: -3px; right: -3px; bottom: -3px;
-                background: linear-gradient(45deg, #00b900, #ffd700, #ff4757, #1f6beb);
-                border-radius: 26px;
+                top: -4px; left: -4px; right: -4px; bottom: -4px;
+                background: linear-gradient(45deg, #00ff87, #60efff, #ff007f, #ffaa00);
+                border-radius: 30px;
                 z-index: -1;
-                opacity: 0.6;
-                animation: borderGlow 6s linear infinite;
+                opacity: 0.8;
+                animation: borderGlow 5s linear infinite;
                 background-size: 400% 400%;
             }
             @keyframes borderGlow {
@@ -161,47 +172,48 @@ app.get("/", (req, res) => {
                 100% { background-position: 0% 50%; }
             }
             h1 { 
-                color: #00ff66; 
-                font-size: 28px;
+                color: #00ff87; 
+                font-size: 30px;
                 font-weight: 800;
                 margin-bottom: 12px;
-                text-shadow: 0 0 20px rgba(0, 255, 102, 0.7);
+                text-shadow: 0 0 25px rgba(0, 255, 135, 0.8);
             }
             p {
-                color: #b2bec3;
+                color: #dcdde1;
                 font-size: 14px;
                 margin-bottom: 30px;
-                line-height: 1.5;
+                line-height: 1.6;
+                text-shadow: 0 0 10px rgba(0,0,0,0.5);
             }
             .btn-glow { 
                 display: block; 
-                background: linear-gradient(135deg, #00b900, #00e676); 
+                background: linear-gradient(135deg, #00b09b, #96c93d); 
                 color: white; 
-                padding: 14px; 
+                padding: 15px; 
                 margin: 16px 0; 
-                border-radius: 12px; 
+                border-radius: 14px; 
                 text-decoration: none; 
                 font-weight: bold; 
                 font-size: 16px; 
-                box-shadow: 0 6px 20px rgba(0, 185, 0, 0.4);
+                box-shadow: 0 6px 20px rgba(0, 176, 155, 0.5);
                 transition: all 0.3s ease;
             }
             .btn-glow:hover { 
-                transform: translateY(-3px);
-                box-shadow: 0 10px 25px rgba(0, 185, 0, 0.7);
-                filter: brightness(1.15);
+                transform: translateY(-4px);
+                box-shadow: 0 10px 30px rgba(0, 255, 135, 0.8);
+                filter: brightness(1.2);
             }
             .btn-reg { 
-                background: linear-gradient(135deg, #1f6beb, #38ef7d); 
-                box-shadow: 0 6px 20px rgba(31, 107, 235, 0.4);
+                background: linear-gradient(135deg, #3a7bd5, #3a6073); 
+                box-shadow: 0 6px 20px rgba(58, 123, 213, 0.5);
             }
             .btn-reg:hover {
-                box-shadow: 0 10px 25px rgba(31, 107, 235, 0.7);
+                box-shadow: 0 10px 30px rgba(58, 123, 213, 0.8);
             }
         </style>
     </head>
     <body>
-        <div class="bg-glow-effect"></div>
+        <div class="sparkle-overlay"></div>
         <div class="container">
             <h1>🛡️ LINE RANGERS BOX</h1>
             <p>✨ เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ เรตแตกง่าย การันตีแน่นๆ! ✨</p>
@@ -1489,8 +1501,8 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
