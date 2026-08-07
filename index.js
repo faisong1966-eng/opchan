@@ -377,9 +377,9 @@ app.get("/lootbox", async (req, res) => {
         else if (acc.rarity === "S") badgeColor = "#70a1ff";
 
         const isOutOfStock = acc.status === 'out_of_stock';
-        const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6; position:relative;' : `border-color:${badgeColor};`;
+        const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6;' : `border-color:${badgeColor};`;
         const stockStatusHtml = isOutOfStock 
-            ? `<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px; text-shadow:0 0 5px rgba(255,71,87,0.5);">❌ หมด</div>` 
+            ? `<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px;">❌ หมด</div>` 
             : `<div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity}</div>`;
 
         showcaseCardsHtml += `
@@ -441,7 +441,6 @@ app.get("/lootbox", async (req, res) => {
               input[type="number"] { width: 100%; padding: 6px; background: #13151f; border: 1px solid #333856; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; font-family:'Kanit'; }
               .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; font-family:'Kanit'; }
               
-              /* Modal Winner / Salt Effect */
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
               .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #2c314f; margin: 20% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -921,7 +920,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ตัดไอดีที่หมดออกจากสุ่ม) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (Logic ปลอดภัย 100%) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -941,15 +940,16 @@ app.post("/open-lootbox", async (req, res) => {
     if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
-    // ดึงเฉพาะไอดีที่ยังมีสถานะ 'available' หรือไม่ใช่ 'out_of_stock'
-    const { data: gameAccounts } = await supabase
+    // ดึงเฉพาะไอดีที่มีพร้อมใช้งาน
+    let { data: availableAccounts } = await supabase
       .from('game_accounts')
       .select('*')
-      .neq('status', 'out_of_stock');
+      .or('status.eq.available,status.is.null');
+
+    if (!availableAccounts) availableAccounts = [];
 
     let historyBatch = [];
     let summaryRewards = {};
-    let accountsToUpdateStatus = [];
 
     let steps = [
       { salt: user.step1_salt || 0, reward: user.step1_reward || 'normal' },
@@ -980,27 +980,31 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // สุ่มตามเรตปกติ (เลือกสุ่มเฉพาะไอดีที่มีของ)
+        // สุ่มตาม % เรตปกติ
         if (!handled) {
             const rand = Math.random() * 100;
-            let currentAcc = null;
+            let winningAccIndex = -1;
 
-            if (gameAccounts && gameAccounts.length > 0) {
-                for (let accIndex = 0; accIndex < gameAccounts.length; accIndex++) {
-                    const acc = gameAccounts[accIndex];
-                    const rate = parseFloat(acc.rate) || 0;
-                    if (rand < rate) {
-                        currentAcc = acc;
-                        // ลบไอดีนี้ออกจาก Array เพื่อไม่ให้สุ่มได้ซ้ำอีกในรอบเดียวกัน
-                        gameAccounts.splice(accIndex, 1);
-                        accountsToUpdateStatus.push(acc.id);
-                        break;
-                    }
+            for (let aIndex = 0; aIndex < availableAccounts.length; aIndex++) {
+                const rate = parseFloat(availableAccounts[aIndex].rate) || 0;
+                if (rand < rate) {
+                    winningAccIndex = aIndex;
+                    break;
                 }
             }
 
-            if (currentAcc) {
-                reward = `🛡️ [${currentAcc.rarity}] ${currentAcc.title}`;
+            if (winningAccIndex !== -1) {
+                const wonAcc = availableAccounts[winningAccIndex];
+                reward = `🛡️ [${wonAcc.rarity}] ${wonAcc.title}`;
+
+                // ลบออกจาก Array เพื่อไม่ให้สุ่มได้ซ้ำในรอบเดียวกัน
+                availableAccounts.splice(winningAccIndex, 1);
+
+                // อัปเดตสถานะใน Supabase ทีละรายการอย่างปลอดภัย
+                await supabase
+                  .from('game_accounts')
+                  .update({ status: 'out_of_stock' })
+                  .eq('id', wonAcc.id);
             } else {
                 reward = "🧂 เกลือ (0 Point)";
             }
@@ -1017,14 +1021,6 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
-    // อัปเดตไอดีที่สุ่มออกไปแล้วให้เป็น out_of_stock
-    if (accountsToUpdateStatus.length > 0) {
-        await supabase
-          .from('game_accounts')
-          .update({ status: 'out_of_stock' })
-          .in('id', accountsToUpdateStatus);
-    }
-
     const newPoints = user.points - selectedCount;
     const newSpent = (user.total_spent || 0) + selectedCount;
 
@@ -1035,7 +1031,7 @@ app.post("/open-lootbox", async (req, res) => {
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
         step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
-        step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[5].reward || 'normal'
+        step5_salt: parseInt(steps[5] ? steps[5].salt : 0) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
     const { error: histError } = await supabase.from('history').insert(historyBatch);
