@@ -160,7 +160,7 @@ app.post("/register", async (req, res) => {
       .insert([{ 
           username, 
           password, 
-          facebook_url: facebook_url,
+          facebook_url: facebook_url || '',
           points: 0, 
           total_spent: 0, 
           step1_salt: 0, step1_reward: 'normal',
@@ -786,7 +786,7 @@ app.post("/request-withdraw", async (req, res) => {
     .eq('username', username)
     .single();
 
-  const facebookUrl = userData ? userData.facebook_url : "";
+  const facebookUrl = userData && userData.facebook_url ? userData.facebook_url : "";
 
   let rewardsSummaryList = [];
   let idsToUpdate = [];
@@ -946,6 +946,8 @@ app.post("/open-lootbox", async (req, res) => {
       { salt: user.step5_salt || 0, reward: user.step5_reward || 'normal' }
     ];
 
+    const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
+
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
@@ -989,10 +991,9 @@ app.post("/open-lootbox", async (req, res) => {
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
 
-        // แมตช์กับคอลัมน์ใน Supabase ของคุณเป๊ะๆ
         historyBatch.push({
             username: username,
-            facebook_url: user.facebook_url || '',
+            facebook_url: safeFacebookUrl,
             reward: reward,
             reward_num: 0,
             is_withdrawn: false
@@ -1002,15 +1003,20 @@ app.post("/open-lootbox", async (req, res) => {
     const newPoints = user.points - selectedCount;
     const newSpent = (user.total_spent || 0) + selectedCount;
 
-    await supabase.from('users').update({ 
-        points: newPoints, 
-        total_spent: newSpent,
-        step1_salt: steps[0].salt, step1_reward: steps[0].reward,
-        step2_salt: steps[1].salt, step2_reward: steps[1].reward,
-        step3_salt: steps[2].salt, step3_reward: steps[2].reward,
-        step4_salt: steps[3].salt, step4_reward: steps[3].reward,
-        step5_salt: steps[4].salt, step5_reward: steps[5].reward
+    // อัปเดตข้อมูลผู้เล่น พร้อมแปลงค่า Integer ป้องกัน Mismatch Error
+    const { error: updateUserErr } = await supabase.from('users').update({ 
+        points: parseInt(newPoints) || 0, 
+        total_spent: parseInt(newSpent) || 0,
+        step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
+        step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+        step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
+
+    if (updateUserErr) {
+        console.error("Update User Error:", updateUserErr);
+    }
 
     const { error: histError } = await supabase.from('history').insert(historyBatch);
     if (histError) {
@@ -1195,7 +1201,7 @@ async function renderAdminDashboard(req, res) {
       withdrawHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${w.username}</b></td>
-        <td><a href="${w.facebook_url}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
+        <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
         <td style="color:#ffd700; font-size:12px;">${rewardsList}</td>
         <td>
           <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
@@ -1254,7 +1260,7 @@ async function renderAdminDashboard(req, res) {
       userHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${u.username}</b></td>
-        <td><a href="${u.facebook_url}" target="_blank" style="color:#70a1ff;">🔗 เฟซบุ๊กผู้เล่น</a></td>
+        <td><a href="${u.facebook_url || '#'}" target="_blank" style="color:#70a1ff;">🔗 เฟซบุ๊กผู้เล่น</a></td>
         <td>${u.points} แต้ม</td>
         <td>
           <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; text-align:left;">
