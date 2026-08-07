@@ -1130,40 +1130,19 @@ app.post("/create-topup", (req, res) => {
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="return handleUpload(this)">
+        <form action="/upload-slip" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
             
-            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน (ระบบย่อขนาดให้อัตโนมัติ ส่งไวขึ้น):</label>
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
-            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบทันที</button>
+            <button type="submit" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
 
-        <div id="loading-box" style="display:none; text-align:center; margin-top:15px; background:rgba(0,0,0,0.4); padding:12px; border-radius:6px;">
-            <div style="color:#ffd700; font-size:14px; font-weight:bold;">🚀 กำลังย่อขนาดและอัปโหลดสลิป...</div>
-            <div style="color:#a4b0be; font-size:11px; margin-top:3px;">กรุณารอสักครู่ ระบบกำลังส่งข้อมูลอย่างรวดเร็ว</div>
-        </div>
-
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
-    </div>
-    <script>
-        let isSubmitting = false;
-        function handleUpload(form) {
-            if (isSubmitting) return false;
-            isSubmitting = true;
-            
-            const btn = document.getElementById('submit-btn');
-            const loading = document.getElementById('loading-box');
-            btn.disabled = true;
-            btn.style.background = '#555';
-            btn.innerText = '⏳ กำลังอัปโหลดด่วน...';
-            loading.style.display = 'block';
-            return true;
-        }
-    </script>
-    </body></html>
+    </div></body></html>
   `);
 });
 
@@ -1171,22 +1150,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount, topup_type } = req.body;
   
   try {
-    let fileBuffer = req.file ? req.file.buffer : null;
-    let fileMime = req.file ? req.file.mimetype : 'image/jpeg';
-    let originalName = req.file ? req.file.originalname : 'slip.jpg';
-
-    // ระบบบีบอัดขนาดไฟล์ภาพสลิปชั่วคราวแบบเร่งด่วนเพื่อความเร็วสูงสุด
-    if (fileBuffer && fileBuffer.length > 800 * 1024) {
-        // ถ้ารูปใหญ่กว่า 800KB จะส่งผ่าน buffer เดิมแต่จำกัดสตรีมไว
-    }
-
-    const optimizedFile = {
-        originalname: originalName,
-        buffer: fileBuffer,
-        mimetype: fileMime
-    };
-
-    const slipImg = await uploadToSupabaseStorage(optimizedFile);
+    const slipImg = await uploadToSupabaseStorage(req.file);
 
     const { error } = await supabase
       .from('pending_topup')
@@ -1510,7 +1474,7 @@ app.post("/admin/add-game-account-json", upload.single('image_file'), async (req
   res.json({ success: true, newAccount: data[0] });
 });
 
-// ลบรางวัลเกม (กดลบปุ๊บ ลบออกจาก Supabase ทันที)
+// ลบรางวัลเกมรายชิ้นแบบปลอดภัย
 app.post("/admin/delete-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { acc_id } = req.body;
@@ -1519,7 +1483,17 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบรางวัลออกจากคลังเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// บันทึกการแก้ไขเรต/สถานะทั้งหมด (รองรับทุกกรณีรวมถึงการลบหมดเกลี้ยงเหลือ 0 ชิ้น)
+// ปุ่มใหม่: เคลียร์คลังรางวัลทิ้งทั้งหมดเกลี้ยง 100% ในคลิกเดียว
+app.post("/admin/clear-all-game-accounts", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  
+  // ใช้คำสั่งลบทั้งหมดในตาราง game_accounts ทิ้งจนเกลี้ยง
+  await supabase.from('game_accounts').delete().neq('id', 0);
+  
+  res.send(`<script>alert("ลบและเคลียร์คลังรางวัลทั้งหมดเกลี้ยงจนเหลือ 0 รายการเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+});
+
+// บันทึกการแก้ไขเรต/สถานะทั้งหมด (รองรับทุกกรณีรวมถึงการลบหมดเกลี้ยง)
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   
@@ -1738,7 +1712,7 @@ async function renderAdminDashboard(req, res) {
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;" id="no-game-acc-row">คลังรางวัลว่างเปล่า (0 รายการ) - สามารถกดเพิ่มรางวัลใหม่ด้านบนได้ทันที</td></tr>`;
+    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:15px;" id="no-game-acc-row">คลังรางวัลว่างเปล่า (0 รายการ) - สามารถกดเพิ่มรางวัลใหม่ด้านบนได้ทันที</td></tr>`;
   }
 
   function renderRewardOptions(currentVal) {
@@ -1791,6 +1765,15 @@ async function renderAdminDashboard(req, res) {
     });
   }
 
+  let clearAllButtonHtml = "";
+  if (gameAccounts && gameAccounts.length > 0) {
+      clearAllButtonHtml = `
+        <form action="/admin/clear-all-game-accounts" method="POST" onsubmit="return confirm('⚠️ คำเตือน: คุณต้องการลบรางวัลทั้งหมดในคลังทิ้งจนเกลี้ยง (เหลือ 0) จริงๆ หรือไม่?');" style="display:inline-block; margin-left: 10px;">
+            <button type="submit" style="background:#ff4757; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:9px 15px; font-size:13px; box-shadow:0 0 10px rgba(255,71,87,0.4);">🗑️ ลบเกลี้ยงทั้งหมด (Clear All)</button>
+        </form>
+      `;
+  }
+
   res.send(`
     <body style="background:#1e1e2f; color:#fff; text-align:center; padding:20px; font-family:sans-serif;">
       <h2>🛠️ ระบบจัดการหลังบ้านแอดมิน (Line Rangers Box)</h2>
@@ -1819,7 +1802,13 @@ async function renderAdminDashboard(req, res) {
               <button type="submit" id="add-btn-submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่มไอดี</button>
           </form>
 
-          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตี / แก้ไข</h4>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h4 style="color:#ffd700; margin:0;">📦 คลังรางวัล และ การตั้งค่าการันตี / แก้ไข</h4>
+              <div>
+                  ${clearAllButtonHtml}
+              </div>
+          </div>
+
           <form action="/admin/update-all-game-accounts" method="POST" enctype="multipart/form-data">
               <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
                  <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตี</th><th>🖼️ รูปภาพ (เปลี่ยนไฟล์)</th><th>สถานะ</th><th>จัดการ</th></tr>
