@@ -25,6 +25,9 @@ app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// ระบบเก็บ Client สำหรับส่ง Real-time (SSE)
+const sseClients = {};
+
 async function uploadToSupabaseStorage(file) {
     if (!file) return "";
     const fileExt = path.extname(file.originalname);
@@ -235,42 +238,41 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// API สำหรับให้หน้าเว็บเช็กข้อมูลอัปเดตแบบเรียลไทม์ (แต้ม และสถานะถอน/เติมเงิน)
-app.get("/api/user-status", async (req, res) => {
+app.get("/check-withdraw-status", async (req, res) => {
   const username = req.query.username;
-  if (!username) return res.json({ success: false });
+  if (!username) return res.json({ status: 'none' });
 
   try {
-    const { data: user } = await supabase
-      .from('users')
-      .select('points, total_spent')
-      .eq('username', username)
-      .single();
-
-    const { data: pendingWithdraw } = await supabase
+    const { data: pendingWithdrawRow } = await supabase
       .from('pending_withdraw')
       .select('*')
       .eq('username', username)
-      .eq('status', 'pending')
       .single();
 
-    const { data: pendingTopups } = await supabase
-      .from('pending_topup')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending');
-
-    res.json({
-      success: true,
-      points: user ? user.points : 0,
-      totalSpent: user ? (user.total_spent || 0) : 0,
-      hasPendingWithdraw: !!pendingWithdraw,
-      pendingWithdrawData: pendingWithdraw || null,
-      pendingTopups: pendingTopups || []
-    });
+    if (!pendingWithdrawRow) {
+      return res.json({ status: 'approved' }); 
+    } else {
+      return res.json({ status: pendingWithdrawRow.status });
+    }
   } catch (e) {
-    res.json({ success: false });
+    return res.json({ status: 'error' });
   }
+});
+
+// Endpoint สำหรับ Real-time Stream (SSE)
+app.get("/events", (req, res) => {
+  const username = req.query.username;
+  if (!username) return res.status(400).end();
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  sseClients[username] = res;
+
+  req.on('close', () => {
+    delete sseClients[username];
+  });
 });
 
 app.get("/lootbox", async (req, res) => {
@@ -333,27 +335,31 @@ app.get("/lootbox", async (req, res) => {
     let withdrawSectionHtml = "";
     if (pendingWithdrawRow) {
       withdrawSectionHtml = `
-        <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
-            ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">${pendingWithdrawRow.total_robux} Robux</b> (ยอดจะเข้าภายใน 24ชม. )
-        </div>
-        <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
-            💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
+        <div id="dynamic-withdraw-container">
+            <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
+                ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">${pendingWithdrawRow.total_robux} Robux</b> (ยอดจะเข้าภายใน 24ชม. )
+            </div>
+            <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
+                💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
+            </div>
         </div>
       `;
     } else {
       const canWithdraw = totalEarnedRobux >= 10;
       withdrawSectionHtml = `
-        <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
-            💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
-        </div>
-        <div style="margin-top:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; text-align:left;">
-            <b style="font-size:13px; color:#ffd700;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</b>
-            <form action="/request-withdraw" method="POST">
-                <input type="hidden" name="username" value="${username}">
-                <button type="submit" id="withdraw-btn" style="width:100%; margin-top:6px; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
-                    ${canWithdraw ? '📥 กดส่งคำขอถอน Robux' : '❌ ยังสะสมไม่ถึง 10 Robux (ถอนไม่ได้)'}
-                </button>
-            </form>
+        <div id="dynamic-withdraw-container">
+            <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
+                💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">${totalEarnedRobux} Robux</b>
+            </div>
+            <div style="margin-top:10px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; text-align:left;">
+                <b style="font-size:13px; color:#ffd700;">🎁 ถอน Robux (สะสมขั้นต่ำ 10 Robux):</b>
+                <form action="/request-withdraw" method="POST">
+                    <input type="hidden" name="username" value="${username}">
+                    <button type="submit" id="withdraw-btn" style="width:100%; margin-top:6px; background:${canWithdraw ? '#2ed573' : '#555'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:${canWithdraw ? 'pointer' : 'not-allowed'};" ${canWithdraw ? '' : 'disabled'}>
+                        ${canWithdraw ? '📥 กดส่งคำขอถอน Robux' : '❌ ยังสะสมไม่ถึง 10 Robux (ถอนไม่ได้)'}
+                    </button>
+                </form>
+            </div>
         </div>`;
     }
 
@@ -466,9 +472,7 @@ app.get("/lootbox", async (req, res) => {
                   <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              <div id="withdraw-container">
-                  ${withdrawSectionHtml}
-              </div>
+              ${withdrawSectionHtml}
               
               <div class="showcase-container">
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
@@ -550,7 +554,7 @@ app.get("/lootbox", async (req, res) => {
 
               <div style="text-align:left; margin-top:10px; background:#1b1e2e; padding:8px; border-radius:6px; font-size:11px;">
                   <b style="color:#ffd700;">📌 สถานะการเติมเงิน:</b>
-                  <ul style="padding-left:15px; margin:3px 0;" id="pending-topup-list">${pendingHtml}</ul>
+                  <ul style="padding-left:15px; margin:3px 0;">${pendingHtml}</ul>
               </div>
 
               <div class="notice-bottom">
@@ -567,6 +571,23 @@ app.get("/lootbox", async (req, res) => {
               let selectedCount = ${countParam};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              // เชื่อมต่อ Real-time (SSE) อัปเดตอัตโนมัติทันทีเมื่อแอดมินกดอนุมัติ
+              const eventSource = new EventSource('/events?username=${username}');
+              eventSource.onmessage = function(event) {
+                  try {
+                      const data = JSON.parse(event.data);
+                      if (data.type === 'points_updated') {
+                          userPoints = data.points;
+                          document.getElementById("points").innerText = userPoints;
+                          alert(data.message);
+                          location.reload(); // รีเฟรชหน้าเบาๆ เพื่ออัปเดตสถานะลิสต์เติมเงินให้หายไป
+                      } else if (data.type === 'withdraw_approved') {
+                          alert(data.message);
+                          location.reload(); // รีเฟรชหน้าอัปเดตสถานะถอนทันที
+                      }
+                  } catch(e) {}
+              };
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -598,49 +619,6 @@ app.get("/lootbox", async (req, res) => {
 
               setInterval(updateCountdown, 1000);
               updateCountdown();
-
-              // ระบบเช็กสถานะอัตโนมัติทุกๆ 3 วินาที (เพื่อให้แต้มและสถานะถอนอัปเดตทันทีเมื่อแอดมินกดอนุมัติ)
-              setInterval(() => {
-                  fetch('/api/user-status?username=${username}')
-                  .then(res => res.json())
-                  .then(data => {
-                      if (!data.success) return;
-
-                      // อัปเดตแต้ม
-                      if (data.points !== userPoints) {
-                          userPoints = data.points;
-                          document.getElementById("points").innerText = userPoints;
-                      }
-
-                      // อัปเดตยอดสะสม
-                      if (data.totalSpent !== userSpent) {
-                          userSpent = data.totalSpent;
-                          document.getElementById("spent").innerText = userSpent;
-                      }
-
-                      // อัปเดตรายการรอเติมเงิน
-                      let topupHtml = "";
-                      if (data.pendingTopups && data.pendingTopups.length > 0) {
-                          data.pendingTopups.forEach(p => {
-                              topupHtml += \ E<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>\`;
-                          });
-                      } else {
-                          topupHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
-                      }
-                      document.getElementById("pending-topup-list").innerHTML = topupHtml;
-
-                      // อัปเดตสถานะถอนเงินอัตโนมัติ
-                      const withdrawContainer = document.getElementById("withdraw-container");
-                      if (!data.hasPendingWithdraw) {
-                          // ถ้าแอดมินอนุมัติแล้ว และเคยมีกล่องรอยอดถอนอยู่ ให้รีเฟรชหน้าเว็บหรือปรับ UI ทันที
-                          // เช็กง่ายๆ ว่าปัจจุบันแสดงผลเป็นกำลังรอยอดถอนอยู่หรือไม่
-                          if (withdrawContainer.innerHTML.includes("กำลังรอยอดถอน")) {
-                              location.reload(); // รีเฟรชอัตโนมัติเพื่อให้ยอดปัจจุบันคำนวณใหม่ถูกต้อง
-                          }
-                      }
-                  })
-                  .catch(e => {});
-              }, 3000);
               
               function playSound(type) {
                   try {
@@ -1149,7 +1127,6 @@ app.post("/open-lootbox", async (req, res) => {
   let historyBatch = [];
   let summaryRewards = {};
 
-  // ดึงค่าสเต็ปทั้ง 5 ชุด (ปลอดภัยด้วยการใส่ || 0 และ || 'normal')
   let steps = [
     { salt: user.step1_salt || 0, reward: user.step1_reward || 'normal' },
     { salt: user.step2_salt || 0, reward: user.step2_reward || 'normal' },
@@ -1163,22 +1140,18 @@ app.post("/open-lootbox", async (req, res) => {
       let rewardNum = 0;
       let handled = false;
 
-      // ตรวจสอบสเต็ปที่ยังเหลืออยู่ (เริ่มเช็คจากสเต็ป 1 ไปจนถึง 5)
       for (let s = 0; s < steps.length; s++) {
           if (steps[s].salt > 0) {
-              // ยังอยู่ในช่วงเกลือของสเต็ปนี้
               reward = "0 Robux (😢 เกลือ)";
               rewardNum = 0;
               steps[s].salt -= 1;
               handled = true;
               break;
           } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
-              // เกลือหมดแล้ว ออกรางวัลที่ตั้งไว้ในสเต็ปนี้ (ออก 1 ครั้งตามโควตา)
               let info = getRewardDetails(steps[s].reward);
               if (info) {
                   reward = info.reward;
                   rewardNum = info.rewardNum;
-                  // เคลียร์ค่าสเต็ปนี้ทิ้ง (หรือเซ็ตเป็น normal) เพื่อให้ข้ามไปสเต็ปถัดไปในการกดครั้งต่อไป
                   steps[s].reward = 'normal';
                   handled = true;
                   break;
@@ -1186,7 +1159,6 @@ app.post("/open-lootbox", async (req, res) => {
           }
       }
 
-      // ถ้าไม่มีสเต็ปไหนทำงาน ให้สุ่มตามเรตปกติทั่วไปของเว็บ
       if (!handled) {
           const rand = Math.random() * 100;
           if (rand < 0.0001) { 
@@ -1234,7 +1206,6 @@ app.post("/open-lootbox", async (req, res) => {
   const newPoints = user.points - selectedCount;
   const newSpent = (user.total_spent || 0) + selectedCount;
 
-  // อัปเดตค่าสเต็ปที่ถูกหักลบ/ใช้งานแล้วกลับลงฐานข้อมูล
   await supabase
     .from('users')
     .update({ 
@@ -1320,6 +1291,11 @@ app.post("/admin/approve-topup", async (req, res) => {
     .update({ status: 'completed' })
     .eq('id', topup_id);
 
+  // ส่งสัญญาณ Real-time ไปบอกผู้เล่นคนนี้ทันทีให้แต้มขึ้นโดยไม่ต้องรีหน้า
+  if (sseClients[username]) {
+    sseClients[username].write(`data: ${JSON.stringify({ type: 'points_updated', points: user.points + pointsToAdd, message: `🎁 แอดมินอนุมัติยอดเงินให้เรียบร้อย! เติมแต้มสำเร็จ +${pointsToAdd} แต้ม` })}\n\n`);
+  }
+
   res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
@@ -1350,6 +1326,11 @@ app.post("/admin/approve-withdraw", async (req, res) => {
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
+  }
+
+  // ส่งสัญญาณ Real-time แจ้งผู้เล่นว่าแอดมินอนุมัติการถอนเรียบร้อยแล้ว
+  if (sseClients[username]) {
+    sseClients[username].write(`data: ${JSON.stringify({ type: 'withdraw_approved', message: `✅ แอดมินทำการโอน Robux และอนุมัติคำขอถอนของคุณเรียบร้อยแล้ว!` })}\n\n`);
   }
 
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
@@ -1389,7 +1370,6 @@ app.post("/admin/update-points", async (req, res) => {
   res.send(`<script>alert("อัปเดตแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// อัปเดตรับค่าการตั้งค่า 5 สเต็ปจากหน้าแอดมิน
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { 
