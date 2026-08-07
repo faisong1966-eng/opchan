@@ -1142,7 +1142,7 @@ app.post("/create-topup", (req, res) => {
         
         <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="handleUpload(this)">
+        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="return handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
@@ -1160,13 +1160,18 @@ app.post("/create-topup", (req, res) => {
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
     </div>
     <script>
+        let isSubmitting = false;
         function handleUpload(form) {
+            if (isSubmitting) return false;
+            isSubmitting = true;
+            
             const btn = document.getElementById('submit-btn');
             const loading = document.getElementById('loading-text');
             btn.disabled = true;
             btn.style.background = '#555';
             btn.innerText = 'กำลังส่งข้อมูล...';
             loading.style.display = 'block';
+            return true;
         }
     </script>
     </body></html>
@@ -1177,6 +1182,23 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount, topup_type } = req.body;
   
   try {
+    const { data: recentDupes } = await supabase
+      .from('pending_topup')
+      .select('id, created_at')
+      .eq('username', username)
+      .eq('exact_amount', parseFloat(exact_amount))
+      .eq('status', 'pending')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (recentDupes && recentDupes.length > 0) {
+      const lastTime = new Date(recentDupes[0].created_at).getTime();
+      const now = new Date().getTime();
+      if (now - lastTime < 10000) {
+        return res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
+      }
+    }
+
     const slipImg = await uploadToSupabaseStorage(req.file);
 
     const { error } = await supabase
