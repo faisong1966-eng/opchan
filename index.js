@@ -294,11 +294,23 @@ app.get("/api/user-status", async (req, res) => {
       });
     }
 
+    // ทำความสะอาด pityCounters กรองเฉพาะไอเทมที่เปิดการันตีอยู่จริง (> 0) เท่านั้น ไม่ให้แต้มเก่าตกค้าง
+    let rawCounters = parsePityCounters(user ? user.pity_counters : {});
+    let cleanCounters = {};
+    if (gameAccounts) {
+        gameAccounts.forEach(acc => {
+            const t = parseInt(acc.pity_target) || 0;
+            if (t > 0 && rawCounters[acc.id] !== undefined) {
+                cleanCounters[acc.id] = rawCounters[acc.id];
+            }
+        });
+    }
+
     res.json({
       success: true,
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
-      pityCounters: user ? parsePityCounters(user.pity_counters) : {},
+      pityCounters: cleanCounters,
       pendingRows: pendingRows || [],
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
@@ -327,10 +339,21 @@ app.get("/lootbox", async (req, res) => {
 
     const currentPoints = row.points;
     const totalSpent = row.total_spent || 0;
-    const pityCounters = parsePityCounters(row.pity_counters);
     const createdAt = row.created_at;
 
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
+
+    // กรองและทำความสะอาด pityCounters ทันทีเมื่อโหลดหน้าเว็บ
+    let rawCounters = parsePityCounters(row.pity_counters);
+    let pityCounters = {};
+    if (gameAccounts) {
+        gameAccounts.forEach(acc => {
+            const t = parseInt(acc.pity_target) || 0;
+            if (t > 0 && rawCounters[acc.id] !== undefined) {
+                pityCounters[acc.id] = rawCounters[acc.id];
+            }
+        });
+    }
 
     const { data: pendingRows } = await supabase
       .from('pending_topup')
@@ -1094,7 +1117,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (อัปเดตระบบเช็คเฉพาะไอเทมที่เปิดการันตี > 0 เท่านั้น) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบล้างและจำกัดการันตีเฉพาะที่ตั้งค่า > 0 เท่านั้น) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1140,6 +1163,16 @@ app.post("/open-lootbox", async (req, res) => {
 
     const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, rarity, title, pity_target');
     const targetAccList = allTargetAccounts || [];
+
+    // เคลียร์ค่าแต้มการันตีเก่าทิ้งทันที สำหรับไอเทมที่แอดมินไม่ได้เปิดใช้การันตี (pity_target <= 0 หรือถูกลบไปแล้ว)
+    let activePityCounters = {};
+    targetAccList.forEach(acc => {
+        const target = parseInt(acc.pity_target) || 0;
+        if (target > 0 && pityCounters[acc.id] !== undefined) {
+            activePityCounters[acc.id] = pityCounters[acc.id];
+        }
+    });
+    pityCounters = activePityCounters;
 
     for (let i = 0; i < selectedCount; i++) {
         if (!availableAccounts || availableAccounts.length === 0) {
@@ -1258,14 +1291,7 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // อัปเดตและเคลียร์แต้มการันตีเฉพาะไอเทมที่เปิดใช้งาน (target > 0) หากปิดไว้ (target = 0) จะไม่เก็บแต้มและล้างทิ้งทันที
-        targetAccList.forEach(acc => {
-            const target = parseInt(acc.pity_target) || 0;
-            if (target <= 0) {
-                delete pityCounters[acc.id]; // ลบแต้มค้างทิ้งทันทีถ้าไม่ได้เปิดใช้งานการันตี
-            }
-        });
-
+        // จัดการรีเซ็ตหรือสะสมแต้มการันตีเฉพาะไอเทมที่เปิดใช้งานการันตี (> 0) เท่านั้น
         if (isGuaranteeHit) {
             targetAccList.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1307,7 +1333,7 @@ app.post("/open-lootbox", async (req, res) => {
         pity_counters: JSON.stringify(pityCounters),
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
@@ -1417,7 +1443,6 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
           const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
           const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
 
-          // เมื่อมีการเปลี่ยนค่า pity_target เป็น 0 หรือเปลี่ยนค่าใหม่ ให้ระบบเคลียร์และเริ่มนับ 0 ใหม่ทันที
           await supabase.from('game_accounts').update({
               rate: isNaN(newRate) ? 0 : newRate,
               pity_target: isNaN(newPity) ? 0 : newPity,
