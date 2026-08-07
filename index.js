@@ -363,23 +363,6 @@ app.get("/lootbox", async (req, res) => {
       });
     }
 
-    const { data: pendingWithdrawRow } = await supabase
-      .from('pending_withdraw')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending')
-      .single();
-
-    let pendingWithdrawNotice = "";
-    if (pendingWithdrawRow) {
-      pendingWithdrawNotice = `
-        <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:12px; font-size:12px; color:#ffa502; text-align:center;">
-            ⏳ มีคำขอรับรางวัลอยู่ระหว่างแอดมินตรวจสอบ (ประวัติชุดก่อนหน้าถูกส่งให้แอดมินแล้ว) <br>
-            <span style="color:#aaa; font-size:10px;">*คุณยังคงกดสุ่มเล่นต่อและสะสมประวัติใหม่ได้ตามปกติครับ*</span>
-        </div>
-      `;
-    }
-
     let claimButtonHtml = "";
     if (hasClaimable) {
       claimButtonHtml = `
@@ -511,7 +494,6 @@ app.get("/lootbox", async (req, res) => {
                   <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              ${pendingWithdrawNotice}
               <div id="claim-btn-container">${claimButtonHtml}</div>
 
               <div class="showcase-container" style="margin-top:10px;">
@@ -645,6 +627,7 @@ app.get("/lootbox", async (req, res) => {
                       }
                       document.getElementById("pending-list-container").innerHTML = pendingHtml;
 
+                      // อัปเดตปุ่มขอรับรางวัลแบบ Realtime โดยไม่ต้องรีเฟรชหน้าเว็บ
                       if (data.hasClaimable) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <form action="/request-withdraw" method="POST" style="margin-top:10px;">
@@ -654,6 +637,8 @@ app.get("/lootbox", async (req, res) => {
                                 </button>
                             </form>
                           \`;
+                      } else {
+                          document.getElementById("claim-btn-container").innerHTML = "";
                       }
 
                       hasAvailableStock = data.hasAvailableStock;
@@ -1020,7 +1005,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีสะสมแยกรายชิ้น) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีแยกรายชิ้นอิสระสมบูรณ์แบบ) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1062,10 +1047,14 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
 
+    // โหลดข้อมูลการันตีทั้งหมดล่วงหน้าเพื่อความเร็วสูงสุด
+    const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, pity_target');
+    const targetAccList = allTargetAccounts || [];
+
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
-        let wonPityId = null;
+        let wonAccId = null; 
 
         // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
@@ -1092,7 +1081,7 @@ app.post("/open-lootbox", async (req, res) => {
 
             if (pityTargetAcc) {
                 reward = `🛡️ [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                wonPityId = pityTargetAcc.id; 
+                wonAccId = pityTargetAcc.id; 
                 
                 await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
                 availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
@@ -1101,7 +1090,6 @@ app.post("/open-lootbox", async (req, res) => {
         }
 
         // 3. สุ่มตาม % เรตปกติ
-        let wonNormalAcc = null;
         if (!handled) {
             const rand = Math.random() * 100;
             let winningAccIndex = -1;
@@ -1115,8 +1103,9 @@ app.post("/open-lootbox", async (req, res) => {
             }
 
             if (winningAccIndex !== -1) {
-                wonNormalAcc = availableAccounts[winningAccIndex];
+                const wonNormalAcc = availableAccounts[winningAccIndex];
                 reward = `🛡️ [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
+                wonAccId = wonNormalAcc.id;
                 availableAccounts.splice(winningAccIndex, 1);
 
                 await supabase
@@ -1128,24 +1117,19 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        const hitAnyPityItem = availableAccounts.some(acc => {
+        // อัปเดตแต้มการันตีตามกฎที่กำหนด:
+        // - ถ้าสุ่มได้ไอเทมชิ้นใด ชิ้นนั้นจะถูกรีเซ็ตแต้มการันตีเป็น 0 เฉพาะตัวมันเอง
+        // - ส่วนไอเทมชิ้นอื่นที่มีระบบการันตีแต่ไม่ได้ชิ้นนั้น จะสะสมแต้มบวกเพิ่มต่อเนื่องไปเรื่อยๆ
+        targetAccList.forEach(acc => {
             const target = parseInt(acc.pity_target) || 0;
-            return target > 0 && (wonPityId === acc.id || (wonNormalAcc && wonNormalAcc.id === acc.id));
-        });
-
-        const allTargetAccounts = await supabase.from('game_accounts').select('id, pity_target');
-        if (allTargetAccounts.data) {
-            allTargetAccounts.data.forEach(acc => {
-                const target = parseInt(acc.pity_target) || 0;
-                if (target > 0) {
-                    if (hitAnyPityItem) {
-                        pityCounters[acc.id] = 0;
-                    } else {
-                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1;
-                    }
+            if (target > 0) {
+                if (wonAccId === acc.id) {
+                    pityCounters[acc.id] = 0; // รีเซ็ตเฉพาะชิ้นที่ได้
+                } else {
+                    pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; // ชิ้นอื่นบวกสะสมต่อเนื่อง
                 }
-            });
-        }
+            }
+        });
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
 
@@ -1384,10 +1368,10 @@ async function renderAdminDashboard(req, res) {
         <td>${index + 1}</td>
         <td><b>${w.username}</b></td>
         <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
-        <td style="color:#ffd700; font-size:12px; text-align:left; max-width:250px;">
-           <b>รายการสรุป:</b> ${rewardsList}
+        <td style="color:#ffd700; font-size:12px; text-align:left;">
+           <b>สรุป:</b> ${rewardsList} <br>
            <details style="margin-top:5px; color:#fff; cursor:pointer;">
-               <summary style="color:#00d2d3; font-weight:bold;">🔍 กดดูประวัติการสุ่มทั้งหมด (${w.total_opens} ครั้ง)</summary>
+               <summary style="color:#00d2d3; font-weight:bold; font-size:11px;">🔍 กดดูประวัติการสุ่มทั้งหมด (${w.total_opens} ครั้ง)</summary>
                <ul style="padding-left:15px; margin:5px 0; font-size:11px; color:#a4b0be; max-height:100px; overflow-y:auto;">
                    ${detailedItemsHtml}
                </ul>
@@ -1486,7 +1470,7 @@ async function renderAdminDashboard(req, res) {
 
       <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการสุ่ม (กดดูได้)</th><th>จัดการ</th></tr>
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการสุ่ม (ซ่อนรายละเอียดไว้ กดดูได้)</th><th>จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
