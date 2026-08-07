@@ -241,7 +241,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Realtime Status API
+// Realtime Status API (ดึงสถิติต่างๆ รวมคลังสินค้า)
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
@@ -265,6 +265,8 @@ app.get("/api/user-status", async (req, res) => {
       .eq('username', username)
       .eq('is_withdrawn', false);
 
+    const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
+
     let hasClaimable = false;
     if (unwithdrawnHistory) {
       unwithdrawnHistory.forEach(h => {
@@ -274,12 +276,21 @@ app.get("/api/user-status", async (req, res) => {
       });
     }
 
+    let availableCount = 0;
+    if (gameAccounts) {
+      gameAccounts.forEach(acc => {
+        if (acc.status !== 'out_of_stock') availableCount++;
+      });
+    }
+
     res.json({
       success: true,
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
       pendingRows: pendingRows || [],
-      hasClaimable: hasClaimable
+      hasClaimable: hasClaimable,
+      gameAccounts: gameAccounts || [],
+      hasAvailableStock: availableCount > 0
     });
   } catch (e) {
     res.json({ success: false });
@@ -369,6 +380,7 @@ app.get("/lootbox", async (req, res) => {
     }
 
     let showcaseCardsHtml = "";
+    let availableCount = 0;
     if (gameAccounts && gameAccounts.length > 0) {
       gameAccounts.forEach(acc => {
         let badgeColor = "#2ed573";
@@ -377,6 +389,8 @@ app.get("/lootbox", async (req, res) => {
         else if (acc.rarity === "S") badgeColor = "#70a1ff";
 
         const isOutOfStock = acc.status === 'out_of_stock';
+        if (!isOutOfStock) availableCount++;
+
         const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6;' : `border-color:${badgeColor};`;
         const stockStatusHtml = isOutOfStock 
             ? `<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px;">❌ หมด</div>` 
@@ -397,6 +411,8 @@ app.get("/lootbox", async (req, res) => {
         </div>
       `;
     }
+
+    const isAllOut = availableCount === 0;
 
     res.send(`
       <!DOCTYPE html>
@@ -432,7 +448,7 @@ app.get("/lootbox", async (req, res) => {
 
               .box-btn { background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); margin-bottom: 10px; font-family:'Kanit'; }
               .box-btn:hover { filter: brightness(1.1); }
-              .box-btn:disabled { background: #555 !important; cursor: not-allowed; box-shadow: none; }
+              .box-btn:disabled { background: #555 !important; cursor: not-allowed; box-shadow: none; filter: none; }
 
               #result-box { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; background: #181b2a; border: 1px solid #2c314f; min-height: 40px; text-align: left; max-height: 180px; overflow-y: auto; }
 
@@ -476,7 +492,7 @@ app.get("/lootbox", async (req, res) => {
 
               <div class="showcase-container" style="margin-top:10px;">
                   <div class="showcase-title">🏆 คลังไอดี Line Rangers ในกล่องสุ่ม</div>
-                  <div class="rewards-grid">
+                  <div class="rewards-grid" id="showcase-grid-container">
                       ${showcaseCardsHtml}
                   </div>
               </div>
@@ -491,7 +507,9 @@ app.get("/lootbox", async (req, res) => {
                   <button type="button" class="${countParam === 100 ? 'active' : ''}" onclick="setCount(100, this)">100 ครั้ง</button>
               </div>
 
-              <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (${countParam} ครั้ง / ใช้ ${countParam} แต้ม)</button>
+              <button class="box-btn" id="open-box-btn" ${isAllOut ? 'disabled' : ''} onclick="openBox()">
+                 ${isAllOut ? '❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)' : `📦 เปิดกล่องลุ้นโชค (${countParam} ครั้ง / ใช้ ${countParam} แต้ม)`}
+              </button>
               
               <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
 
@@ -540,6 +558,7 @@ app.get("/lootbox", async (req, res) => {
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
               let selectedCount = ${countParam};
+              let hasAvailableStock = ${!isAllOut};
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -576,6 +595,7 @@ app.get("/lootbox", async (req, res) => {
                   } catch(e){}
               }
 
+              // Realtime Polling ทุก 3 วินาที
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
@@ -612,6 +632,43 @@ app.get("/lootbox", async (req, res) => {
                             </form>
                           \`;
                       }
+
+                      // อัปเดตคลังรางวัลแบบ Realtime
+                      hasAvailableStock = data.hasAvailableStock;
+                      const openBtn = document.getElementById("open-box-btn");
+                      if (!hasAvailableStock) {
+                          openBtn.disabled = true;
+                          openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
+                      } else if (!openBtn.innerText.includes("กำลังเปิด")) {
+                          openBtn.disabled = false;
+                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${selectedCount} ครั้ง / ใช้ \${selectedCount} แต้ม)\`;
+                      }
+
+                      if (data.gameAccounts) {
+                          let showcaseHtml = "";
+                          data.gameAccounts.forEach(acc => {
+                              let badgeColor = "#2ed573";
+                              if (acc.rarity === "SSR" || acc.rarity === "เทพมังกร") badgeColor = "#ffd700";
+                              else if (acc.rarity === "SS+") badgeColor = "#a4b0be";
+                              else if (acc.rarity === "S") badgeColor = "#70a1ff";
+
+                              const isOutOfStock = acc.status === 'out_of_stock';
+                              const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6;' : \`border-color:\${badgeColor};\`;
+                              const stockStatusHtml = isOutOfStock 
+                                  ? \`<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px;">❌ หมด</div>\` 
+                                  : \`<div style="font-size:10px; color:#aaa;">ระดับ: \${acc.rarity}</div>\`;
+
+                              showcaseHtml += \`
+                                <div class="reward-card" style="\${cardStyle}">
+                                    <div style="font-size:20px;">🛡️</div>
+                                    <div class="r-name" style="color:\${isOutOfStock ? '#ff4757' : badgeColor}">\${acc.title}</div>
+                                    \${stockStatusHtml}
+                                </div>
+                              \`;
+                          });
+                          document.getElementById("showcase-grid-container").innerHTML = showcaseHtml;
+                      }
+
                   }).catch(e => {});
               }, 3000);
 
@@ -619,7 +676,10 @@ app.get("/lootbox", async (req, res) => {
                   selectedCount = count;
                   document.querySelectorAll('.select-group button').forEach(b => b.classList.remove('active'));
                   btn.classList.add('active');
-                  document.getElementById('open-box-btn').innerText = \`📦 เปิดกล่องลุ้นโชค (\${count} ครั้ง / ใช้ \${count} แต้ม)\`;
+                  const openBtn = document.getElementById('open-box-btn');
+                  if (hasAvailableStock) {
+                      openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${count} ครั้ง / ใช้ \${count} แต้ม)\`;
+                  }
               }
 
               function updateCountdown() {
@@ -639,6 +699,11 @@ app.get("/lootbox", async (req, res) => {
               updateCountdown();
 
               function openBox() {
+                  if (!hasAvailableStock) {
+                      alert("ขออภัยครับ ไอดีในคลังหมดแล้ว รอแอดมินเติมของสักครู่นะครับ!");
+                      return;
+                  }
+
                   if (userPoints < selectedCount) {
                       alert("แต้มของคุณไม่พอใช้งานสำหรับ " + selectedCount + " ครั้ง! กรุณาเติมเงินก่อนครับ");
                       return;
@@ -714,7 +779,7 @@ app.get("/lootbox", async (req, res) => {
               }
 
               function closeModal() {
-                  window.location.reload(); 
+                  document.getElementById("resultModal").style.display = "none";
               }
           </script>
       </body>
@@ -920,7 +985,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (Logic ปลอดภัย 100%) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -940,7 +1005,6 @@ app.post("/open-lootbox", async (req, res) => {
     if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
-    // ดึงเฉพาะไอดีที่มีพร้อมใช้งาน
     let { data: availableAccounts } = await supabase
       .from('game_accounts')
       .select('*')
@@ -969,18 +1033,18 @@ app.post("/open-lootbox", async (req, res) => {
         for (let s = 0; s < steps.length; s++) {
             if (steps[s].salt > 0) {
                 reward = "🧂 เกลือ (0 Point)";
-                steps[s].salt -= 1;
+                steps[s].salt -= 1; // ลบจำนวนเกลือลง 1 ครั้ง
                 handled = true;
                 break;
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
                 reward = `🛡️ ${steps[s].reward}`;
-                steps[s].reward = 'normal';
+                steps[s].reward = 'normal'; // เมื่อแจกรางวัลในสเต็ปนี้แล้ว ปรับกลับเป็น normal
                 handled = true;
                 break;
             }
         }
 
-        // สุ่มตาม % เรตปกติ
+        // สุ่มตาม % เรตปกติถ้าไม่อยู่ในเงื่อนไขสเต็ป
         if (!handled) {
             const rand = Math.random() * 100;
             let winningAccIndex = -1;
@@ -997,10 +1061,8 @@ app.post("/open-lootbox", async (req, res) => {
                 const wonAcc = availableAccounts[winningAccIndex];
                 reward = `🛡️ [${wonAcc.rarity}] ${wonAcc.title}`;
 
-                // ลบออกจาก Array เพื่อไม่ให้สุ่มได้ซ้ำในรอบเดียวกัน
                 availableAccounts.splice(winningAccIndex, 1);
 
-                // อัปเดตสถานะใน Supabase ทีละรายการอย่างปลอดภัย
                 await supabase
                   .from('game_accounts')
                   .update({ status: 'out_of_stock' })
@@ -1030,8 +1092,8 @@ app.post("/open-lootbox", async (req, res) => {
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
         step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
-        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
-        step5_salt: parseInt(steps[5] ? steps[5].salt : 0) || 0, step5_reward: steps[4].reward || 'normal'
+        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
+        step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
     const { error: histError } = await supabase.from('history').insert(historyBatch);
@@ -1296,11 +1358,11 @@ async function renderAdminDashboard(req, res) {
           <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; text-align:left;">
             <input type="hidden" name="username" value="${u.username}">
             <div style="font-size:11px; color:#ffd700; margin-bottom:3px;">⚙️ ตั้งค่าเรต 5 สเต็ปยูสนี้:</div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 1: เกลือ <input type="number" name="step1_salt" value="${u.step1_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step1_reward">${renderRewardOptions(u.step1_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 2: เกลือ <input type="number" name="step2_salt" value="${u.step2_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step2_reward">${renderRewardOptions(u.step2_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 3: เกลือ <input type="number" name="step3_salt" value="${u.step3_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step3_reward">${renderRewardOptions(u.step3_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 4: เกลือ <input type="number" name="step4_salt" value="${u.step4_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step4_reward">${renderRewardOptions(u.step4_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:4px;">สเต็ป 5: เกลือ <input type="number" name="step5_salt" value="${u.step5_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step5_reward">${renderRewardOptions(u.step5_reward)}</select></div>
+            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 1: เกลือ <input type="number" name="step1_salt" value="${u.step1_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step1_reward">${renderRewardOptions(u.step1_reward)}</select></div>
+            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 2: เกลือ <input type="number" name="step2_salt" value="${u.step2_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step2_reward">${renderRewardOptions(u.step2_reward)}</select></div>
+            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 3: เกลือ <input type="number" name="step3_salt" value="${u.step3_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step3_reward">${renderRewardOptions(u.step3_reward)}</select></div>
+            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 4: เกลือ <input type="number" name="step4_salt" value="${u.step4_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step4_reward">${renderRewardOptions(u.step4_reward)}</select></div>
+            <div style="font-size:10px; margin-bottom:4px;">สเต็ป 5: เกลือ <input type="number" name="step5_salt" value="${u.step5_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step5_reward">${renderRewardOptions(u.step5_reward)}</select></div>
             <button type="submit" style="background:#70a1ff; color:#000; border:none; padding:3px; border-radius:4px; font-weight:bold; width:100%; font-size:10px;">💾 บันทึก 5 สเต็ป</button>
           </form>
           <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ใช่หรือไม่?');" style="margin-top:4px;">
