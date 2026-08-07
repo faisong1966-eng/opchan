@@ -57,7 +57,6 @@ app.use(session({
     cookie: { maxAge: 600000 }
 }));
 
-// ตรวจสอบอายุใช้งานบัญชี 30 วัน
 async function checkUserExpiration(username) {
     try {
         const { data: user } = await supabase
@@ -94,22 +93,19 @@ app.get("/", (req, res) => {
         <title>🛡️ Line Rangers LootBox - หน้าแรก</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
         <style>
-            body { background: linear-gradient(135deg, #0d1117, #161b22); color: #ffffff; text-align: center; padding-top: 80px; font-family: 'Kanit', sans-serif; }
-            .container { background: #21262d; padding: 35px; border-radius: 16px; display: inline-block; box-shadow: 0 8px 24px rgba(0,0,0,0.5); width: 360px; border: 1px solid #30363d; }
-            h1 { color: #2ea043; font-size: 26px; text-shadow: 0 0 10px rgba(46,160,67,0.4); margin-bottom: 5px; }
-            p { color: #8b949e; font-size: 14px; }
-            a { display: block; background: #238636; color: white; padding: 12px; margin: 12px 0; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; transition: 0.2s; }
-            a:hover { background: #2ea043; transform: translateY(-2px); }
-            a.reg-btn { background: #1f6beb; }
-            a.reg-btn:hover { background: #388bfd; }
+            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 80px; font-family: 'Kanit', sans-serif; }
+            .container { background: #13151f; padding: 35px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; border: 1px solid #25283c; }
+            h1 { color: #00b900; }
+            a { display: block; background-color: #00b900; color: white; padding: 12px; margin: 10px 0; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px; }
+            a:hover { background-color: #009900; }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>🛡️ LINE RANGERS BOX</h1>
-            <p>เว็บสุ่มไอดี Line Rangers ลุ้นรางวัลสุดอลังการ!</p>
+            <p>เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ!</p>
             <a href="/login">🔑 เข้าสู่ระบบ</a>
-            <a href="/register" class="reg-btn">📝 สมัครสมาชิก</a>
+            <a href="/register" style="background-color: #1f6beb;">📝 สมัครสมาชิก</a>
         </div>
     </body>
     </html>
@@ -122,35 +118,31 @@ app.get("/register", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <title>สมัครสมาชิก - Line Rangers LootBox</title>
+        <title>สมัครสมาชิก</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { background-color: #0d1117; color: #ffffff; text-align: center; padding-top: 30px; font-family: 'Kanit', sans-serif; }
-            .container { background: #21262d; padding: 30px; border-radius: 12px; display: inline-block; width: 360px; text-align: left; border: 1px solid #30363d; }
-            h2 { color: #2ea043; text-align: center; margin-top: 0; }
-            label { display: block; margin-top: 12px; font-size: 14px; color: #c9d1d9; }
-            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #fff; box-sizing: border-box; font-family: 'Kanit'; }
-            button { width: 100%; background-color: #238636; color: white; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: bold; cursor: pointer; font-size: 15px; font-family: 'Kanit'; }
-            button:hover { background-color: #2ea043; }
-            a { display: block; text-align: center; margin-top: 15px; color: #58a6ff; text-decoration: none; font-size: 13px; }
+            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 30px; font-family: 'Kanit', sans-serif; }
+            .container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 360px; text-align: left; border: 1px solid #25283c; }
+            h2 { color: #00b900; text-align: center; margin-top:0; }
+            label { display: block; margin-top: 10px; font-size: 14px; }
+            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
+            button { width: 100%; background-color: #00b900; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:'Kanit'; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
-            <p style="font-size:12px; color:#d29922; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
+            <p style="font-size:12px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
             <form action="/register" method="POST">
                 <label>Username (สำหรับเข้าเว็บ):</label>
                 <input type="text" name="username" placeholder="ตั้งชื่อผู้ใช้งาน" required>
-                
                 <label>Password:</label>
                 <input type="password" name="password" placeholder="ตั้งรหัสผ่าน" required>
-                
                 <label>ลิงก์ Facebook ส่วนตัวของคุณ:</label>
                 <input type="url" name="facebook_url" placeholder="https://www.facebook.com/your.profile" required>
-                <span style="font-size:11px; color:#8b949e; display:block; margin-top:4px;">*คัดลอกลิงก์ Facebook มาวาง เพื่อให้แอดมินติดต่อส่งรางวัล</span>
-
-                <button type="submit">ยืนยันการสมัครสมาชิก</button>
+                <span style="font-size:11px; color:#a4b0be; display:block; margin-top:3px;">*คัดลอกลิงก์โปรไฟล์เฟซบุ๊กมาวางไว้ เพื่อให้แอดมินทักไปส่งรางวัล</span>
+                <button type="submit">ยืนยันการสมัคร</button>
             </form>
             <a href="/">กลับหน้าแรก</a>
         </div>
@@ -168,7 +160,7 @@ app.post("/register", async (req, res) => {
       .insert([{ 
           username, 
           password, 
-          roblox_img: facebook_url, 
+          roblox_img: facebook_url, // ใช้ฟีลด์ roblox_img ในการเก็บ Facebook Link เพื่อไม่ต้องเปลี่ยนโครงสร้าง DB
           points: 0, 
           total_spent: 0, 
           step1_salt: 0, step1_reward: 'normal',
@@ -179,9 +171,9 @@ app.post("/register", async (req, res) => {
       }]);
 
     if (error) {
-      return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
+      return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
     }
-    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
+    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! บัญชีใช้งานได้ 30 วัน กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
   } catch (err) {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล"); window.location.href="/register";</script>`);
   }
@@ -193,17 +185,16 @@ app.get("/login", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <title>เข้าสู่ระบบ - Line Rangers LootBox</title>
+        <title>เข้าสู่ระบบ</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { background-color: #0d1117; color: #ffffff; text-align: center; padding-top: 50px; font-family: 'Kanit', sans-serif; }
-            .container { background: #21262d; padding: 30px; border-radius: 12px; display: inline-block; width: 350px; text-align: left; border: 1px solid #30363d; }
-            h2 { color: #d29922; text-align: center; margin-top: 0; }
+            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 50px; font-family:'Kanit'; }
+            .container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 350px; text-align: left; border: 1px solid #25283c; }
+            h2 { color: #ffd700; text-align: center; margin-top:0; }
             label { display: block; margin-top: 10px; font-size: 14px; }
-            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #fff; box-sizing: border-box; font-family: 'Kanit'; }
-            button { width: 100%; background-color: #238636; color: white; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: bold; cursor: pointer; font-size: 15px; font-family: 'Kanit'; }
-            button:hover { background-color: #2ea043; }
-            a { display: block; text-align: center; margin-top: 15px; color: #58a6ff; text-decoration: none; font-size: 13px; }
+            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
+            button { width: 100%; background-color: #ff4757; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:'Kanit'; }
+            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size:13px; }
         </style>
     </head>
     <body>
@@ -249,7 +240,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// API Realtime สถานะยูสเซอร์ (เงินเข้าปุ๊บ แต้มเด้งปั๊บ)
+// Realtime Status API (เติมเงินเข้าปุ๊บ แต้มเด้งปั๊บ)
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
@@ -261,30 +252,23 @@ app.get("/api/user-status", async (req, res) => {
       .eq('username', username)
       .single();
 
-    const { data: pendingWithdrawRow } = await supabase
-      .from('pending_withdraw')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending')
-      .single();
-
     const { data: pendingRows } = await supabase
       .from('pending_topup')
       .select('*')
       .eq('username', username)
       .eq('status', 'pending');
 
-    const { data: userHistoryRows } = await supabase
+    const { data: unwithdrawnHistory } = await supabase
       .from('history')
       .select('*')
       .eq('username', username)
       .eq('is_withdrawn', false);
 
-    let hasClaimableRewards = false;
-    if (userHistoryRows) {
-      userHistoryRows.forEach(h => {
+    let hasClaimable = false;
+    if (unwithdrawnHistory) {
+      unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ")) {
-          hasClaimableRewards = true;
+          hasClaimable = true;
         }
       });
     }
@@ -293,9 +277,8 @@ app.get("/api/user-status", async (req, res) => {
       success: true,
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
-      hasPendingWithdraw: !!pendingWithdrawRow,
       pendingRows: pendingRows || [],
-      hasClaimableRewards: hasClaimableRewards
+      hasClaimable: hasClaimable
     });
   } catch (e) {
     res.json({ success: false });
@@ -322,7 +305,7 @@ app.get("/lootbox", async (req, res) => {
     const totalSpent = row.total_spent || 0;
     const createdAt = row.created_at;
 
-    // ดึงคลังไอดีเกมที่แอดมินตั้งไว้
+    // ดึงคลังรางวัล Line Rangers
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*');
 
     const { data: pendingRows } = await supabase
@@ -334,24 +317,24 @@ app.get("/lootbox", async (req, res) => {
     let pendingHtml = "";
     if (pendingRows && pendingRows.length > 0) {
       pendingRows.forEach(p => {
-        pendingHtml += `<li style="color:#f1e05a;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
+        pendingHtml += `<li style="color:#ffa502;">ยอดโอน <b>${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>`;
       });
     } else {
-      pendingHtml = `<span style="color:#8b949e; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
+      pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
     }
 
-    // เช็คประวัติสุ่มที่ยังไม่ได้อนุมัติถอน
+    // ตรวจสอบรางวัลค้างรับของผู้เล่น
     const { data: unwithdrawnHistory } = await supabase
       .from('history')
       .select('*')
       .eq('username', username)
       .eq('is_withdrawn', false);
 
-    let hasRewardsToClaim = false;
+    let hasClaimable = false;
     if (unwithdrawnHistory) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ")) {
-          hasRewardsToClaim = true;
+          hasClaimable = true;
         }
       });
     }
@@ -363,49 +346,48 @@ app.get("/lootbox", async (req, res) => {
       .eq('status', 'pending')
       .single();
 
-    let withdrawSectionHtml = "";
+    let pendingWithdrawNotice = "";
     if (pendingWithdrawRow) {
-      withdrawSectionHtml = `
-        <div style="background:rgba(210,153,34,0.15); border:1px solid #d29922; padding:10px; border-radius:8px; margin-top:12px; font-size:13px; color:#d29922; text-align:center;">
-            ⏳ มีคำขอรับรางวัลกำลังรอแอดมินตรวจสอบ (แอดมินจะทักเฟซส่วนตัวไปมอบให้) <br>
-            <span style="font-size:11px; color:#8b949e;">*คุณยังคงสามารถกดสุ่มเล่นต่อได้ตามปกติครับ*</span>
+      pendingWithdrawNotice = `
+        <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:12px; font-size:12px; color:#ffa502; text-align:center;">
+            ⏳ มีคำขอรับรางวัลอยู่ระหว่างแอดมินตรวจสอบ (แอดมินจะทักแชท Facebook ไปมอบให้) <br>
+            <span style="color:#aaa; font-size:10px;">*คุณยังคงกดสุ่มเล่นต่อได้ตามปกติครับ*</span>
         </div>
       `;
     }
 
-    let claimBtnHtml = "";
-    if (hasRewardsToClaim) {
-      claimBtnHtml = `
+    let claimButtonHtml = "";
+    if (hasClaimable) {
+      claimButtonHtml = `
         <form action="/request-withdraw" method="POST" style="margin-top:10px;">
             <input type="hidden" name="username" value="${username}">
-            <button type="submit" style="width:100%; background:#238636; color:#fff; padding:12px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; border:1px solid #2ea043; box-shadow:0 0 10px rgba(46,160,67,0.4);">
+            <button type="submit" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
                 🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
             </button>
         </form>
       `;
     }
 
-    // การ์ดโชว์ไอดี
     let showcaseCardsHtml = "";
     if (gameAccounts && gameAccounts.length > 0) {
       gameAccounts.forEach(acc => {
-        let badgeColor = "#2ea043";
-        if (acc.rarity === "SSR" || acc.rarity === "เทพมังกร") badgeColor = "#d29922";
-        else if (acc.rarity === "SS+") badgeColor = "#a371f7";
-        else if (acc.rarity === "S") badgeColor = "#58a6ff";
+        let badgeColor = "#2ed573";
+        if (acc.rarity === "SSR" || acc.rarity === "เทพมังกร") badgeColor = "#ffd700";
+        else if (acc.rarity === "SS+") badgeColor = "#a4b0be";
+        else if (acc.rarity === "S") badgeColor = "#70a1ff";
 
         showcaseCardsHtml += `
           <div class="reward-card" style="border-color:${badgeColor}">
               <div style="font-size:20px;">🛡️</div>
               <div class="r-name" style="color:${badgeColor}">${acc.title}</div>
-              <div style="font-size:10px; color:#8b949e;">ระดับ: ${acc.rarity}</div>
+              <div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity}</div>
           </div>
         `;
       });
     } else {
       showcaseCardsHtml = `
         <div class="reward-card" style="grid-column: span 2;">
-            <div style="font-size:18px; color:#8b949e;">📦 เกลือ (0 Point)</div>
+            <div style="font-size:18px; color:#aaa;">📦 เกลือ (0 Point)</div>
         </div>
       `;
     }
@@ -419,43 +401,43 @@ app.get("/lootbox", async (req, res) => {
           <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
           <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
           <style>
-              body { background-color: #0d1117; color: #ffffff; text-align: center; margin: 0; padding: 15px 0; font-family: 'Kanit', sans-serif; }
-              .main-wrapper { max-width: 480px; margin: 0 auto; background: #161b22; border-radius: 16px; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; padding: 20px; box-sizing: border-box; }
+              body { background-color: #0b0c10; color: #ffffff; text-align: center; margin: 0; padding: 15px 0; font-family: 'Kanit', sans-serif; }
+              .main-wrapper { max-width: 460px; margin: 0 auto; background: #13151f; border-radius: 16px; border: 1px solid #25283c; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; padding: 20px; box-sizing: border-box; }
               
-              .banner-header h2 { color: #2ea043; font-size: 22px; margin: 5px 0 0 0; text-shadow: 0 0 10px rgba(46,160,67,0.4); }
-              .banner-header p { color: #58a6ff; font-size: 13px; margin: 3px 0 0 0; font-weight: bold; }
+              .banner-header h2 { color: #ffd700; font-size: 20px; margin: 5px 0 0 0; text-shadow: 0 0 10px rgba(255,215,0,0.4); }
+              .banner-header p { color: #00d2d3; font-size: 13px; margin: 3px 0 0 0; font-weight: bold; }
 
-              .user-bar { background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin: 12px 0; }
-              .btn-history { background: #58a6ff; color: #000; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }
+              .user-bar { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+              .btn-history { background: #00d2d3; color: #000; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
 
-              .wallet-box { background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 15px; margin-bottom: 12px; font-weight: bold; color: #d29922; }
+              .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 12px; font-weight: bold; color: #ffd700; }
               
-              #countdown-box { background: rgba(210,153,34,0.1); border: 1px dashed #d29922; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #d29922; font-weight: bold; }
+              #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
-              .showcase-container { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
-              .showcase-title { font-size: 13px; color: #8b949e; text-align: left; margin-bottom: 8px; font-weight: bold; }
-              .rewards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-              .reward-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px 4px; text-align: center; }
-              .reward-card .r-name { font-size: 11px; color: #fff; font-weight: bold; }
+              .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
+              .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; }
+              .rewards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+              .reward-card { background: #13151f; border: 1px solid #2c314f; border-radius: 8px; padding: 6px 2px; text-align: center; }
+              .reward-card .r-name { font-size: 10px; color: #fff; font-weight: bold; }
 
               .select-group { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px; }
-              .select-group button { background: #21262d; color: #fff; border: 1px solid #30363d; padding: 6px 0; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; font-family:'Kanit'; }
-              .select-group button.active { background: #238636; color: #fff; border-color: #2ea043; box-shadow: 0 0 8px rgba(46,160,67,0.5); }
+              .select-group button { background: #1b1e2e; color: #fff; border: 1px solid #2f3452; padding: 6px 0; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; font-family:'Kanit'; }
+              .select-group button.active { background: #ffd700; color: #000; border-color: #ffaa00; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
 
-              .box-btn { background: linear-gradient(135deg, #238636, #2ea043); color: white; padding: 14px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(35,134,54,0.4); margin-bottom: 10px; font-family:'Kanit'; }
+              .box-btn { background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 4px 15px rgba(255,71,87,0.4); margin-bottom: 10px; font-family:'Kanit'; }
               .box-btn:hover { filter: brightness(1.1); }
-              .box-btn:disabled { background: #484f58 !important; cursor: not-allowed; box-shadow: none; }
+              .box-btn:disabled { background: #555 !important; cursor: not-allowed; box-shadow: none; }
 
-              #result-box { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; background: #0d1117; border: 1px solid #30363d; min-height: 40px; text-align: left; max-height: 180px; overflow-y: auto; }
+              #result-box { margin-top: 10px; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; background: #181b2a; border: 1px solid #2c314f; min-height: 40px; text-align: left; max-height: 180px; overflow-y: auto; }
 
               .topup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-              .topup-card { background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 10px; text-align: left; }
-              input[type="number"] { width: 100%; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; font-family:'Kanit'; }
-              .topup-sub-btn { width: 100%; padding: 8px; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; font-family:'Kanit'; }
+              .topup-card { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; text-align: left; }
+              input[type="number"] { width: 100%; padding: 6px; background: #13151f; border: 1px solid #333856; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; font-family:'Kanit'; }
+              .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; font-family:'Kanit'; }
               
               /* Modal Winner / Salt Effect */
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
-              .modal-content { background: linear-gradient(135deg, #161b22, #21262d); border: 2px solid #30363d; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 360px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
+              .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #2c314f; margin: 20% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
           </style>
       </head>
@@ -468,33 +450,33 @@ app.get("/lootbox", async (req, res) => {
               </div>
 
               <div class="user-bar">
-                  <div style="text-align: left; font-size: 13px;">
-                      <span style="color: #8b949e; display: block; font-size: 10px;">ผู้ใช้งาน</span>
+                  <div style="text-align: left; font-size: 12px;">
+                      <span style="color: #a4b0be; display: block; font-size: 10px;">ผู้ใช้งาน</span>
                       <b>${username}</b>
                   </div>
                   <div>
-                      <a href="/my-history?username=${username}" class="btn-history">📜 ประวัติสุ่มรางวัล</a>
+                      <a href="/my-history?username=${username}" class="btn-history">📜 ประวัติสุ่ม</a>
                   </div>
               </div>
 
               <div id="countdown-box">⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...</div>
               
               <div class="wallet-box">
-                  <div>💰 แต้มสะสม: <span id="points">${currentPoints}</span></div>
-                  <div>🎯 สุ่มไปแล้ว: <span id="spent">${totalSpent}</span> ฿</div>
+                  <div>💰 แต้ม: <span id="points">${currentPoints}</span></div>
+                  <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              ${withdrawSectionHtml}
-              <div id="claim-btn-wrapper">${claimBtnHtml}</div>
+              ${pendingWithdrawNotice}
+              <div id="claim-btn-container">${claimButtonHtml}</div>
 
-              <div class="showcase-container" style="margin-top:12px;">
-                  <div class="showcase-title">🏆 คลังไอดี Line Rangers ที่มีในกล่องสุ่ม</div>
+              <div class="showcase-container" style="margin-top:10px;">
+                  <div class="showcase-title">🏆 คลังไอดี Line Rangers ในกล่องสุ่ม</div>
                   <div class="rewards-grid">
                       ${showcaseCardsHtml}
                   </div>
               </div>
 
-              <div style="font-size:12px; color:#d29922; text-align:left; margin-bottom:6px; font-weight:bold;">⚙️ เลือกจำนวนครั้งในการสุ่ม:</div>
+              <div style="font-size:12px; color:#ffd700; text-align:left; margin-bottom:6px; font-weight:bold;">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง:</div>
               <div class="select-group">
                   <button type="button" class="${countParam === 1 ? 'active' : ''}" onclick="setCount(1, this)">1 ครั้ง</button>
                   <button type="button" class="${countParam === 10 ? 'active' : ''}" onclick="setCount(10, this)">10 ครั้ง</button>
@@ -506,46 +488,46 @@ app.get("/lootbox", async (req, res) => {
 
               <button class="box-btn" id="open-box-btn" onclick="openBox()">📦 เปิดกล่องลุ้นโชค (${countParam} ครั้ง / ใช้ ${countParam} แต้ม)</button>
               
-              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับไอดีเกม Line Rangers!</div>
+              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
 
-              <div style="font-size:15px; color:#d29922; text-align:left; margin:15px 0 5px 0; font-weight:bold; border-left:3px solid #d29922; padding-left:6px;">💳 ช่องทางการเติมเงิน</div>
+              <div style="font-size:15px; color:#ffd700; text-align:left; margin:15px 0 5px 0; font-weight:bold; border-left:3px solid #ffd700; padding-left:6px;">💳 ช่องทางการเติมเงิน</div>
               
               <div class="topup-grid">
                   <div class="topup-card">
-                      <h4 style="color: #2ea043; margin:0 0 8px 0; font-size:12px;">📱 พร้อมเพย์</h4>
+                      <h4 style="color: #2ed573; margin:0 0 8px 0; font-size:12px;">📱 พร้อมเพย์</h4>
                       <form action="/create-topup" method="POST">
                           <input type="hidden" name="username" value="${username}">
                           <input type="hidden" name="topup_type" value="promptpay">
-                          <input type="number" name="amount" placeholder="จำนวนเงิน" required>
-                          <button type="submit" class="topup-sub-btn" style="background:#2ea043; color:#fff;">สแกน QR</button>
+                          <input type="number" name="amount" placeholder="เช่น 50" required>
+                          <button type="submit" class="topup-sub-btn" style="background:#2ed573; color:#fff;">สร้าง QR สแกน</button>
                       </form>
                   </div>
 
                   <div class="topup-card">
-                      <h4 style="color: #f85149; margin:0 0 8px 0; font-size:12px;">🧡 Wallet</h4>
+                      <h4 style="color: #ff4757; margin:0 0 8px 0; font-size:12px;">🧡 Wallet</h4>
                       <form action="/create-topup" method="POST">
                           <input type="hidden" name="username" value="${username}">
                           <input type="hidden" name="topup_type" value="truemoney">
-                          <input type="number" name="amount" placeholder="จำนวนเงิน" required>
-                          <button type="submit" class="topup-sub-btn" style="background:#f85149; color:#fff;">แจ้งโอนเงิน</button>
+                          <input type="number" name="amount" placeholder="เช่น 50" required>
+                          <button type="submit" class="topup-sub-btn" style="background:#ff4757; color:#fff;">แจ้งโอนเงิน</button>
                       </form>
                   </div>
               </div>
 
-              <div style="text-align:left; margin-top:10px; background:#21262d; padding:8px; border-radius:6px; font-size:11px;">
-                  <b style="color:#d29922;">📌 สถานะการเติมเงิน:</b>
+              <div style="text-align:left; margin-top:10px; background:#1b1e2e; padding:8px; border-radius:6px; font-size:11px;">
+                  <b style="color:#ffd700;">📌 สถานะการเติมเงิน:</b>
                   <ul id="pending-list-container" style="padding-left:15px; margin:3px 0;">${pendingHtml}</ul>
               </div>
 
-              <a href="/" style="display:block; margin-top:20px; color:#f85149; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
+              <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
 
-          <!-- Popup Modal ผลลัพธ์ -->
+          <!-- Popup Result Modal -->
           <div id="resultModal" class="modal">
               <div class="modal-content" id="modalCard">
                   <h2 id="modalTitle" style="margin:0 0 10px 0;"></h2>
                   <div id="modalBody" style="font-size:14px; margin-bottom:15px;"></div>
-                  <button onclick="closeModal()" style="background:#238636; color:#fff; border:none; padding:10px 25px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ตกลง</button>
+                  <button onclick="closeModal()" style="background:#00b900; color:#fff; border:none; padding:10px 25px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ตกลง</button>
               </div>
           </div>
 
@@ -556,21 +538,21 @@ app.get("/lootbox", async (req, res) => {
               const createdAtTime = new Date("${createdAt}").getTime();
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-              // Web Audio API สำหรับเล่นเสียงเอฟเฟกต์
+              // Synthesizer Audio Effects
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
               function playSadSound() {
                   try {
                       const osc = audioCtx.createOscillator();
                       const gain = audioCtx.createGain();
                       osc.type = 'sawtooth';
-                      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                      osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.6);
+                      osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+                      osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
                       gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
                       osc.connect(gain);
                       gain.connect(audioCtx.destination);
                       osc.start();
-                      osc.stop(audioCtx.currentTime + 0.6);
+                      osc.stop(audioCtx.currentTime + 0.5);
                   } catch(e){}
               }
 
@@ -579,7 +561,7 @@ app.get("/lootbox", async (req, res) => {
                       const osc = audioCtx.createOscillator();
                       const gain = audioCtx.createGain();
                       osc.type = 'triangle';
-                      osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                      osc.frequency.setValueAtTime(523, audioCtx.currentTime);
                       osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
                       gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
                       gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
@@ -590,12 +572,13 @@ app.get("/lootbox", async (req, res) => {
                   } catch(e){}
               }
 
-              // Realtime Polling ตรวจสอบยอดเงินอัปเดตแบบไม่ต้องรีเฟรชหน้า
+              // Realtime Checking (เติมเงินปุ๊บ แต้มเข้าปั๊บ ไม่ต้องกดรี)
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (!data.success) return;
+
                       if (userPoints !== data.points) {
                           userPoints = data.points;
                           document.getElementById("points").innerText = userPoints;
@@ -608,18 +591,18 @@ app.get("/lootbox", async (req, res) => {
                       let pendingHtml = "";
                       if (data.pendingRows && data.pendingRows.length > 0) {
                           data.pendingRows.forEach(p => {
-                              pendingHtml += \`<li style="color:#f1e05a;">ยอดโอน <b>\${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>\`;
+                              pendingHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>\`;
                           });
                       } else {
-                          pendingHtml = \`<span style="color:#8b949e; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
+                          pendingHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
                       }
                       document.getElementById("pending-list-container").innerHTML = pendingHtml;
 
-                      if (data.hasClaimableRewards) {
-                          document.getElementById("claim-btn-wrapper").innerHTML = \`
+                      if (data.hasClaimable) {
+                          document.getElementById("claim-btn-container").innerHTML = \`
                             <form action="/request-withdraw" method="POST" style="margin-top:10px;">
                                 <input type="hidden" name="username" value="${username}">
-                                <button type="submit" style="width:100%; background:#238636; color:#fff; padding:12px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; border:1px solid #2ea043; box-shadow:0 0 10px rgba(46,160,67,0.4);">
+                                <button type="submit" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
                                     🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
                                 </button>
                             </form>
@@ -653,7 +636,7 @@ app.get("/lootbox", async (req, res) => {
 
               function openBox() {
                   if (userPoints < selectedCount) {
-                      alert("แต้มของคุณไม่พอใช้งาน! กรุณาเติมเงินก่อนครับ");
+                      alert("แต้มของคุณไม่พอใช้งานสำหรับ " + selectedCount + " ครั้ง! กรุณาเติมเงินก่อนครับ");
                       return;
                   }
 
@@ -683,13 +666,13 @@ app.get("/lootbox", async (req, res) => {
                       document.getElementById("spent").innerText = userSpent;
 
                       let summaryListHtml = "";
-                      let hasWinAccount = false;
+                      let hasWin = false;
                       let winDetails = "";
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
                           if (!rew.includes("เกลือ")) {
-                              hasWinAccount = true;
+                              hasWin = true;
                               winDetails += \`<b>\${rew}</b> (\${count} ชิ้น) \`;
                           }
                       }
@@ -701,21 +684,21 @@ app.get("/lootbox", async (req, res) => {
                       const modalTitle = document.getElementById("modalTitle");
                       const modalBody = document.getElementById("modalBody");
 
-                      if (hasWinAccount) {
+                      if (hasWin) {
                           playWinSound();
-                          confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-                          modalCard.style.borderColor = "#d29922";
-                          modalCard.style.boxShadow = "0 0 30px rgba(210,153,34,0.8)";
-                          modalTitle.style.color = "#d29922";
+                          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                          modalCard.style.borderColor = "#ffd700";
+                          modalCard.style.boxShadow = "0 0 30px rgba(255,215,0,0.6)";
+                          modalTitle.style.color = "#ffd700";
                           modalTitle.innerText = "🎉 ยินดีด้วย! แจ็คพอตแตก 🎉";
-                          modalBody.innerHTML = \`คุณสุ่มได้ไอดีเกม Line Rangers!<br><br>\${winDetails}<br><br><span style="font-size:11px; color:#8b949e;">กดปุ่ม "ขอรับรางวัล" หน้าเว็บ เพื่อส่งข้อมูลให้แอดมินส่งมอบทางเฟซบุ๊กได้เลย!</span>\`;
+                          modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
                       } else {
                           playSadSound();
-                          modalCard.style.borderColor = "#f85149";
-                          modalCard.style.boxShadow = "0 0 20px rgba(248,81,73,0.5)";
-                          modalTitle.style.color = "#f85149";
+                          modalCard.style.borderColor = "#ff4757";
+                          modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
+                          modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = \`<span style="color:#f85149; font-size:16px;">คุณสุ่มได้ <b>เกลือ (0 Point)</b></span><br>อย่าเพิ่งท้อ ลองเติมเงินแล้วสุ่มใหม่อีกครั้ง!\`;
+                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:16px;">คุณสุ่มได้ <b>เกลือ (0 Point)</b></span><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
                       }
 
                       document.getElementById("resultModal").style.display = "block";
@@ -738,7 +721,7 @@ app.get("/lootbox", async (req, res) => {
   }
 });
 
-// ประวัติการสุ่ม (แสดงเฉพาะชุดปัจจุบันที่ยังไม่ได้ลบ)
+// ประวัติการสุ่ม (แสดงเฉพาะรายการปัจจุบันที่ยังไม่ได้ลบ)
 app.get("/my-history", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
@@ -753,10 +736,10 @@ app.get("/my-history", async (req, res) => {
   let historyList = "";
   if (rows && rows.length > 0) {
     rows.forEach((r, index) => {
-      historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#d29922;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
+      historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#8b949e;">คุณยังไม่มีประวัติการสุ่มคงเหลือ</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
   }
 
   res.send(`
@@ -767,16 +750,16 @@ app.get("/my-history", async (req, res) => {
         <title>ประวัติการสุ่มของฉัน</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { background-color: #0d1117; color: #ffffff; text-align: center; padding-top: 40px; font-family:'Kanit'; }
-            .container { background: #161b22; padding: 30px; display: inline-block; border-radius: 12px; width: 480px; border: 1px solid #30363d; }
-            table { width: 100%; border-collapse: collapse; background: #0d1117; border-color: #30363d; margin-bottom: 20px; font-size: 14px; }
-            th { padding: 10px; background: #21262d; color: #d29922; }
-            a { display: inline-block; background: #238636; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; }
+            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; font-family:'Kanit'; }
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
+            th { padding: 10px; background: #3d3d5c; color: #ffd700; }
+            a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h2 style="color:#d29922;">📜 ประวัติการสุ่ม: ${username}</h2>
+            <h2 style="color:#ffd700;">📜 ประวัติการสุ่มของ: ${username}</h2>
             <table border="1">
                 <tr><th>ลำดับ</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
                 ${historyList}
@@ -788,7 +771,7 @@ app.get("/my-history", async (req, res) => {
   `);
 });
 
-// ส่งคำขอรับรางวัลไปหลังบ้านแอดมิน
+// ส่งคำขอรับรางวัลไปหลังบ้าน
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
@@ -799,7 +782,7 @@ app.post("/request-withdraw", async (req, res) => {
     .eq('is_withdrawn', false);
 
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("ไม่พบประวัติรางวัลที่จะรับ!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะแลกรับรางวัล!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   const { data: userData } = await supabase
@@ -810,7 +793,6 @@ app.post("/request-withdraw", async (req, res) => {
 
   const facebookUrl = userData ? userData.roblox_img : "";
 
-  // รวมรายการรางวัลทั้งหมดที่ผู้เล่นสุ่มได้
   let rewardsSummaryList = [];
   let idsToUpdate = [];
 
@@ -839,52 +821,101 @@ app.post("/request-withdraw", async (req, res) => {
       .in('id', idsToUpdate);
   }
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลเรียบร้อย! แอดมินจะทักแชท Facebook ไปส่งมอบให้ครับ"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จแล้ว! แอดมินจะทักแชท Facebook ไปส่งมอบให้ครับ"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
-// เติมเงินและสลิป
+// เติมเงินและส่งสลิป (โค้ดเดิมของคุณ)
 app.post("/create-topup", (req, res) => {
   const { username, amount, topup_type } = req.body;
   const exactAmount = parseFloat(amount).toFixed(2);
-  const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
+  
+  let titleText = "";
+  let infoHtml = "";
+
+  if (topup_type === "truemoney") {
+      titleText = "🧡 แจ้งโอนเงิน TrueMoney Wallet";
+      infoHtml = `
+        <p style="font-size:13px; color:#aaa; text-align:center;">โอนเข้าเบอร์: <b style="color:#ff4757; font-size:16px;">${MY_TRUEMONEY_NUMBER}</b></p>
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_TRUEMONEY_NAME}</b></p>
+      `;
+  } else {
+      titleText = "📱 สแกนจ่ายด้วยพร้อมเพย์";
+      const qrCodeUrl = `https://promptpay.io/${MY_PROMPTPAY_NUMBER}/${exactAmount}.png`;
+      infoHtml = `
+        <p style="font-size:13px; color:#aaa; text-align:center;">ชื่อบัญชี: <b>${MY_ACCOUNT_NAME}</b></p>
+        <div style="background:#fff; padding:10px; text-align:center; border-radius:8px; margin:10px 0;">
+            <img src="${qrCodeUrl}" style="width:180px; height:180px;">
+        </div>
+      `;
+  }
 
   res.send(`
-    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>เติมเงิน</title>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${titleText}</title>
     <style>
-        body { background: #0d1117; color: #fff; text-align: center; padding-top: 30px; font-family:'Kanit'; }
-        .box { background: #161b22; padding: 25px; display: inline-block; border-radius: 12px; width: 380px; text-align: left; border: 1px solid #30363d; }
+        body { background: #1e1e2f; color: #fff; text-align: center; padding-top: 30px; font-family:'Kanit'; }
+        .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
     </style></head>
     <body><div class="box">
-        <h2 style="color:#2ea043; text-align:center;">💳 ชำระเงิน ${exactAmount} บาท</h2>
-        ${topup_type === 'promptpay' ? `<div style="background:#fff; padding:10px; text-align:center; border-radius:8px;"><img src="${qrCodeUrl}" style="width:180px;"></div>` : `<p style="text-align:center;">โอน TrueMoney Wallet เบอร์: <b>${MY_TRUEMONEY_NUMBER}</b> (${MY_TRUEMONEY_NAME})</p>`}
-        <form action="/upload-slip" method="POST" enctype="multipart/form-data" style="margin-top:15px;">
+        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center;">${titleText}</h2>
+        ${infoHtml}
+        
+        <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
+        
+        <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
+
+        <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="handleUpload(this)">
             <input type="hidden" name="username" value="${username}">
             <input type="hidden" name="exact_amount" value="${exactAmount}">
-            <input type="hidden" name="topup_type" value="${topup_type}">
-            <label>📤 อัปโหลดสลิปโอนเงิน:</label>
-            <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; width:100%; box-sizing:border-box; margin-top:5px;">
-            <button type="submit" style="width:100%; background:#238636; color:#fff; padding:10px; border:none; border-radius:6px; margin-top:15px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ส่งสลิปให้แอดมินตรวจสอบ</button>
+            <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
+            
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
+            <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
+            
+            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
         </form>
-        <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#58a6ff; text-decoration:none;">กลับหน้าสุ่ม</a>
-    </div></body></html>
+
+        <div id="loading-text" style="display:none; text-align:center; margin-top:10px; color:#ffd700; font-size:13px; font-weight:bold;">
+            ⏳ กำลังอัปโหลดสลิปและบันทึกข้อมูล กรุณารอ...
+        </div>
+
+        <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
+    </div>
+    <script>
+        function handleUpload(form) {
+            const btn = document.getElementById('submit-btn');
+            const loading = document.getElementById('loading-text');
+            btn.disabled = true;
+            btn.style.background = '#555';
+            btn.innerText = 'กำลังส่งข้อมูล...';
+            loading.style.display = 'block';
+        }
+    </script>
+    </body></html>
   `);
 });
 
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount, topup_type } = req.body;
+  
   try {
     const slipImg = await uploadToSupabaseStorage(req.file);
-    await supabase.from('pending_topup').insert([{ 
-        username, 
-        exact_amount: parseFloat(exact_amount), 
-        slip_img: slipImg, 
-        status: 'pending',
-        topup_type: topup_type || 'promptpay' 
-    }]);
-    res.send(`<script>alert("ส่งสลิปสำเร็จ! รอแอดมินตรวจสอบ"); window.location.href="/lootbox?username=${username}";</script>`);
+
+    const { error } = await supabase
+      .from('pending_topup')
+      .insert([{ 
+          username, 
+          exact_amount: parseFloat(exact_amount), 
+          slip_img: slipImg, 
+          status: 'pending',
+          topup_type: topup_type || 'promptpay' 
+      }]);
+
+    if (error) {
+      return res.send(`<script>alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"); window.location.href="/lootbox?username=${username}";</script>`);
+    }
+    res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
   } catch (err) {
-    res.send(`<script>alert("เกิดข้อผิดพลาด"); window.location.href="/lootbox?username=${username}";</script>`);
+    res.send(`<script>alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 });
 
@@ -894,8 +925,18 @@ app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
   const selectedCount = parseInt(count) || 1;
 
-  const { data: user } = await supabase.from('users').select('*').eq('username', username).single();
-  if (!user || user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอ!" });
+  if (!username || selectedCount <= 0) {
+    return res.json({ success: false, message: "ข้อมูลไม่ถูกต้อง" });
+  }
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('*')
+    .eq('username', username)
+    .single();
+
+  if (!user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
+  if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
   const { data: gameAccounts } = await supabase.from('game_accounts').select('*');
 
@@ -929,9 +970,9 @@ app.post("/open-lootbox", async (req, res) => {
           }
       }
 
-      // คำนวณเรตสุ่ม % ปกติจากที่แอดมินตั้งค่าไว้
+      // คำนวณเรตตามอัตรา % ที่ตั้งไว้ในหลังบ้าน
       if (!handled) {
-          const rand = Math.random() * 100; // สุ่มเลข 0 ถึง 100
+          const rand = Math.random() * 100; // สุ่มตัวเลข 0 ถึง 100
           let currentAcc = null;
 
           if (gameAccounts && gameAccounts.length > 0) {
@@ -971,7 +1012,7 @@ app.post("/open-lootbox", async (req, res) => {
       step1_salt: steps[0].salt, step1_reward: steps[0].reward,
       step2_salt: steps[1].salt, step2_reward: steps[1].reward,
       step3_salt: steps[2].salt, step3_reward: steps[2].reward,
-      step4_salt: steps[4].salt, step4_reward: steps[4].reward,
+      step4_salt: steps[3].salt, step4_reward: steps[3].reward,
       step5_salt: steps[5].salt, step5_reward: steps[5].reward
   }).eq('username', username);
 
@@ -985,19 +1026,20 @@ app.post("/open-lootbox", async (req, res) => {
   });
 });
 
-// ------------------- ADMIN BACKEND (หลังบ้านแอดมิน) -------------------
+// ------------------- ADMIN DASHBOARD -------------------
 
 app.get("/admin", async (req, res) => {
   if (req.session.isAdmin) return renderAdminDashboard(req, res);
 
   res.send(`
-    <body style="background:#0d1117; color:#fff; text-align:center; padding-top:80px; font-family:sans-serif;">
-      <div style="background:#161b22; padding:30px; display:inline-block; border-radius:12px; border:1px solid #30363d;">
+    <body style="background:#1e1e2f; color:#fff; text-align:center; padding-top:80px; font-family:sans-serif;">
+      <div style="background:#2b2b40; padding:30px; display:inline-block; border-radius:10px;">
         <h2>🛠️ เข้าสู่ระบบผู้ดูแลระบบ</h2>
         <form action="/admin/login" method="POST">
-          <input type="password" name="password" placeholder="รหัสผ่านแอดมิน" style="padding:10px; width:240px; border-radius:6px; border:1px solid #30363d; background:#0d1117; color:#fff;" required>
-          <button type="submit" style="padding:10px 15px; background:#238636; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:10px; width:100%;">เข้าสู่ระบบ</button>
+          <input type="password" name="password" placeholder="รหัสผ่านแอดมิน" style="padding:10px; width:240px; border-radius:4px; border:none; box-sizing:border-box;" required>
+          <button type="submit" style="padding:10px 15px; background:#ff4757; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:10px; width:100%;">เข้าสู่ระบบ</button>
         </form>
+        <br><a href="/" style="color:#70a1ff; text-decoration:none;">กลับหน้าแรก</a>
       </div>
     </body>
   `);
@@ -1016,7 +1058,7 @@ app.get("/admin/logout", (req, res) => {
   req.session.destroy(() => res.redirect("/admin"));
 });
 
-// อนุมัติสลิปเติมเงิน
+// อนุมัติสลิปเติมเงิน (โค้ดเดิมของคุณ)
 app.post("/admin/approve-topup", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { topup_id, username, exact_amount } = req.body;
@@ -1027,16 +1069,16 @@ app.post("/admin/approve-topup", async (req, res) => {
     await supabase.from('users').update({ points: user.points + pointsToAdd }).eq('username', username);
   }
   await supabase.from('pending_topup').update({ status: 'completed' }).eq('id', topup_id);
-  res.send(`<script>alert("อนุมัติและเพิ่ม ${pointsToAdd} แต้มเรียบร้อย!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติยอดเงินและเพิ่ม ${pointsToAdd} แต้มให้ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-topup", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   await supabase.from('pending_topup').delete().eq('id', req.body.topup_id);
-  res.send(`<script>alert("ลบสลิปสำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// อนุมัติการส่งมอบไอดี/รางวัล (ลบรายการและประวัติสุ่มเดิมของผู้เล่นทันที)
+// อนุมัติการส่งมอบรางวัล (ลบรายการคำขอและประวัติสุ่มเดิมของผู้เล่น)
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
@@ -1047,7 +1089,7 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติเดิมถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
 });
 
-// เพิ่มรางวัล/ไอดีเข้าคลัง
+// เพิ่มไอดี Line Rangers เข้าคลัง
 app.post("/admin/add-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { title, rarity, rate } = req.body;
@@ -1062,13 +1104,13 @@ app.post("/admin/add-game-account", async (req, res) => {
   res.send(`<script>alert("เพิ่มรางวัล Line Rangers เข้าสู่คลังสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// อัปเดต % เรตการออกของไอดีในคลัง
+// ปรับอัตรา % การออก
 app.post("/admin/update-game-account-rate", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { account_id, rate } = req.body;
 
   await supabase.from('game_accounts').update({ rate: parseFloat(rate) || 0 }).eq('id', account_id);
-  res.send(`<script>alert("อัปเดตอัตรา % การออกสำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อัปเดตอัตรา % สำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-game-account", async (req, res) => {
@@ -1077,7 +1119,7 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบไอดีสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// ตั้งค่าเรตเกลือ 5 สเต็ป
+// ตั้งค่าเรตเกลือ 5 สเต็ป (โค้ดเดิมของคุณ)
 app.post("/admin/update-user-luck", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { 
@@ -1097,7 +1139,19 @@ app.post("/admin/update-user-luck", async (req, res) => {
       step5_salt: parseInt(step5_salt) || 0, step5_reward: step5_reward || 'normal',
   }).eq('username', username);
 
-  res.send(`<script>alert("บันทึกเรต 5 สเต็ปให้ ${username} สำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("บันทึกเรต 5 สเต็ปสำเร็จ!"); window.location.href="/admin";</script>`);
+});
+
+app.post("/admin/delete-user", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { username } = req.body;
+
+  await supabase.from('users').delete().eq('username', username);
+  await supabase.from('history').delete().eq('username', username);
+  await supabase.from('pending_topup').delete().eq('username', username);
+  await supabase.from('pending_withdraw').delete().eq('username', username);
+
+  res.send(`<script>alert("ลบสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 // แดชบอร์ดหลังบ้าน
@@ -1107,29 +1161,29 @@ async function renderAdminDashboard(req, res) {
   const { data: pendingWithdrawRows } = await supabase.from('pending_withdraw').select('*').eq('status', 'pending');
   const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: false });
 
-  // สลิปเติมเงิน
+  // สลิปเติมเงินรออนุมัติ
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
     pendingRows.forEach((p, index) => {
       pendingSlipHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${p.username}</b></td>
-        <td style="color:#d29922;"><b>${p.exact_amount} บาท</b></td>
+        <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b></td>
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:50px; height:70px; object-fit:cover;"></a></td>
         <td>
           <form action="/admin/approve-topup" method="POST" style="display:inline;">
             <input type="hidden" name="topup_id" value="${p.id}"><input type="hidden" name="username" value="${p.username}"><input type="hidden" name="exact_amount" value="${p.exact_amount}">
-            <button type="submit" style="background:#238636; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
           </form>
           <form action="/admin/delete-topup" method="POST" style="display:inline;">
             <input type="hidden" name="topup_id" value="${p.id}">
-            <button type="submit" style="background:#f85149; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบ</button>
+            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบสลิป</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    pendingSlipHtml = `<tr><td colspan="5" style="color:#8b949e; padding:10px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
+    pendingSlipHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
   }
 
   // คำขอรับรางวัลจากผู้เล่น
@@ -1145,46 +1199,46 @@ async function renderAdminDashboard(req, res) {
       withdrawHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${w.username}</b></td>
-        <td><a href="${w.roblox_img}" target="_blank" style="background:#1f6beb; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
-        <td style="color:#d29922; font-size:12px;">${rewardsList}</td>
+        <td><a href="${w.roblox_img}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
+        <td style="color:#ffd700; font-size:12px;">${rewardsList}</td>
         <td>
           <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
             <input type="hidden" name="withdraw_id" value="${w.id}">
             <input type="hidden" name="username" value="${w.username}">
-            <button type="submit" style="background:#238636; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบแล้ว</button>
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบเรียบร้อย</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    withdrawHtml = `<tr><td colspan="5" style="color:#8b949e; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
+    withdrawHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
   }
 
-  // ไอดี Line Rangers ในคลัง + ช่องปรับ % เรต
+  // คลังไอดี Line Rangers และ ปรับ % เรต
   let gameAccHtml = "";
   if (gameAccounts && gameAccounts.length > 0) {
     gameAccounts.forEach((acc, i) => {
       gameAccHtml += `<tr>
         <td>${i+1}</td>
         <td><b>${acc.title}</b></td>
-        <td style="color:#d29922;">${acc.rarity}</td>
+        <td style="color:#ffd700;">${acc.rarity}</td>
         <td>
           <form action="/admin/update-game-account-rate" method="POST" style="display:inline-flex; gap:4px; margin:0;">
              <input type="hidden" name="account_id" value="${acc.id}">
              <input type="number" step="0.0001" name="rate" value="${acc.rate || 0}" style="width:70px; padding:3px; text-align:center;"> %
-             <button type="submit" style="background:#58a6ff; color:#000; border:none; padding:3px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px;">💾 ปรับเรต</button>
+             <button type="submit" style="background:#70a1ff; color:#000; border:none; padding:3px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px;">💾 ปรับเรต</button>
           </form>
         </td>
         <td>
           <form action="/admin/delete-game-account" method="POST" style="margin:0;">
              <input type="hidden" name="account_id" value="${acc.id}">
-             <button type="submit" style="background:#f85149; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️ ลบไอดี</button>
+             <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️ ลบ</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="5" style="color:#8b949e; padding:10px;">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
+    gameAccHtml = `<tr><td colspan="5" style="color:#aaa; padding:10px;">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
   }
 
   function renderRewardOptions(currentVal) {
@@ -1199,25 +1253,29 @@ async function renderAdminDashboard(req, res) {
       return opts;
   }
 
-  // สมาชิกและตั้งค่าเรตความเกลือ 5 สเต็ป
+  // สมาชิกและตั้งค่าเรตเกลือ 5 สเต็ป
   let userHtml = "";
   if (usersRows && usersRows.length > 0) {
     usersRows.forEach((u, index) => {
       userHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${u.username}</b></td>
-        <td><a href="${u.roblox_img}" target="_blank" style="color:#58a6ff;">🔗 เฟซบุ๊กผู้เล่น</a></td>
+        <td><a href="${u.roblox_img}" target="_blank" style="color:#70a1ff;">🔗 เฟซบุ๊กผู้เล่น</a></td>
         <td>${u.points} แต้ม</td>
         <td>
           <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; text-align:left;">
             <input type="hidden" name="username" value="${u.username}">
-            <div style="font-size:11px; color:#d29922; margin-bottom:3px;">⚙️ ตั้งค่าเรต 5 สเต็ปยูสนี้:</div>
+            <div style="font-size:11px; color:#ffd700; margin-bottom:3px;">⚙️ ตั้งค่าเรต 5 สเต็ปยูสนี้:</div>
             <div style="font-size:10px; margin-bottom:2px;">สเต็ป 1: เกลือ <input type="number" name="step1_salt" value="${u.step1_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step1_reward">${renderRewardOptions(u.step1_reward)}</select></div>
             <div style="font-size:10px; margin-bottom:2px;">สเต็ป 2: เกลือ <input type="number" name="step2_salt" value="${u.step2_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step2_reward">${renderRewardOptions(u.step2_reward)}</select></div>
             <div style="font-size:10px; margin-bottom:2px;">สเต็ป 3: เกลือ <input type="number" name="step3_salt" value="${u.step3_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step3_reward">${renderRewardOptions(u.step3_reward)}</select></div>
             <div style="font-size:10px; margin-bottom:2px;">สเต็ป 4: เกลือ <input type="number" name="step4_salt" value="${u.step4_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step4_reward">${renderRewardOptions(u.step4_reward)}</select></div>
             <div style="font-size:10px; margin-bottom:4px;">สเต็ป 5: เกลือ <input type="number" name="step5_salt" value="${u.step5_salt||0}" style="width:30px;"> ครั้ง -> หลุดไอดี <select name="step5_reward">${renderRewardOptions(u.step5_reward)}</select></div>
-            <button type="submit" style="background:#58a6ff; color:#000; border:none; padding:3px; border-radius:4px; font-weight:bold; width:100%; font-size:10px;">💾 บันทึก 5 สเต็ป</button>
+            <button type="submit" style="background:#70a1ff; color:#000; border:none; padding:3px; border-radius:4px; font-weight:bold; width:100%; font-size:10px;">💾 บันทึก 5 สเต็ป</button>
+          </form>
+          <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ใช่หรือไม่?');" style="margin-top:4px;">
+            <input type="hidden" name="username" value="${u.username}">
+            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:10px; width:100%;">🗑️ ลบยูส</button>
           </form>
         </td>
       </tr>`;
@@ -1225,20 +1283,20 @@ async function renderAdminDashboard(req, res) {
   }
 
   res.send(`
-    <body style="background:#0d1117; color:#fff; text-align:center; padding:20px; font-family:sans-serif;">
-      <h2>🛠️ ระบบหลังบ้านแอดมิน (Line Rangers LootBox)</h2>
-      <a href="/admin/logout" style="color:#f85149;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#58a6ff;">🏠 ไปหน้าแรก</a>
+    <body style="background:#1e1e2f; color:#fff; text-align:center; padding:20px; font-family:sans-serif;">
+      <h2>🛠️ ระบบจัดการหลังบ้านแอดมิน (Line Rangers Box)</h2>
+      <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
 
-      <!-- ส่วนคำขอรับรางวัลจากผู้เล่น -->
-      <h3 style="color:#d29922; margin-top:20px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
-      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#161b22; border-color:#30363d;">
-        <tr style="background:#21262d;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>รางวัลที่สุ่มได้</th><th>จัดการ</th></tr>
+      <!-- คำขอรับรางวัลจากผู้เล่น -->
+      <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>รางวัลที่สุ่มได้</th><th>จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
-      <!-- ส่วนเพิ่มและจัดการไอดีเกม Line Rangers และปรับ % เรต -->
-      <div style="background:#161b22; padding:20px; border-radius:10px; border:1px solid #30363d; width:850px; margin:20px auto; text-align:left;">
-          <h3 style="color:#2ea043; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง</h3>
+      <!-- เพิ่มและจัดการไอดี Line Rangers -->
+      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:850px; margin:20px auto; text-align:left;">
+          <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง</h3>
           <form action="/admin/add-game-account" method="POST" style="display:flex; gap:10px; align-items:center;">
               <input type="text" name="title" placeholder="ชื่อรางวัล เช่น ID Line Rangers SSR" required style="padding:8px; flex:2;">
               <select name="rarity" style="padding:8px;">
@@ -1249,27 +1307,27 @@ async function renderAdminDashboard(req, res) {
                   <option value="เทพมังกร">ระดับ เทพมังกร</option>
               </select>
               <input type="number" step="0.0001" name="rate" placeholder="อัตรา % เช่น 0.0005" required style="padding:8px; width:120px;">
-              <button type="submit" style="background:#238636; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:9px 15px;">บันทึกรางวัล</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">บันทึกรางวัล</button>
           </form>
 
-          <h4 style="color:#d29922; margin-top:20px;">📦 คลังรางวัล และ การตั้งค่าอัตราออก (%)</h4>
-          <table border="1" style="width:100%; border-collapse:collapse; background:#0d1117; border-color:#30363d; font-size:12px; text-align:center;">
-             <tr style="background:#21262d;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>จัดการ</th></tr>
+          <h4 style="color:#ffd700; margin-top:20px;">📦 คลังรางวัล และ การตั้งค่าอัตราออก (%)</h4>
+          <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
+             <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>จัดการ</th></tr>
              ${gameAccHtml}
           </table>
       </div>
 
       <!-- รายการสลิปเติมเงิน -->
-      <h3 style="color:#d29922;">📥 รายการสลิปเติมเงินรอตรวจสอบ</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:750px; background:#161b22; border-color:#30363d;">
-        <tr style="background:#21262d;"><th>ลำดับ</th><th>Username</th><th>ยอดเงิน</th><th>สลิป</th><th>จัดการ</th></tr>
+      <h3 style="color:#ffd700;">📥 รายการสลิปเติมเงินรอตรวจสอบ</h3>
+      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:750px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>ยอดเงิน</th><th>สลิป</th><th>จัดการ</th></tr>
         ${pendingSlipHtml}
       </table>
 
-      <!-- จัดการสมาชิกและเรตเกลือ 5 สเต็ป -->
-      <h3 style="color:#d29922;">👥 รายชื่อสมาชิก และ การปรับแต่งเรตเกลือ 5 สเต็ป</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:900px; background:#161b22; border-color:#30363d;">
-        <tr style="background:#21262d;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้ม</th><th>ตั้งค่าเรตความเกลือ (5 สเต็ป)</th></tr>
+      <!-- รายชื่อสมาชิก -->
+      <h3 style="color:#ffd700;">👥 รายชื่อสมาชิกทั้งหมด และ การตั้งค่าเรตเกลือ 5 สเต็ป</h3>
+      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:900px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้ม</th><th>ตั้งค่าเรตความเกลือ (5 สเต็ป)</th></tr>
         ${userHtml}
       </table>
     </body>
@@ -1277,5 +1335,5 @@ async function renderAdminDashboard(req, res) {
 }
 
 app.listen(PORT, () => {
-  console.log("Line Rangers Lootbox Server running smoothly on port " + PORT);
+  console.log("Server running smoothly on port " + PORT);
 });
