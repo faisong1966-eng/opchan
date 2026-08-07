@@ -917,7 +917,7 @@ app.get("/lootbox", async (req, res) => {
 
                       let clashNoticeHtml = "";
                       if (data.clashDetected) {
-                          clashNoticeHtml = \`<div style="color:#ffa502; font-size:12px; margin-bottom:8px; background:rgba(255,165,2,0.1); padding:6px; border-radius:4px;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลบางรายการไปแล้ว ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้วครับ</div>\`;
+                          clashNoticeHtml = \`<div style="color:#ffa502; font-size:12px; margin-bottom:8px; background:rgba(255,165,2,0.1); padding:6px; border-radius:4px;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (รางวัลชิ้นนี้โดนคนอื่นได้ไปแล้ว) ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้วครับ</div>\`;
                       }
 
                       resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
@@ -942,7 +942,7 @@ app.get("/lootbox", async (req, res) => {
                               modalCard.style.boxShadow = "0 0 50px rgba(255,71,87,0.9)";
                               modalTitle.style.color = "#ff4757";
                               modalTitle.innerText = "🐲 แจ็คพอตระดับเทพมังกรสุดอลังการ! 🐲";
-                          } else if (highestRarityFound === 'SSR') {
+                          } else if (highestRarity === 'SSR') {
                               confetti({ particleCount: 180, spread: 100, origin: { y: 0.6 } });
                               modalCard.style.borderColor = "#ffd700";
                               modalCard.style.boxShadow = "0 0 40px rgba(255,215,0,0.8)";
@@ -962,13 +962,13 @@ app.get("/lootbox", async (req, res) => {
                               modalTitle.innerText = "🎉 ยินดีด้วย! คุณได้รับรางวัล! 🎉";
                           }
 
-                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
+                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (รางวัลชิ้นนี้โดนคนอื่นได้ไปแล้ว / ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
                       } else {
                           modalCard.style.borderColor = "#ff4757";
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
+                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (รางวัลชิ้นนี้โดนคนอื่นได้ไปแล้ว / ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
                       }
 
                       document.getElementById("resultModal").style.display = "block";
@@ -1247,14 +1247,12 @@ app.post("/open-lootbox", async (req, res) => {
     let actualConsumedPoints = 0;
 
     for (let i = 0; i < selectedCount; i++) {
-        // ดึงรายการไอดีที่ยังว่างอยู่แบบเรียลไทม์ในแต่ละรอบการสุ่ม เพื่อป้องกันการแย่งกัน
         let { data: availableAccounts } = await supabase
           .from('game_accounts')
           .select('*')
           .or('status.eq.available,status.is.null');
 
         if (!availableAccounts || availableAccounts.length === 0) {
-            // ถ้าของหมดเกลี้ยงระหว่างทาง หยุดลูปแล้วคิดแต้มเฉพาะจำนวนที่สุ่มไปแล้ว
             break;
         }
 
@@ -1274,7 +1272,6 @@ app.post("/open-lootbox", async (req, res) => {
                 let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
                 let matchedAcc = availableAccounts.find(a => a.title === cleanRewardName);
                 if (matchedAcc && matchedAcc.status !== 'out_of_stock') {
-                    // ใช้ Atomic Update เพื่อจองสิทธิ์แย่งไอดีชิ้นนี้
                     const { data: updateCheck, error: updateErr } = await supabase
                         .from('game_accounts')
                         .update({ status: 'out_of_stock' })
@@ -1294,7 +1291,6 @@ app.post("/open-lootbox", async (req, res) => {
                         wonAccId = matchedAcc.id;
                         isGuaranteeHit = true;
                     } else {
-                        // ถ้าโดนคนอื่นแย่งไปเสี้ยววิเดียวกัน ให้ตีเป็นเกลือและแจ้งเตือนชนกัน
                         reward = "🧂 เกลือ";
                         clashDetected = true;
                     }
@@ -1518,25 +1514,27 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/add-game-account", async (req, res) => {
+app.post("/admin/add-game-account", upload.single('image_file'), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { title, rarity, rate, pity_target, image_url } = req.body;
+  const { title, rarity, rate, pity_target } = req.body;
+
+  let imageUrl = await uploadToSupabaseStorage(req.file);
 
   await supabase.from('game_accounts').insert([{
       title,
       rarity,
       rate: parseFloat(rate) || 1.0,
       pity_target: parseInt(pity_target) || 0,
-      image_url: image_url || '',
+      image_url: imageUrl,
       status: 'available'
   }]);
 
   res.send(`<script>alert("เพิ่มรางวัล Line Rangers เข้าสู่คลังสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/update-all-game-accounts", async (req, res) => {
+app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { ids, rates, pity_targets, image_urls, statuses } = req.body;
+  const { ids, rates, pity_targets, old_image_urls, statuses } = req.body;
 
   if (ids) {
       const idArray = Array.isArray(ids) ? ids : [ids];
@@ -1544,13 +1542,20 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
           const accId = idArray[i];
           const newRate = Array.isArray(rates) ? parseFloat(rates[i]) : parseFloat(rates);
           const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
-          const newImage = Array.isArray(image_urls) ? image_urls[i] : image_urls;
+          const oldImage = Array.isArray(old_image_urls) ? old_image_urls[i] : old_image_urls;
           const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
+
+          let finalImageUrl = oldImage || '';
+          const uploadedFile = req.files.find(f => f.fieldname === `image_file_${accId}`);
+          if (uploadedFile) {
+              const newUploadedUrl = await uploadToSupabaseStorage(uploadedFile);
+              if (newUploadedUrl) finalImageUrl = newUploadedUrl;
+          }
 
           await supabase.from('game_accounts').update({
               rate: isNaN(newRate) ? 0 : newRate,
               pity_target: isNaN(newPity) ? 0 : newPity,
-              image_url: newImage || '',
+              image_url: finalImageUrl,
               status: newStatus || 'available'
           }).eq('id', accId);
       }
@@ -1691,6 +1696,8 @@ async function renderAdminDashboard(req, res) {
   if (gameAccounts && gameAccounts.length > 0) {
     gameAccounts.forEach((acc, i) => {
       const isOut = acc.status === 'out_of_stock';
+      let thumbImg = acc.image_url ? `<a href="${acc.image_url}" target="_blank"><img src="${acc.image_url}" style="width:30px; height:30px; object-fit:cover; border-radius:4px; vertical-align:middle;"></a>` : '<span style="font-size:10px; color:#aaa;">ไม่มีรูป</span>';
+
       gameAccHtml += `<tr>
         <td>${i+1}</td>
         <td><b>${acc.title}</b></td>
@@ -1703,7 +1710,8 @@ async function renderAdminDashboard(req, res) {
            <input type="number" name="pity_targets" value="${acc.pity_target || 0}" placeholder="0 = ปิด" style="width:45px; padding:3px; text-align:center; color:#ff6b81; font-weight:bold;"> ครั้ง
         </td>
         <td>
-           <input type="text" name="image_urls" value="${acc.image_url || ''}" placeholder="ลิงก์รูปภาพ (คั่นด้วย ,)" style="width:130px; padding:3px; font-size:11px;">
+           <input type="hidden" name="old_image_urls" value="${acc.image_url || ''}">
+           ${thumbImg} <input type="file" name="image_file_${acc.id}" accept="image/*" style="font-size:10px; width:120px; color:#fff;">
         </td>
         <td>
            <select name="statuses" style="padding:3px; font-size:11px;">
@@ -1774,9 +1782,9 @@ async function renderAdminDashboard(req, res) {
         ${withdrawHtml}
       </table>
 
-      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:950px; margin:20px auto; text-align:left;">
+      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง</h3>
-          <form action="/admin/add-game-account" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
+          <form action="/admin/add-game-account" method="POST" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
               <input type="text" name="title" placeholder="ชื่อรางวัล เช่น ID SSR" required style="padding:8px; flex:2;">
               <select name="rarity" style="padding:8px;">
                   <option value="Normal">ระดับ Normal</option>
@@ -1787,14 +1795,14 @@ async function renderAdminDashboard(req, res) {
               </select>
               <input type="number" step="0.0001" name="rate" placeholder="อัตรา %" required style="padding:8px; width:70px;">
               <input type="number" name="pity_target" placeholder="การันตี" style="padding:8px; width:70px;">
-              <input type="text" name="image_url" placeholder="ลิงก์รูปภาพ (คั่นด้วย ,)" style="padding:8px; flex:2;">
+              <input type="file" name="image_file" accept="image/*" style="padding:5px; background:#fff; color:#000; border-radius:4px; width:140px;">
               <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่มไอดี</button>
           </form>
 
-          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตี / รูปภาพ</h4>
-          <form action="/admin/update-all-game-accounts" method="POST">
+          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตี / อัปโหลดรูปภาพ</h4>
+          <form action="/admin/update-all-game-accounts" method="POST" enctype="multipart/form-data">
               <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-                 <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตี</th><th>🖼️ ลิงก์รูปภาพ</th><th>สถานะ</th><th>จัดการ</th></tr>
+                 <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตี</th><th>🖼️ รูปภาพ (เปลี่ยนไฟล์)</th><th>สถานะ</th><th>จัดการ</th></tr>
                  ${gameAccHtml}
               </table>
               <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:10px 20px; margin-top:15px; width:100%;">💾 บันทึกการตั้งค่าทั้งหมด</button>
