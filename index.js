@@ -94,7 +94,7 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- EXACT MATCH SCI-FI THEME WITH CHARACTERS -------------------
+// ------------------- EXACT MATCH SCI-FI THEME WITH EMBEDDED CHARACTERS -------------------
 const exactSciFiCSS = `
     * { box-sizing: border-box; }
     body { 
@@ -107,42 +107,66 @@ const exactSciFiCSS = `
         overflow-x: hidden;
         position: relative;
     }
-    /* Space Background Lighting & Lightning Effects */
     body::before {
         content: '';
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
         background: 
-            radial-gradient(circle at 15% 25%, rgba(138, 43, 226, 0.3) 0%, transparent 40%),
-            radial-gradient(circle at 85% 30%, rgba(0, 210, 211, 0.25) 0%, transparent 40%),
-            radial-gradient(circle at 50% 80%, rgba(255, 71, 87, 0.2) 0%, transparent 50%);
+            radial-gradient(circle at 15% 25%, rgba(138, 43, 226, 0.35) 0%, transparent 45%),
+            radial-gradient(circle at 85% 30%, rgba(0, 210, 211, 0.3) 0%, transparent 45%),
+            radial-gradient(circle at 50% 85%, rgba(255, 71, 87, 0.25) 0%, transparent 55%),
+            linear-gradient(to bottom, rgba(5,2,13,0.8), rgba(16,6,43,0.95));
         pointer-events: none;
         z-index: 0;
     }
-    /* Side Character Artwork Overlays matching reference */
+    /* Side Character Artwork Panels Matching Reference */
     .space-chars-left {
         position: fixed;
         left: 0; bottom: 0;
-        width: 320px;
+        width: 280px;
         height: 100vh;
-        background: url('https://i.ibb.co/68v1r52/ranger-chars-left.png') no-repeat bottom left;
-        background-size: contain;
+        background: linear-gradient(90deg, rgba(41,17,87,0.8), transparent);
         pointer-events: none;
         z-index: 1;
-        opacity: 0.85;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: flex-start;
+        padding: 20px;
     }
     .space-chars-right {
         position: fixed;
         right: 0; bottom: 0;
-        width: 320px;
+        width: 280px;
         height: 100vh;
-        background: url('https://i.ibb.co/3r1w7ZJ/ranger-chars-right.png') no-repeat bottom right;
-        background-size: contain;
+        background: linear-gradient(-90deg, rgba(41,17,87,0.8), transparent);
         pointer-events: none;
         z-index: 1;
-        opacity: 0.85;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: flex-end;
+        padding: 20px;
     }
-    @media(max-width: 900px) {
+    .char-badge-left, .char-badge-right {
+        background: rgba(0, 210, 211, 0.2);
+        border: 2px solid #00d2d3;
+        color: #00ff87;
+        padding: 10px 15px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 13px;
+        box-shadow: 0 0 20px rgba(0,210,211,0.5);
+        margin-bottom: 40px;
+        backdrop-filter: blur(5px);
+        animation: floatChar 4s ease-in-out infinite;
+    }
+    .char-badge-right { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 20px rgba(255,215,0,0.5); }
+    @keyframes floatChar {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+    @media(max-width: 1000px) {
         .space-chars-left, .space-chars-right { display: none; }
     }
     .top-lang-bar {
@@ -204,7 +228,7 @@ const exactSciFiCSS = `
     }
     /* Sci-Fi Container Box with Neon Border */
     .scifi-box {
-        background: rgba(13, 15, 30, 0.92);
+        background: rgba(13, 15, 30, 0.94);
         backdrop-filter: blur(25px);
         -webkit-backdrop-filter: blur(25px);
         border: 2px solid #00d2d3;
@@ -317,8 +341,12 @@ app.get("/", (req, res) => {
         </style>
     </head>
     <body>
-        <div class="space-chars-left"></div>
-        <div class="space-chars-right"></div>
+        <div class="space-chars-left">
+            <div class="char-badge-left">🛡️ บราวน์ & แซลลี่ อวกาศ</div>
+        </div>
+        <div class="space-chars-right">
+            <div class="char-badge-right">⚔️ โคนี่ & ฮีโร่ เรนเจอร์</div>
+        </div>
 
         <div class="top-lang-bar">
             <div class="audio-btn">🔊</div>
@@ -377,7 +405,7 @@ app.get("/register", (req, res) => {
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
             ${exactSciFiCSS}
-            .container { background: rgba(19, 21, 31, 0.92); padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #00d2d3; margin-top:20px; box-shadow:0 0 25px rgba(0,210,211,0.3); position:relative; z-index:4; }
+            .container { background: rgba(19, 21, 31, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #00d2d3; margin-top:20px; box-shadow:0 0 25px rgba(0,210,211,0.3); position:relative; z-index:4; }
             h2 { color: #00ff87; text-align: center; margin-top:0; font-size: 20px; }
             label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
             input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
@@ -386,8 +414,8 @@ app.get("/register", (req, res) => {
         </style>
     </head>
     <body>
-        <div class="space-chars-left"></div>
-        <div class="space-chars-right"></div>
+        <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">⚔️ โคนี่ฮีโร่</div></div>
         
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
@@ -450,7 +478,7 @@ app.get("/login", (req, res) => {
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
             ${exactSciFiCSS}
-            .container { background: rgba(19, 21, 31, 0.92); padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; box-shadow:0 0 25px rgba(0,210,211,0.3); position:relative; z-index:4; }
+            .container { background: rgba(19, 21, 31, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; box-shadow:0 0 25px rgba(0,210,211,0.3); position:relative; z-index:4; }
             h2 { color: #ffd700; text-align: center; margin-top:0; font-size:20px; }
             label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
             input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
@@ -459,8 +487,8 @@ app.get("/login", (req, res) => {
         </style>
     </head>
     <body>
-        <div class="space-chars-left"></div>
-        <div class="space-chars-right"></div>
+        <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">⚔️ โคนี่ฮีโร่</div></div>
         
         <div class="container">
             <h2>🔑 เข้าสู่ระบบ</h2>
@@ -759,8 +787,8 @@ app.get("/lootbox", async (req, res) => {
           </style>
       </head>
       <body>
-          <div class="space-chars-left"></div>
-          <div class="space-chars-right"></div>
+          <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์ & แซลลี่ อวกาศ</div></div>
+          <div class="space-chars-right"><div class="char-badge-right">⚔️ โคนี่ & ฮีโร่ เรนเจอร์</div></div>
 
           <div class="top-lang-bar">
               <div class="audio-btn">🔊</div>
@@ -1315,8 +1343,8 @@ app.get("/my-history", async (req, res) => {
         </style>
     </head>
     <body>
-        <div class="space-chars-left"></div>
-        <div class="space-chars-right"></div>
+        <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">⚔️ โคนี่ฮีโร่</div></div>
         
         <div class="container">
             <h2 style="color:#ffd700;">📜 ประวัติการสุ่มของ: ${username}</h2>
@@ -1411,8 +1439,8 @@ app.post("/create-topup", (req, res) => {
         .box { background: rgba(43, 43, 64, 0.95); padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; position:relative; z-index:4; }
     </style></head>
     <body>
-        <div class="space-chars-left"></div>
-        <div class="space-chars-right"></div>
+        <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">⚔️ โคนี่ฮีโร่</div></div>
         
         <div class="box">
             <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center; font-size:18px;">${titleText}</h2>
@@ -1688,7 +1716,7 @@ app.post("/open-lootbox", async (req, res) => {
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
             step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
