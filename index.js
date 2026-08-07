@@ -163,7 +163,7 @@ app.post("/register", async (req, res) => {
           facebook_url: facebook_url || '',
           points: 0, 
           total_spent: 0, 
-          pity_counter: 0,
+          pity_counters: {},
           step1_salt: 0, step1_reward: 'normal',
           step2_salt: 0, step2_reward: 'normal',
           step3_salt: 0, step3_reward: 'normal',
@@ -250,7 +250,7 @@ app.get("/api/user-status", async (req, res) => {
   try {
     const { data: user } = await supabase
       .from('users')
-      .select('points, total_spent, pity_counter')
+      .select('points, total_spent, pity_counters')
       .eq('username', username)
       .single();
 
@@ -284,13 +284,11 @@ app.get("/api/user-status", async (req, res) => {
       });
     }
 
-    const pityCurrent = user ? (user.pity_counter || 0) : 0;
-
     res.json({
       success: true,
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
-      pityCurrent: pityCurrent,
+      pityCounters: user ? (user.pity_counters || {}) : {},
       pendingRows: pendingRows || [],
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
@@ -319,7 +317,7 @@ app.get("/lootbox", async (req, res) => {
 
     const currentPoints = row.points;
     const totalSpent = row.total_spent || 0;
-    const pityCurrent = row.pity_counter || 0;
+    const pityCounters = row.pity_counters || {};
     const createdAt = row.created_at;
 
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
@@ -366,8 +364,8 @@ app.get("/lootbox", async (req, res) => {
     if (pendingWithdrawRow) {
       pendingWithdrawNotice = `
         <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:12px; font-size:12px; color:#ffa502; text-align:center;">
-            ⏳ มีคำขอรับรางวัลอยู่ระหว่างแอดมินตรวจสอบ (แอดมินจะทักแชท Facebook ไปมอบให้) <br>
-            <span style="color:#aaa; font-size:10px;">*คุณยังคงกดสุ่มเล่นต่อได้ตามปกติครับ*</span>
+            ⏳ มีคำขอรับรางวัลอยู่ระหว่างแอดมินตรวจสอบ (ประวัติชุดก่อนหน้าถูกส่งให้แอดมินแล้ว) <br>
+            <span style="color:#aaa; font-size:10px;">*คุณยังคงกดสุ่มเล่นต่อและสะสมประวัติใหม่ได้ตามปกติครับ*</span>
         </div>
       `;
     }
@@ -407,7 +405,8 @@ app.get("/lootbox", async (req, res) => {
         let pityInfoHtml = "";
         const targetVal = parseInt(acc.pity_target) || 0;
         if (targetVal > 0) {
-            pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${pityCurrent}/${targetVal} เกลือ</div>`;
+            const currentPity = pityCounters[acc.id] || 0;
+            pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${currentPity}/${targetVal} เกลือ</div>`;
         }
 
         showcaseCardsHtml += `
@@ -677,7 +676,8 @@ app.get("/lootbox", async (req, res) => {
                               let pityInfoHtml = "";
                               const targetVal = parseInt(acc.pity_target) || 0;
                               if (targetVal > 0) {
-                                  pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${data.pityCurrent || 0}/\${targetVal} เกลือ</div>\`;
+                                  const currentPity = (data.pityCounters && data.pityCounters[acc.id]) || 0;
+                                  pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${currentPity}/\${targetVal} เกลือ</div>\`;
                               }
 
                               showcaseHtml += \`
@@ -830,7 +830,7 @@ app.get("/my-history", async (req, res) => {
       historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่ม</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่มที่ยังไม่ขอรับรางวัล</td></tr>`;
   }
 
   res.send(`
@@ -893,6 +893,8 @@ app.post("/request-withdraw", async (req, res) => {
     idsToUpdate.push(h.id);
   });
 
+  let fullDetailedList = userHistory.map(h => h.reward);
+
   await supabase
     .from('pending_withdraw')
     .insert([{
@@ -901,7 +903,7 @@ app.post("/request-withdraw", async (req, res) => {
       total_opens: userHistory.length,
       total_robux: rewardsSummaryList.length,
       status: 'pending',
-      history_snapshot: JSON.stringify(rewardsSummaryList)
+      history_snapshot: JSON.stringify(fullDetailedList)
     }]);
 
   if (idsToUpdate.length > 0) {
@@ -911,7 +913,7 @@ app.post("/request-withdraw", async (req, res) => {
       .in('id', idsToUpdate);
   }
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จแล้ว! แอดมินจะทักแชท Facebook ไปส่งมอบให้ครับ"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จแล้ว! ประวัติชุดนี้ถูกส่งให้แอดมินตรวจสอบแล้ว คุณสามารถสุ่มเล่นต่อได้"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1008,7 +1010,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีรายชิ้นไอดี) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีแยกรายชิ้นอิสระ) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1038,7 +1040,7 @@ app.post("/open-lootbox", async (req, res) => {
     let historyBatch = [];
     let summaryRewards = {};
 
-    let pityCounter = user.pity_counter || 0;
+    let pityCounters = user.pity_counters || {};
 
     let steps = [
       { salt: user.step1_salt || 0, reward: user.step1_reward || 'normal' },
@@ -1053,34 +1055,35 @@ app.post("/open-lootbox", async (req, res) => {
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
+        let triggeredPityAccId = null;
 
         // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
             if (steps[s].salt > 0) {
                 reward = "🧂 เกลือ";
                 steps[s].salt -= 1; 
-                pityCounter += 1; 
                 handled = true;
                 break;
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
                 reward = `🛡️ ${steps[s].reward}`;
                 steps[s].reward = 'normal'; 
-                pityCounter = 0; 
                 handled = true;
                 break;
             }
         }
 
-        // 2. เช็คระบบการันตีรายชิ้นไอดี
+        // 2. เช็คระบบการันตีรายชิ้นไอดี (ดูว่าชิ้นไหนแต้มเกลือสะสมถึงเป้าหมายบ้าง)
         if (!handled) {
             const pityTargetAcc = availableAccounts.find(acc => {
                 const target = parseInt(acc.pity_target) || 0;
-                return target > 0 && pityCounter >= target && acc.status !== 'out_of_stock';
+                const currentCount = pityCounters[acc.id] || 0;
+                return target > 0 && currentCount >= target && acc.status !== 'out_of_stock';
             });
 
             if (pityTargetAcc) {
                 reward = `🛡️ [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                pityCounter = 0; // รีเซ็ตแต้มเกลือเมื่อได้การันตี
+                triggeredPityAccId = pityTargetAcc.id; // บันทึกว่าชิ้นนี้ได้การันตี ต้องรีเซ็ตเฉพาะชิ้นนี้เป็น 0
+                
                 await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
                 availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
                 handled = true;
@@ -1088,6 +1091,7 @@ app.post("/open-lootbox", async (req, res) => {
         }
 
         // 3. สุ่มตาม % เรตปกติ
+        let wonNormalAcc = null;
         if (!handled) {
             const rand = Math.random() * 100;
             let winningAccIndex = -1;
@@ -1101,20 +1105,32 @@ app.post("/open-lootbox", async (req, res) => {
             }
 
             if (winningAccIndex !== -1) {
-                const wonAcc = availableAccounts[winningAccIndex];
-                reward = `🛡️ [${wonAcc.rarity}] ${wonAcc.title}`;
+                wonNormalAcc = availableAccounts[winningAccIndex];
+                reward = `🛡️ [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
                 availableAccounts.splice(winningAccIndex, 1);
-                pityCounter = 0; // ได้รางวัลปกติ รีเซ็ตเกลือเป็น 0
 
                 await supabase
                   .from('game_accounts')
                   .update({ status: 'out_of_stock' })
-                  .eq('id', wonAcc.id);
+                  .eq('id', wonNormalAcc.id);
             } else {
                 reward = "🧂 เกลือ";
-                pityCounter += 1; // เกลือปกติ นับบวกสะสมการันตีเพิ่ม 1
             }
         }
+
+        // อัปเดตแต้มสะสมเกลือเฉพาะชิ้นที่มีการตั้งค่าการันตีไว้เท่านั้น (ไม่กระทบชิ้นอื่น)
+        availableAccounts.forEach(acc => {
+            const target = parseInt(acc.pity_target) || 0;
+            if (target > 0) {
+                // ถ้าสุ่มรอบนี้ได้ไอดีชิ้นนี้พอดี ให้รีเซ็ตแต้มเกลือของชิ้นนี้เป็น 0
+                if (triggeredPityAccId === acc.id || (wonNormalAcc && wonNormalAcc.id === acc.id)) {
+                    pityCounters[acc.id] = 0;
+                } else {
+                    // ถ้าไม่ได้ชิ้นนี้ ให้บวกสะสมเกลือเพิ่ม 1 โดยไม่ไปรีเซ็ตค่าของมัน
+                    pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1;
+                }
+            }
+        });
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
 
@@ -1133,10 +1149,10 @@ app.post("/open-lootbox", async (req, res) => {
     await supabase.from('users').update({ 
         points: parseInt(newPoints) || 0, 
         total_spent: parseInt(newSpent) || 0,
-        pity_counter: parseInt(pityCounter) || 0,
+        pity_counters: pityCounters,
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
@@ -1217,7 +1233,7 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   await supabase.from('pending_withdraw').delete().eq('id', withdraw_id);
   await supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true);
 
-  res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติเดิมถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/add-game-account", async (req, res) => {
@@ -1337,21 +1353,36 @@ async function renderAdminDashboard(req, res) {
   if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
     pendingWithdrawRows.forEach((w, index) => {
       let rewardsList = "";
+      let detailedItemsHtml = "";
       try {
         const parsed = JSON.parse(w.history_snapshot);
         rewardsList = parsed.join(", ");
-      } catch(e) { rewardsList = "ไอดี Line Rangers"; }
+        parsed.forEach((item, idx) => {
+            detailedItemsHtml += `<li>${idx + 1}. ${item}</li>`;
+        });
+      } catch(e) { 
+          rewardsList = "ไอดี Line Rangers"; 
+          detailedItemsHtml = "ไม่สามารถแสดงรายละเอียดได้";
+      }
 
       withdrawHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${w.username}</b></td>
         <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
-        <td style="color:#ffd700; font-size:12px;">${rewardsList}</td>
+        <td style="color:#ffd700; font-size:12px; text-align:left; max-width:250px;">
+           <b>รายการสรุป:</b> ${rewardsList}
+           <details style="margin-top:5px; color:#fff; cursor:pointer;">
+               <summary style="color:#00d2d3; font-weight:bold;">🔍 กดดูประวัติการสุ่มทั้งหมด (${w.total_opens} ครั้ง)</summary>
+               <ul style="padding-left:15px; margin:5px 0; font-size:11px; color:#a4b0be; max-height:100px; overflow-y:auto;">
+                   ${detailedItemsHtml}
+               </ul>
+           </details>
+        </td>
         <td>
-          <form action="/admin/approve-withdraw" method="POST" style="margin:0;">
+          <form action="/admin/approve-withdraw" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันอนุมัติและเคลียร์ประวัติของ ${w.username}?');">
             <input type="hidden" name="withdraw_id" value="${w.id}">
             <input type="hidden" name="username" value="${w.username}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบเรียบร้อย</button>
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบ</button>
           </form>
         </td>
       </tr>`;
@@ -1439,8 +1470,8 @@ async function renderAdminDashboard(req, res) {
       <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
 
       <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
-      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 850px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>รางวัลที่สุ่มได้</th><th>จัดการ</th></tr>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการสุ่ม (กดดูได้)</th><th>จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
