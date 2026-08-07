@@ -97,70 +97,70 @@ function parsePityCounters(val) {
 // ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-        <meta charset="UTF-8">
-        <title>🛡️ Line Rangers LootBox - หน้าแรก</title>
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
-        <style>
-            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 80px; font-family: 'Kanit', sans-serif; }
-            .container { background: #13151f; padding: 35px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; border: 1px solid #25283c; }
-            h1 { color: #00b900; }
-            a { display: block; background-color: #00b900; color: white; padding: 12px; margin: 10px 0; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px; }
-            a:hover { background-color: #009900; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🛡️ LINE RANGERS BOX</h1>
-            <p>เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ!</p>
-            <a href="/login">🔑 เข้าสู่ระบบ</a>
-            <a href="/register" style="background-color: #1f6beb; text-decoration: none;">📝 สมัครสมาชิก</a>
-        </div>
-    </body>
-    </html>
-  `);
+  res.send(
+    '<!DOCTYPE html>' +
+    '<html lang="th">' +
+    '<head>' +
+    '<meta charset="UTF-8">' +
+    '<title>🛡️ Line Rangers LootBox - หน้าแรก</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">' +
+    '<style>' +
+    'body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 80px; font-family: "Kanit", sans-serif; }' +
+    '.container { background: #13151f; padding: 35px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; border: 1px solid #25283c; }' +
+    'h1 { color: #00b900; }' +
+    'a { display: block; background-color: #00b900; color: white; padding: 12px; margin: 10px 0; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px; }' +
+    'a:hover { background-color: #009900; }' +
+    '</style>' +
+    '</head>' +
+    '<body>' +
+    '<div class="container">' +
+    '<h1>🛡️ LINE RANGERS BOX</h1>' +
+    '<p>เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ!</p>' +
+    '<a href="/login">🔑 เข้าสู่ระบบ</a>' +
+    '<a href="/register" style="background-color: #1f6beb; text-decoration: none;">📝 สมัครสมาชิก</a>' +
+    '</div>' +
+    '</body>' +
+    '</html>'
+  );
 });
 
 app.get("/register", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-        <meta charset="UTF-8">
-        <title>สมัครสมาชิก</title>
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-        <style>
-            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 30px; font-family: 'Kanit', sans-serif; }
-            .container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 360px; text-align: left; border: 1px solid #25283c; }
-            h2 { color: #00b900; text-align: center; margin-top:0; }
-            label { display: block; margin-top: 10px; font-size: 14px; }
-            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
-            button { width: 100%; background-color: #00b900; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:'Kanit'; }
-            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h2>📝 สมัครสมาชิก</h2>
-            <p style="font-size:12px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
-            <form action="/register" method="POST">
-                <label>Username (สำหรับเข้าเว็บ):</label>
-                <input type="text" name="username" placeholder="ตั้งชื่อผู้ใช้งาน" required>
-                <label>Password:</label>
-                <input type="password" name="password" placeholder="ตั้งรหัสผ่าน" required>
-                <label>ลิงก์ Facebook ส่วนตัวของคุณ:</label>
-                <input type="url" name="facebook_url" placeholder="https://www.facebook.com/your.profile" required>
-                <span style="font-size:11px; color:#a4b0be; display:block; margin-top:3px;">*คัดลอกลิงก์โปรไฟล์เฟซบุ๊กมาวางไว้ เพื่อให้แอดมินทักไปส่งรางวัล</span>
-                <button type="submit">ยืนยันการสมัคร</button>
-            </form>
-            <a href="/">กลับหน้าแรก</a>
-        </div>
-    </body>
-    </html>
-  `);
+  res.send(
+    '<!DOCTYPE html>' +
+    '<html lang="th">' +
+    '<head>' +
+    '<meta charset="UTF-8">' +
+    '<title>สมัครสมาชิก</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">' +
+    '<style>' +
+    'body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 30px; font-family: "Kanit", sans-serif; }' +
+    '.container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 360px; text-align: left; border: 1px solid #25283c; }' +
+    'h2 { color: #00b900; text-align: center; margin-top:0; }' +
+    'label { display: block; margin-top: 10px; font-size: 14px; }' +
+    'input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:"Kanit"; }' +
+    'button { width: 100%; background-color: #00b900; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:"Kanit"; }' +
+    'a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }' +
+    '</style>' +
+    '</head>' +
+    '<body>' +
+    '<div class="container">' +
+    '<h2>📝 สมัครสมาชิก</h2>' +
+    '<p style="font-size:12px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>' +
+    '<form action="/register" method="POST">' +
+    '<label>Username (สำหรับเข้าเว็บ):</label>' +
+    '<input type="text" name="username" placeholder="ตั้งชื่อผู้ใช้งาน" required>' +
+    '<label>Password:</label>' +
+    '<input type="password" name="password" placeholder="ตั้งรหัสผ่าน" required>' +
+    '<label>ลิงก์ Facebook ส่วนตัวของคุณ:</label>' +
+    '<input type="url" name="facebook_url" placeholder="https://www.facebook.com/your.profile" required>' +
+    '<span style="font-size:11px; color:#a4b0be; display:block; margin-top:3px;">*คัดลอกลิงก์โปรไฟล์เฟซบุ๊กมาวางไว้ เพื่อให้แอดมินทักไปส่งรางวัล</span>' +
+    '<button type="submit">ยืนยันการสมัคร</button>' +
+    '</form>' +
+    '<a href="/">กลับหน้าแรก</a>' +
+    '</div>' +
+    '</body>' +
+    '</html>'
+  );
 });
 
 app.post("/register", async (req, res) => {
@@ -194,38 +194,38 @@ app.post("/register", async (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-        <meta charset="UTF-8">
-        <title>เข้าสู่ระบบ</title>
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-        <style>
-            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 50px; font-family:'Kanit'; }
-            .container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 350px; text-align: left; border: 1px solid #25283c; }
-            h2 { color: #ffd700; text-align: center; margin-top:0; }
-            label { display: block; margin-top: 10px; font-size: 14px; }
-            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
-            button { width: 100%; background-color: #ff4757; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:'Kanit'; }
-            a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size:13px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h2>🔑 เข้าสู่ระบบ</h2>
-            <form action="/login" method="POST">
-                <label>Username:</label>
-                <input type="text" name="username" required>
-                <label>Password:</label>
-                <input type="password" name="password" required>
-                <button type="submit">เข้าสู่ระบบ</button>
-            </form>
-            <a href="/">กลับหน้าแรก</a>
-        </div>
-    </body>
-    </html>
-  `);
+  res.send(
+    '<!DOCTYPE html>' +
+    '<html lang="th">' +
+    '<head>' +
+    '<meta charset="UTF-8">' +
+    '<title>เข้าสู่ระบบ</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">' +
+    '<style>' +
+    'body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 50px; font-family:"Kanit"; }' +
+    '.container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 350px; text-align: left; border: 1px solid #25283c; }' +
+    'h2 { color: #ffd700; text-align: center; margin-top:0; }' +
+    'label { display: block; margin-top: 10px; font-size: 14px; }' +
+    'input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:"Kanit"; }' +
+    'button { width: 100%; background-color: #ff4757; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:"Kanit"; }' +
+    'a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size:13px; }' +
+    '</style>' +
+    '</head>' +
+    '<body>' +
+    '<div class="container">' +
+    '<h2>🔑 เข้าสู่ระบบ</h2>' +
+    '<form action="/login" method="POST">' +
+    '<label>Username:</label>' +
+    '<input type="text" name="username" required>' +
+    '<label>Password:</label>' +
+    '<input type="password" name="password" required>' +
+    '<button type="submit">เข้าสู่ระบบ</button>' +
+    '</form>' +
+    '<a href="/">กลับหน้าแรก</a>' +
+    '</div>' +
+    '</body>' +
+    '</html>'
+  );
 });
 
 app.post("/login", async (req, res) => {
@@ -722,7 +722,7 @@ app.get("/lootbox", async (req, res) => {
                   const urls = urlStr.split(',').map(u => u.trim()).filter(u => u !== '');
                   let html = "";
                   urls.forEach(u => {
-                      html += \`<img src="\${u}" style="width:100%; border-radius:6px; margin-bottom:8px; object-fit:contain;" onerror="this.onerror=null;this.src='https://placehold.co/300x200?text=Invalid+Image';">\`;
+                      html += '<img src="' + u + '" style="width:100%; border-radius:6px; margin-bottom:8px; object-fit:contain;" onerror="this.onerror=null;this.src=\'https://placehold.co/300x200?text=Invalid+Image\';">';
                   });
                   document.getElementById("imageContainer").innerHTML = html;
                   document.getElementById("imageModal").style.display = "block";
@@ -751,29 +751,27 @@ app.get("/lootbox", async (req, res) => {
                       if (data.pendingRows && data.pendingRows.length > 0) {
                           data.pendingRows.forEach(p => {
                               const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
-                              pendingHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)</li>\`;
+                              pendingHtml += '<li style="color:#ffa502;">ยอดโอน <b>' + p.exact_amount + ' บาท</b> ' + typeBadge + ' (รอแอดมินตรวจสอบสลิป)</li>';
                           });
                       } else {
-                          pendingHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
+                          pendingHtml = '<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>';
                       }
                       document.getElementById("pending-list-container").innerHTML = pendingHtml;
 
                       if (data.hasPendingWithdraw) {
-                          document.getElementById("claim-btn-container").innerHTML = \`
-                            <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล</div>
-                                <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">แอดมินจะติดต่อกลับและจัดส่งรางวัลให้ภายใน 24 ชั่วโมงผ่านทาง Facebook</div>
-                            </div>
-                          \`;
+                          document.getElementById("claim-btn-container").innerHTML = 
+                            '<div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">' +
+                                '<div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล</div>' +
+                                '<div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">แอดมินจะติดต่อกลับและจัดส่งรางวัลให้ภายใน 24 ชั่วโมงผ่านทาง Facebook</div>' +
+                            '</div>';
                       } else if (data.hasClaimable) {
-                          document.getElementById("claim-btn-container").innerHTML = \`
-                            <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
-                                <input type="hidden" name="username" value="${username}">
-                                <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
-                                    🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
-                                </button>
-                            </form>
-                          \`;
+                          document.getElementById("claim-btn-container").innerHTML = 
+                            '<form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">' +
+                                '<input type="hidden" name="username" value="${username}">' +
+                                '<button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:\'Kanit\'; box-shadow:0 0 10px rgba(0,185,0,0.4);">' +
+                                    '🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!' +
+                                '</button>' +
+                            '</form>';
                       } else {
                           document.getElementById("claim-btn-container").innerHTML = "";
                       }
@@ -785,7 +783,7 @@ app.get("/lootbox", async (req, res) => {
                           openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
                       } else if (!openBtn.innerText.includes("กำลังเปิด")) {
                           openBtn.disabled = false;
-                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${selectedCount} ครั้ง / ใช้ \${selectedCount} แต้ม)\`;
+                          openBtn.innerText = '📦 เปิดกล่องลุ้นโชค (' + selectedCount + ' ครั้ง / ใช้ ' + selectedCount + ' แต้ม)';
                       }
 
                       if (data.gameAccounts) {
@@ -800,32 +798,30 @@ app.get("/lootbox", async (req, res) => {
                               else if (acc.rarity === "S") { badgeColor = "#70a1ff"; iconSymbol = "🔮"; }
 
                               const isOutOfStock = acc.status === 'out_of_stock';
-                              const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6;' : \`border-color:\${badgeColor};\`;
+                              const cardStyle = isOutOfStock ? 'border-color:#ff4757; opacity:0.6;' : 'border-color:' + badgeColor + ';';
                               const stockStatusHtml = isOutOfStock 
-                                  ? \`<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px;">❌ หมด</div>\` 
-                                  : \`<div style="font-size:10px; color:#aaa;">ระดับ: \${acc.rarity}</div>\`;
+                                  ? '<div style="color:#ff4757; font-weight:800; font-size:13px; margin-top:2px;">❌ หมด</div>' 
+                                  : '<div style="font-size:10px; color:#aaa;">ระดับ: ' + acc.rarity + '</div>';
 
                               let pityInfoHtml = "";
                               const targetVal = parseInt(acc.pity_target) || 0;
                               if (targetVal > 0) {
                                   const currentPity = (data.pityCounters && data.pityCounters[acc.id]) || 0;
-                                  pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${currentPity}/\${targetVal} เกลือ</div>\`;
+                                  pityInfoHtml = '<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ' + currentPity + '/' + targetVal + ' เกลือ</div>';
                               }
 
                               let imageBtnHtml = "";
                               if (acc.image_url && acc.image_url.trim() !== "") {
-                                  imageBtnHtml = \`<button type="button" onclick="openImageModal('\${encodeURIComponent(acc.image_url)}', '\${encodeURIComponent(acc.title)}')" style="margin-top:4px; background:#1f6beb; color:#fff; border:none; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer; font-family:'Kanit';">🖼️ ดูรูปภาพ</button>\`;
+                                  imageBtnHtml = '<button type="button" onclick="openImageModal(\'' + encodeURIComponent(acc.image_url) + '\', \'' + encodeURIComponent(acc.title) + '\')" style="margin-top:4px; background:#1f6beb; color:#fff; border:none; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer; font-family:\'Kanit\';">🖼️ ดูรูปภาพ</button>';
                               }
 
-                              showcaseHtml += \`
-                                <div class="reward-card" style="\${cardStyle}">
-                                    <div style="font-size:22px; text-shadow: 0 0 8px \${badgeColor};">\${iconSymbol}</div>
-                                    <div class="r-name" style="color:\${isOutOfStock ? '#ff4757' : badgeColor}">\${acc.title}</div>
-                                    \${stockStatusHtml}
-                                    \${pityInfoHtml}
-                                    \${imageBtnHtml}
-                                </div>
-                              \`;
+                              showcaseHtml += '<div class="reward-card" style="' + cardStyle + '">' +
+                                  '<div style="font-size:22px; text-shadow: 0 0 8px ' + badgeColor + ';">' + iconSymbol + '</div>' +
+                                  '<div class="r-name" style="color:' + (isOutOfStock ? '#ff4757' : badgeColor) + '">' + acc.title + '</div>' +
+                                  stockStatusHtml +
+                                  pityInfoHtml +
+                                  imageBtnHtml +
+                                  '</div>';
                           });
                           document.getElementById("showcase-grid-container").innerHTML = showcaseHtml;
                       }
@@ -839,7 +835,7 @@ app.get("/lootbox", async (req, res) => {
                   btn.classList.add('active');
                   const openBtn = document.getElementById('open-box-btn');
                   if (hasAvailableStock) {
-                      openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${count} ครั้ง / ใช้ \${count} แต้ม)\`;
+                      openBtn.innerText = '📦 เปิดกล่องลุ้นโชค (' + count + ' ครั้ง / ใช้ ' + count + ' แต้ม)';
                   }
               }
 
@@ -854,7 +850,7 @@ app.get("/lootbox", async (req, res) => {
                   const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
                   const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                   const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                  box.innerHTML = \`⏳ ID นี้ใช้งานได้อีก: \${days} วัน \${hours} ชม. \${minutes} นาที\`;
+                  box.innerHTML = '⏳ ID นี้ใช้งานได้อีก: ' + days + ' วัน ' + hours + ' ชม. ' + minutes + ' นาที';
               }
               setInterval(updateCountdown, 1000);
               updateCountdown();
@@ -874,7 +870,7 @@ app.get("/lootbox", async (req, res) => {
                   openBtn.disabled = true;
 
                   const resBox = document.getElementById("result-box");
-                  resBox.innerText = \`🌀 กำลังเปิดกล่องทันที \${selectedCount} ครั้ง...\`;
+                  resBox.innerText = '🌀 กำลังเปิดกล่องทันที ' + selectedCount + ' ครั้ง...';
 
                   fetch('/open-lootbox', {
                       method: 'POST',
@@ -888,7 +884,7 @@ app.get("/lootbox", async (req, res) => {
                           openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
                       } else {
                           openBtn.disabled = false;
-                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${selectedCount} ครั้ง / ใช้ \${selectedCount} แต้ม)\`;
+                          openBtn.innerText = '📦 เปิดกล่องลุ้นโชค (' + selectedCount + ' ครั้ง / ใช้ ' + selectedCount + ' แต้ม)';
                       }
 
                       if (!data.success) {
@@ -912,10 +908,10 @@ app.get("/lootbox", async (req, res) => {
                       let highestRarityFound = 'Salt';
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
-                          summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
+                          summaryListHtml += '• ' + rew + ' x ' + count + ' ครั้ง<br>';
                           if (!rew.includes("เกลือ")) {
                               hasWin = true;
-                              winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
+                              winDetails += '<b>' + rew + '</b> (' + count + ' ชิ้น)<br>';
                               
                               if (rew.includes("เทพมังกร")) highestRarityFound = 'เทพมังกร';
                               else if (rew.includes("SSR") && highestRarityFound !== 'เทพมังกร') highestRarityFound = 'SSR';
@@ -927,11 +923,11 @@ app.get("/lootbox", async (req, res) => {
 
                       let clashNoticeHtml = "";
                       if (data.clashDetected) {
-                          clashNoticeHtml = \`<div style="color:#ff4757; font-size:12px; margin-bottom:8px; background:rgba(255,71,87,0.1); padding:6px; border-radius:4px; font-weight:bold;">😢 เสียใจด้วย รางวัลนี้มีคนอื่นได้ไปแล้ว! (ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้ว)</div>\`;
+                          clashNoticeHtml = '<div style="color:#ff4757; font-size:12px; margin-bottom:8px; background:rgba(255,71,87,0.1); padding:6px; border-radius:4px; font-weight:bold;">😢 เสียใจด้วย รางวัลนี้มีคนอื่นได้ไปแล้ว! (ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้ว)</div>';
                       }
 
-                      resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
-                          <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>\`;
+                      resBox.innerHTML = clashNoticeHtml + '🎉 <b>สรุปผลสุ่ม ' + selectedCount + ' ครั้ง:</b><br>' +
+                          '<div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">' + summaryListHtml + '</div>';
 
                       const modalCard = document.getElementById("modalCard");
                       const modalTitle = document.getElementById("modalTitle");
@@ -972,13 +968,13 @@ app.get("/lootbox", async (req, res) => {
                               modalTitle.innerText = "🎉 ยินดีด้วย! คุณได้รับรางวัล! 🎉";
                           }
 
-                          modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
+                          modalBody.innerHTML = 'คุณสุ่มได้ไอดี Line Rangers!<br><br>' + winDetails + '<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>';
                       } else {
                           modalCard.style.borderColor = "#ff4757";
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
+                          modalBody.innerHTML = '<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!';
                       }
 
                       document.getElementById("resultModal").style.display = "block";
