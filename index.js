@@ -94,7 +94,7 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- FRONTEND ROUTES (STYLISH HOME PAGE) -------------------
+// ------------------- FRONTEND ROUTES (STYLISH FULL-PAGE DESIGN) -------------------
 
 app.get("/", (req, res) => {
   res.send(`
@@ -107,7 +107,7 @@ app.get("/", (req, res) => {
         <style>
             * { box-sizing: border-box; }
             body { 
-                background: radial-gradient(circle at center, #1a1c29 0%, #0b0c10 100%); 
+                background: radial-gradient(circle at 50% 30%, #1e2235 0%, #0b0c10 70%); 
                 color: #ffffff; 
                 text-align: center; 
                 margin: 0;
@@ -118,16 +118,26 @@ app.get("/", (req, res) => {
                 font-family: 'Kanit', sans-serif; 
                 overflow-x: hidden;
             }
+            .bg-glow-effect {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                top: 0; left: 0;
+                background: radial-gradient(circle at 50% 50%, rgba(0, 185, 0, 0.1) 0%, transparent 50%);
+                pointer-events: none;
+                z-index: 1;
+            }
             .container { 
-                background: rgba(19, 21, 31, 0.85); 
-                backdrop-filter: blur(12px);
-                padding: 40px 30px; 
-                border-radius: 20px; 
+                background: rgba(19, 21, 31, 0.9); 
+                backdrop-filter: blur(16px);
+                padding: 45px 35px; 
+                border-radius: 24px; 
                 display: inline-block; 
-                box-shadow: 0 0 40px rgba(0, 185, 0, 0.2), 0 15px 35px rgba(0,0,0,0.8); 
-                width: 380px; 
-                border: 1px solid rgba(0, 185, 0, 0.3);
+                box-shadow: 0 0 50px rgba(0, 185, 0, 0.25), 0 20px 40px rgba(0,0,0,0.9); 
+                width: 400px; 
+                border: 1px solid rgba(0, 185, 0, 0.4);
                 position: relative;
+                z-index: 2;
                 animation: floatBox 4s ease-in-out infinite;
             }
             @keyframes floatBox {
@@ -137,11 +147,11 @@ app.get("/", (req, res) => {
             .container::before {
                 content: '';
                 position: absolute;
-                top: -2px; left: -2px; right: -2px; bottom: -2px;
+                top: -3px; left: -3px; right: -3px; bottom: -3px;
                 background: linear-gradient(45deg, #00b900, #ffd700, #ff4757, #1f6beb);
-                border-radius: 22px;
+                border-radius: 26px;
                 z-index: -1;
-                opacity: 0.5;
+                opacity: 0.6;
                 animation: borderGlow 6s linear infinite;
                 background-size: 400% 400%;
             }
@@ -152,44 +162,46 @@ app.get("/", (req, res) => {
             }
             h1 { 
                 color: #00ff66; 
-                font-size: 26px;
+                font-size: 28px;
                 font-weight: 800;
-                margin-bottom: 10px;
-                text-shadow: 0 0 15px rgba(0, 255, 102, 0.6);
+                margin-bottom: 12px;
+                text-shadow: 0 0 20px rgba(0, 255, 102, 0.7);
             }
             p {
-                color: #a4b0be;
+                color: #b2bec3;
                 font-size: 14px;
                 margin-bottom: 30px;
+                line-height: 1.5;
             }
             .btn-glow { 
                 display: block; 
                 background: linear-gradient(135deg, #00b900, #00e676); 
                 color: white; 
                 padding: 14px; 
-                margin: 15px 0; 
-                border-radius: 10px; 
+                margin: 16px 0; 
+                border-radius: 12px; 
                 text-decoration: none; 
                 font-weight: bold; 
                 font-size: 16px; 
-                box-shadow: 0 5px 20px rgba(0, 185, 0, 0.4);
+                box-shadow: 0 6px 20px rgba(0, 185, 0, 0.4);
                 transition: all 0.3s ease;
             }
             .btn-glow:hover { 
                 transform: translateY(-3px);
-                box-shadow: 0 8px 25px rgba(0, 185, 0, 0.7);
-                filter: brightness(1.1);
+                box-shadow: 0 10px 25px rgba(0, 185, 0, 0.7);
+                filter: brightness(1.15);
             }
             .btn-reg { 
                 background: linear-gradient(135deg, #1f6beb, #38ef7d); 
-                box-shadow: 0 5px 20px rgba(31, 107, 235, 0.4);
+                box-shadow: 0 6px 20px rgba(31, 107, 235, 0.4);
             }
             .btn-reg:hover {
-                box-shadow: 0 8px 25px rgba(31, 107, 235, 0.7);
+                box-shadow: 0 10px 25px rgba(31, 107, 235, 0.7);
             }
         </style>
     </head>
     <body>
+        <div class="bg-glow-effect"></div>
         <div class="container">
             <h1>🛡️ LINE RANGERS BOX</h1>
             <p>✨ เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ เรตแตกง่าย การันตีแน่นๆ! ✨</p>
@@ -1477,8 +1489,8 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
