@@ -270,6 +270,14 @@ app.get("/api/user-status", async (req, res) => {
       .eq('username', username)
       .eq('status', 'pending');
 
+    const { data: pendingWithdrawRows } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending');
+
+    const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
+
     const { data: unwithdrawnHistory } = await supabase
       .from('history')
       .select('*')
@@ -279,7 +287,7 @@ app.get("/api/user-status", async (req, res) => {
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
 
     let hasClaimable = false;
-    if (unwithdrawnHistory) {
+    if (unwithdrawnHistory && !hasPendingWithdraw) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ")) {
           hasClaimable = true;
@@ -294,7 +302,6 @@ app.get("/api/user-status", async (req, res) => {
       });
     }
 
-    // กรองเฉพาะไอเทมที่ปัจจุบันตั้งค่า pity_target > 0 เท่านั้น ห้ามแสดงแต้มค้างเด็ดขาด
     let rawCounters = parsePityCounters(user ? user.pity_counters : {});
     let cleanCounters = {};
     if (gameAccounts) {
@@ -312,6 +319,7 @@ app.get("/api/user-status", async (req, res) => {
       total_spent: user ? user.total_spent : 0,
       pityCounters: cleanCounters,
       pendingRows: pendingRows || [],
+      hasPendingWithdraw: hasPendingWithdraw,
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
       hasAvailableStock: availableCount > 0
@@ -343,7 +351,6 @@ app.get("/lootbox", async (req, res) => {
 
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
 
-    // กรองและทำความสะอาด pityCounters ทันทีเมื่อโหลดหน้าเว็บ ห้ามให้แต้มค้างจากตอนปิดการันตีหลุดรอดมาได้
     let rawCounters = parsePityCounters(row.pity_counters);
     let pityCounters = {};
     if (gameAccounts) {
@@ -360,6 +367,14 @@ app.get("/lootbox", async (req, res) => {
       .select('*')
       .eq('username', username)
       .eq('status', 'pending');
+
+    const { data: pendingWithdrawRows } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending');
+
+    const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
 
     let pendingHtml = "";
     if (pendingRows && pendingRows.length > 0) {
@@ -378,7 +393,7 @@ app.get("/lootbox", async (req, res) => {
       .eq('is_withdrawn', false);
 
     let hasClaimable = false;
-    if (unwithdrawnHistory) {
+    if (unwithdrawnHistory && !hasPendingWithdraw) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ")) {
           hasClaimable = true;
@@ -387,7 +402,14 @@ app.get("/lootbox", async (req, res) => {
     }
 
     let claimButtonHtml = "";
-    if (hasClaimable) {
+    if (hasPendingWithdraw) {
+      claimButtonHtml = `
+        <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
+            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล</div>
+            <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">แอดมินจะติดต่อกลับและจัดส่งรางวัลให้ภายใน 24 ชั่วโมงผ่านทาง Facebook</div>
+        </div>
+      `;
+    } else if (hasClaimable) {
       claimButtonHtml = `
         <form action="/request-withdraw" method="POST" style="margin-top:10px;">
             <input type="hidden" name="username" value="${username}">
@@ -420,7 +442,6 @@ app.get("/lootbox", async (req, res) => {
 
         let pityInfoHtml = "";
         const targetVal = parseInt(acc.pity_target) || 0;
-        // แสดงผลการันตีเฉพาะเมื่อมีการตั้งค่าเป้าหมายมากกว่า 0 เท่านั้น
         if (targetVal > 0) {
             const currentPity = pityCounters[acc.id] || 0;
             pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${currentPity}/${targetVal} เกลือ</div>`;
@@ -701,7 +722,14 @@ app.get("/lootbox", async (req, res) => {
                       }
                       document.getElementById("pending-list-container").innerHTML = pendingHtml;
 
-                      if (data.hasClaimable) {
+                      if (data.hasPendingWithdraw) {
+                          document.getElementById("claim-btn-container").innerHTML = \`
+                            <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
+                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล</div>
+                                <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">แอดมินจะติดต่อกลับและจัดส่งรางวัลให้ภายใน 24 ชั่วโมงผ่านทาง Facebook</div>
+                            </div>
+                          \`;
+                      } else if (data.hasClaimable) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <form action="/request-withdraw" method="POST" style="margin-top:10px;">
                                 <input type="hidden" name="username" value="${username}">
@@ -743,7 +771,6 @@ app.get("/lootbox", async (req, res) => {
 
                               let pityInfoHtml = "";
                               const targetVal = parseInt(acc.pity_target) || 0;
-                              // แสดงผลการันตีเฉพาะเมื่อมีการตั้งค่าเป้าหมายมากกว่า 0 เท่านั้น
                               if (targetVal > 0) {
                                   const currentPity = (data.pityCounters && data.pityCounters[acc.id]) || 0;
                                   pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${currentPity}/\${targetVal} เกลือ</div>\`;
@@ -972,6 +999,17 @@ app.get("/my-history", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
+  // เช็คว่ามีคำขอที่ค้างอยู่ระดับ pending หรือไม่ ป้องกันการกดซ้ำ
+  const { data: existingPending } = await supabase
+    .from('pending_withdraw')
+    .select('*')
+    .eq('username', username)
+    .eq('status', 'pending');
+
+  if (existingPending && existingPending.length > 0) {
+    return res.send(`<script>alert("คุณมีคำขอรับรางวัลที่กำลังรอแอดมินตรวจสอบอยู่แล้ว กรุณารอสักครู่!"); window.location.href="/lootbox?username=${username}";</script>`);
+  }
+
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
@@ -1020,7 +1058,7 @@ app.post("/request-withdraw", async (req, res) => {
       .in('id', idsToUpdate);
   }
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จแล้ว! ประวัติชุดนี้ถูกส่งให้แอดมินตรวจสอบแล้ว คุณสามารถสุ่มเล่นต่อได้"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ระบบกำลังรอดำเนินการ แอดมินจะจัดส่งรางวัลให้ภายใน 24 ชม."); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1117,7 +1155,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (เคลียร์แต้มทิ้งทันทีหากปิดการันตี และเริ่มนับ 0 ใหม่เมื่อเปิด) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1164,7 +1202,6 @@ app.post("/open-lootbox", async (req, res) => {
     const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, rarity, title, pity_target');
     const targetAccList = allTargetAccounts || [];
 
-    // **จุดสำคัญ:** ทำความสะอาดและกรองแต้มการันตีทิ้งทันที เฉพาะไอเทมที่เปิดการันตีอยู่ (> 0) เท่านั้นถึงจะเก็บไว้ ถ้าอันไหนปิดไว้ (0) หรือถูกถอด จะถูกลบค่าทิ้งถาวร
     let activePityCounters = {};
     targetAccList.forEach(acc => {
         const target = parseInt(acc.pity_target) || 0;
@@ -1184,7 +1221,6 @@ app.post("/open-lootbox", async (req, res) => {
         let wonAccId = null; 
         let isGuaranteeHit = false;
 
-        // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
             if (steps[s].salt > 0) {
                 reward = "🧂 เกลือ";
@@ -1218,7 +1254,6 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 2. เช็คระบบการันตีรายชิ้น (เฉพาะชิ้นที่ตั้งค่า target > 0 และแต้มถึงเป้าหมายแล้ว)
         if (!handled) {
             const pityTargetAcc = availableAccounts.find(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1243,7 +1278,6 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 3. สุ่มตาม % เรตปกติ
         if (!handled) {
             if (availableAccounts.length === 0) {
                 reward = "🧂 เกลือ";
@@ -1291,7 +1325,6 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // จัดการนับแต้มหรือรีเซ็ตแต้มเฉพาะไอเทมที่เปิดใช้งานการันตีอยู่ (> 0) เท่านั้น
         if (isGuaranteeHit) {
             targetAccList.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1451,15 +1484,10 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
       }
   }
 
-  // **จุดสำคัญแก้ปัญหาเด็ดขาด:** เมื่อแอดมินกดบันทึกเปลี่ยนค่าการันตีในคลังไอดี ให้เคลียร์และลบแต้มการันตีเก่า (pity_counters) ของผู้เล่น **ทุกคน** ทิ้งทั้งหมดทันที กลายเป็น `{}` เพื่อให้ระบบเริ่มนับ 0 ใหม่สดๆ สำหรับการเปิดใช้งานครั้งถัดไปโดยไม่มีแต้มเก่าตกค้าง
   try {
       const { data: allUsers } = await supabase.from('users').select('username, pity_counters');
       if (allUsers) {
           for (let u of allUsers) {
-              let counters = parsePityCounters(u.pity_counters);
-              let newCounters = {};
-              // ตรวจสอบกับค่า pity_target ปัจจุบันในคลังไอดี หากอันไหนยังเปิดอยู่ (target > 0) ค่อยพิจารณา แต่ถ้าแอดมินเพิ่งปรับเปลี่ยน/ปิด ให้เคลียร์ใหม่หมดหรือล้างไอเทมที่ถูกปิดทิ้ง
-              // เพื่อความชัวร์และตรงใจแอดมิน: เมื่อกดบันทึกหน้าตั้งค่าคลังไอดี เคลียร์แต้มสะสมเก่าทั้งหมดของผู้เล่นทิ้งเพื่อเริ่มนับ 0 ใหม่ตามที่ขอ
               await supabase.from('users').update({ pity_counters: JSON.stringify({}) }).eq('username', u.username);
           }
       }
