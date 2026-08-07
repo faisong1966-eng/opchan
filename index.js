@@ -411,9 +411,9 @@ app.get("/lootbox", async (req, res) => {
       `;
     } else if (hasClaimable) {
       claimButtonHtml = `
-        <form action="/request-withdraw" method="POST" style="margin-top:10px;">
+        <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
             <input type="hidden" name="username" value="${username}">
-            <button type="submit" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
+            <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
                 🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
             </button>
         </form>
@@ -640,6 +640,14 @@ app.get("/lootbox", async (req, res) => {
 
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+              function handleWithdrawSubmit(form) {
+                  const btn = document.getElementById('withdraw-btn');
+                  if(btn.disabled) return false;
+                  btn.disabled = true;
+                  btn.innerText = '⏳ กำลังส่งคำขอรับรางวัล...';
+                  return true;
+              }
+
               function playTierSound(highestRarity) {
                   try {
                       if (!audioCtx) return;
@@ -764,9 +772,9 @@ app.get("/lootbox", async (req, res) => {
                           \`;
                       } else if (data.hasClaimable) {
                           document.getElementById("claim-btn-container").innerHTML = \`
-                            <form action="/request-withdraw" method="POST" style="margin-top:10px;">
+                            <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
                                 <input type="hidden" name="username" value="${username}">
-                                <button type="submit" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
+                                <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
                                     🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
                                 </button>
                             </form>
@@ -828,7 +836,7 @@ app.get("/lootbox", async (req, res) => {
                       }
 
                   }).catch(e => {});
-              }, 3000);
+              }, 4000);
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -871,7 +879,7 @@ app.get("/lootbox", async (req, res) => {
                   openBtn.disabled = true;
 
                   const resBox = document.getElementById("result-box");
-                  resBox.innerText = \`🌀 กำลังเปิดกล่องลุ้นโชค \${selectedCount} ครั้ง...\`;
+                  resBox.innerText = \`🌀 กำลังเปิดกล่องรวดเร็ว \${selectedCount} ครั้ง...\`;
 
                   fetch('/open-lootbox', {
                       method: 'POST',
@@ -1220,7 +1228,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (พร้อมระบบป้องกันแย่งของและคืนแต้มส่วนต่าง) -------------------
+// ------------------- HIGH-SPEED BULK OPEN LOOTBOX ALGORITHM -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1253,7 +1261,10 @@ app.post("/open-lootbox", async (req, res) => {
     ];
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
-    const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, rarity, title, pity_target');
+    
+    // ดึงข้อมูลคลังไอดีครั้งเดียวจบ ไม่ query ซ้ำซ้อนตอนวนลูป
+    const { data: allTargetAccounts } = await supabase.from('game_accounts').select('*');
+    let availableAccounts = (allTargetAccounts || []).filter(a => a.status === 'available' || !a.status);
     const targetAccList = allTargetAccounts || [];
 
     let activePityCounters = {};
@@ -1267,21 +1278,17 @@ app.post("/open-lootbox", async (req, res) => {
 
     let clashDetected = false;
     let actualConsumedPoints = 0;
+    let successfulWonAccIds = [];
 
     for (let i = 0; i < selectedCount; i++) {
-        let { data: availableAccounts } = await supabase
-          .from('game_accounts')
-          .select('*')
-          .or('status.eq.available,status.is.null');
-
-        if (!availableAccounts || availableAccounts.length === 0) {
+        if (availableAccounts.length === 0) {
             break;
         }
 
         actualConsumedPoints += 1;
         let reward = "";
         let handled = false;
-        let wonAccId = null; 
+        let wonAcc = null; 
         let isGuaranteeHit = false;
 
         for (let s = 0; s < steps.length; s++) {
@@ -1292,30 +1299,19 @@ app.post("/open-lootbox", async (req, res) => {
                 break;
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
                 let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
-                let matchedAcc = availableAccounts.find(a => a.title === cleanRewardName);
-                if (matchedAcc && matchedAcc.status !== 'out_of_stock') {
-                    const { data: updateCheck, error: updateErr } = await supabase
-                        .from('game_accounts')
-                        .update({ status: 'out_of_stock' })
-                        .eq('id', matchedAcc.id)
-                        .eq('status', 'available')
-                        .select();
+                let matchedIndex = availableAccounts.findIndex(a => a.title === cleanRewardName && a.status !== 'out_of_stock');
+                if (matchedIndex !== -1) {
+                    wonAcc = availableAccounts.splice(matchedIndex, 1)[0];
+                    let exactRarity = wonAcc.rarity;
+                    let iconSymbol = "🛡️";
+                    if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
+                    else if (exactRarity === "SSR") iconSymbol = "👑";
+                    else if (exactRarity === "SS+") iconSymbol = "⚔️";
+                    else if (exactRarity === "S") iconSymbol = "🔮";
 
-                    if (!updateErr && updateCheck && updateCheck.length > 0) {
-                        let exactRarity = matchedAcc.rarity;
-                        let iconSymbol = "🛡️";
-                        if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
-                        else if (exactRarity === "SSR") iconSymbol = "👑";
-                        else if (exactRarity === "SS+") iconSymbol = "⚔️";
-                        else if (exactRarity === "S") iconSymbol = "🔮";
-
-                        reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
-                        wonAccId = matchedAcc.id;
-                        isGuaranteeHit = true;
-                    } else {
-                        reward = "🧂 เกลือ";
-                        clashDetected = true;
-                    }
+                    reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
+                    successfulWonAccIds.push(wonAcc.id);
+                    isGuaranteeHit = true;
                 } else {
                     reward = "🧂 เกลือ";
                     if (steps[s].reward !== 'normal') clashDetected = true;
@@ -1328,34 +1324,23 @@ app.post("/open-lootbox", async (req, res) => {
         }
 
         if (!handled) {
-            const pityTargetAcc = availableAccounts.find(acc => {
+            const pityTargetIndex = availableAccounts.findIndex(acc => {
                 const target = parseInt(acc.pity_target) || 0;
                 const currentCount = pityCounters[acc.id] || 0;
                 return target > 0 && currentCount >= target && acc.status !== 'out_of_stock';
             });
 
-            if (pityTargetAcc) {
-                const { data: updateCheck, error: updateErr } = await supabase
-                    .from('game_accounts')
-                    .update({ status: 'out_of_stock' })
-                    .eq('id', pityTargetAcc.id)
-                    .eq('status', 'available')
-                    .select();
+            if (pityTargetIndex !== -1) {
+                wonAcc = availableAccounts.splice(pityTargetIndex, 1)[0];
+                let badgeColorIcon = "🛡️";
+                if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
+                else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
 
-                if (!updateErr && updateCheck && updateCheck.length > 0) {
-                    let badgeColorIcon = "🛡️";
-                    if (pityTargetAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                    else if (pityTargetAcc.rarity === "SSR") badgeColorIcon = "👑";
-                    else if (pityTargetAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                    else if (pityTargetAcc.rarity === "S") badgeColorIcon = "🔮";
-
-                    reward = `${badgeColorIcon} [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                    wonAccId = pityTargetAcc.id; 
-                    isGuaranteeHit = true;
-                } else {
-                    reward = "🧂 เกลือ";
-                    clashDetected = true;
-                }
+                reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
+                successfulWonAccIds.push(wonAcc.id);
+                isGuaranteeHit = true;
                 handled = true;
             }
         }
@@ -1376,35 +1361,22 @@ app.post("/open-lootbox", async (req, res) => {
                 }
 
                 if (winningAccIndex !== -1) {
-                    const wonNormalAcc = availableAccounts[winningAccIndex];
+                    wonAcc = availableAccounts.splice(winningAccIndex, 1)[0];
+                    let badgeColorIcon = "🛡️";
+                    if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                    else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
+                    else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                    else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
+
+                    reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
+                    successfulWonAccIds.push(wonAcc.id);
                     
-                    const { data: updateCheck, error: updateErr } = await supabase
-                        .from('game_accounts')
-                        .update({ status: 'out_of_stock' })
-                        .eq('id', wonNormalAcc.id)
-                        .eq('status', 'available')
-                        .select();
-
-                    if (!updateErr && updateCheck && updateCheck.length > 0) {
-                        let badgeColorIcon = "🛡️";
-                        if (wonNormalAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                        else if (wonNormalAcc.rarity === "SSR") badgeColorIcon = "👑";
-                        else if (wonNormalAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                        else if (wonNormalAcc.rarity === "S") badgeColorIcon = "🔮";
-
-                        reward = `${badgeColorIcon} [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
-                        wonAccId = wonNormalAcc.id;
-                        
-                        const matchedTargetConfig = targetAccList.find(t => t.id === wonNormalAcc.id);
-                        if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
-                            const currentC = pityCounters[wonNormalAcc.id] || 0;
-                            if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
-                                isGuaranteeHit = true;
-                            }
+                    const matchedTargetConfig = targetAccList.find(t => t.id === wonAcc.id);
+                    if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
+                        const currentC = pityCounters[wonAcc.id] || 0;
+                        if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
+                            isGuaranteeHit = true;
                         }
-                    } else {
-                        reward = "🧂 เกลือ";
-                        clashDetected = true;
                     }
                 } else {
                     reward = "🧂 เกลือ";
@@ -1423,7 +1395,7 @@ app.post("/open-lootbox", async (req, res) => {
             targetAccList.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
                 if (target > 0) {
-                    if (wonAccId === acc.id) {
+                    if (wonAcc && wonAcc.id === acc.id) {
                         pityCounters[acc.id] = 0;
                     } else {
                         pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
@@ -1443,6 +1415,14 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
+    // อัปเดตสถานะไอดีในคลังแบบ Bulk ครั้งเดียวจบ ลดดีเลย์มหาศาล
+    if (successfulWonAccIds.length > 0) {
+        await supabase
+            .from('game_accounts')
+            .update({ status: 'out_of_stock' })
+            .in('id', successfulWonAccIds);
+    }
+
     const newPoints = user.points - actualConsumedPoints;
     const newSpent = (user.total_spent || 0) + actualConsumedPoints;
 
@@ -1457,6 +1437,7 @@ app.post("/open-lootbox", async (req, res) => {
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
+    // บันทึกประวัติแบบ Bulk Insert ครั้งเดียวจบ
     if (historyBatch.length > 0) {
         await supabase.from('history').insert(historyBatch);
     }
