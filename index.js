@@ -235,24 +235,41 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/check-withdraw-status", async (req, res) => {
+// API สำหรับให้หน้าเว็บเช็กข้อมูลอัปเดตแบบเรียลไทม์ (แต้ม และสถานะถอน/เติมเงิน)
+app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
-  if (!username) return res.json({ status: 'none' });
+  if (!username) return res.json({ success: false });
 
   try {
-    const { data: pendingWithdrawRow } = await supabase
-      .from('pending_withdraw')
-      .select('*')
+    const { data: user } = await supabase
+      .from('users')
+      .select('points, total_spent')
       .eq('username', username)
       .single();
 
-    if (!pendingWithdrawRow) {
-      return res.json({ status: 'approved' }); 
-    } else {
-      return res.json({ status: pendingWithdrawRow.status });
-    }
+    const { data: pendingWithdraw } = await supabase
+      .from('pending_withdraw')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending')
+      .single();
+
+    const { data: pendingTopups } = await supabase
+      .from('pending_topup')
+      .select('*')
+      .eq('username', username)
+      .eq('status', 'pending');
+
+    res.json({
+      success: true,
+      points: user ? user.points : 0,
+      totalSpent: user ? (user.total_spent || 0) : 0,
+      hasPendingWithdraw: !!pendingWithdraw,
+      pendingWithdrawData: pendingWithdraw || null,
+      pendingTopups: pendingTopups || []
+    });
   } catch (e) {
-    return res.json({ status: 'error' });
+    res.json({ success: false });
   }
 });
 
@@ -449,7 +466,9 @@ app.get("/lootbox", async (req, res) => {
                   <div>🎯 สุ่มสะสม: <span id="spent">${totalSpent}</span> ฿</div>
               </div>
 
-              ${withdrawSectionHtml}
+              <div id="withdraw-container">
+                  ${withdrawSectionHtml}
+              </div>
               
               <div class="showcase-container">
                   <div class="showcase-title">🏆 ของรางวัลในกล่อง</div>
@@ -531,7 +550,7 @@ app.get("/lootbox", async (req, res) => {
 
               <div style="text-align:left; margin-top:10px; background:#1b1e2e; padding:8px; border-radius:6px; font-size:11px;">
                   <b style="color:#ffd700;">📌 สถานะการเติมเงิน:</b>
-                  <ul style="padding-left:15px; margin:3px 0;">${pendingHtml}</ul>
+                  <ul style="padding-left:15px; margin:3px 0;" id="pending-topup-list">${pendingHtml}</ul>
               </div>
 
               <div class="notice-bottom">
@@ -579,6 +598,49 @@ app.get("/lootbox", async (req, res) => {
 
               setInterval(updateCountdown, 1000);
               updateCountdown();
+
+              // ระบบเช็กสถานะอัตโนมัติทุกๆ 3 วินาที (เพื่อให้แต้มและสถานะถอนอัปเดตทันทีเมื่อแอดมินกดอนุมัติ)
+              setInterval(() => {
+                  fetch('/api/user-status?username=${username}')
+                  .then(res => res.json())
+                  .then(data => {
+                      if (!data.success) return;
+
+                      // อัปเดตแต้ม
+                      if (data.points !== userPoints) {
+                          userPoints = data.points;
+                          document.getElementById("points").innerText = userPoints;
+                      }
+
+                      // อัปเดตยอดสะสม
+                      if (data.totalSpent !== userSpent) {
+                          userSpent = data.totalSpent;
+                          document.getElementById("spent").innerText = userSpent;
+                      }
+
+                      // อัปเดตรายการรอเติมเงิน
+                      let topupHtml = "";
+                      if (data.pendingTopups && data.pendingTopups.length > 0) {
+                          data.pendingTopups.forEach(p => {
+                              topupHtml += \ E<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> (รอแอดมินตรวจสอบสลิป)</li>\`;
+                          });
+                      } else {
+                          topupHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
+                      }
+                      document.getElementById("pending-topup-list").innerHTML = topupHtml;
+
+                      // อัปเดตสถานะถอนเงินอัตโนมัติ
+                      const withdrawContainer = document.getElementById("withdraw-container");
+                      if (!data.hasPendingWithdraw) {
+                          // ถ้าแอดมินอนุมัติแล้ว และเคยมีกล่องรอยอดถอนอยู่ ให้รีเฟรชหน้าเว็บหรือปรับ UI ทันที
+                          // เช็กง่ายๆ ว่าปัจจุบันแสดงผลเป็นกำลังรอยอดถอนอยู่หรือไม่
+                          if (withdrawContainer.innerHTML.includes("กำลังรอยอดถอน")) {
+                              location.reload(); // รีเฟรชอัตโนมัติเพื่อให้ยอดปัจจุบันคำนวณใหม่ถูกต้อง
+                          }
+                      }
+                  })
+                  .catch(e => {});
+              }, 3000);
               
               function playSound(type) {
                   try {
@@ -1516,7 +1578,6 @@ async function renderAdminDashboard(req, res) {
           daysLeft = diffDays > 0 ? `${diffDays} วัน` : `หมดอายุ`;
       }
 
-      // Helper สร้าง option สำหรับเลือกรางวัลในแต่ละสเต็ป
       function renderRewardOptions(currentVal) {
           const opts = [
               { val: 'normal', label: '--- สุ่มปกติ ---' },
@@ -1555,31 +1616,26 @@ async function renderAdminDashboard(req, res) {
             <input type="hidden" name="username" value="${u.username}">
             <div style="font-size:11px; color:#ffd700; margin-bottom:4px;">⚙️ ตั้งค่าเรต 5 สเต็ป (เกลือ $\rightarrow$ ออกรางวัล):</div>
             
-            <!-- สเต็ป 1 -->
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:3px; font-size:10px;">
               <span style="color:#00d2d3; width:35px;">สเต็ป 1:</span>
               <input type="number" name="step1_salt" value="${u.step1_salt || 0}" min="0" style="width:35px; padding:2px; text-align:center;"> เกลือ
               <select name="step1_reward" style="flex:1; font-size:10px; padding:2px;">${renderRewardOptions(u.step1_reward)}</select>
             </div>
-            <!-- สเต็ป 2 -->
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:3px; font-size:10px;">
               <span style="color:#00d2d3; width:35px;">สเต็ป 2:</span>
               <input type="number" name="step2_salt" value="${u.step2_salt || 0}" min="0" style="width:35px; padding:2px; text-align:center;"> เกลือ
               <select name="step2_reward" style="flex:1; font-size:10px; padding:2px;">${renderRewardOptions(u.step2_reward)}</select>
             </div>
-            <!-- สเต็ป 3 -->
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:3px; font-size:10px;">
               <span style="color:#00d2d3; width:35px;">สเต็ป 3:</span>
               <input type="number" name="step3_salt" value="${u.step3_salt || 0}" min="0" style="width:35px; padding:2px; text-align:center;"> เกลือ
               <select name="step3_reward" style="flex:1; font-size:10px; padding:2px;">${renderRewardOptions(u.step3_reward)}</select>
             </div>
-            <!-- สเต็ป 4 -->
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:3px; font-size:10px;">
               <span style="color:#00d2d3; width:35px;">สเต็ป 4:</span>
               <input type="number" name="step4_salt" value="${u.step4_salt || 0}" min="0" style="width:35px; padding:2px; text-align:center;"> เกลือ
               <select name="step4_reward" style="flex:1; font-size:10px; padding:2px;">${renderRewardOptions(u.step4_reward)}</select>
             </div>
-            <!-- สเต็ป 5 -->
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:5px; font-size:10px;">
               <span style="color:#00d2d3; width:35px;">สเต็ป 5:</span>
               <input type="number" name="step5_salt" value="${u.step5_salt || 0}" min="0" style="width:35px; padding:2px; text-align:center;"> เกลือ
