@@ -267,8 +267,6 @@ app.get("/api/user-status", async (req, res) => {
       .eq('is_withdrawn', false);
 
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
-    
-    // ดึงการตั้งค่าการันตีส่วนกลาง
     const { data: globalSettings } = await supabase.from('settings').select('*').single();
 
     let hasClaimable = false;
@@ -288,6 +286,7 @@ app.get("/api/user-status", async (req, res) => {
     }
 
     const pityMax = globalSettings ? (globalSettings.pity_max || 50) : 50;
+    const pityReward = globalSettings ? (globalSettings.pity_reward || 'ยังไม่กำหนด') : 'ยังไม่กำหนด';
     const pityCurrent = user ? (user.pity_counter || 0) : 0;
 
     res.json({
@@ -296,6 +295,7 @@ app.get("/api/user-status", async (req, res) => {
       total_spent: user ? user.total_spent : 0,
       pityCurrent: pityCurrent,
       pityMax: pityMax,
+      pityReward: pityReward,
       pendingRows: pendingRows || [],
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
@@ -330,6 +330,7 @@ app.get("/lootbox", async (req, res) => {
     const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
     const { data: globalSettings } = await supabase.from('settings').select('*').single();
     const pityMax = globalSettings ? (globalSettings.pity_max || 50) : 50;
+    const pityReward = globalSettings ? (globalSettings.pity_reward || 'ยังไม่กำหนด') : 'ยังไม่กำหนด';
 
     const { data: pendingRows } = await supabase
       .from('pending_topup')
@@ -449,7 +450,7 @@ app.get("/lootbox", async (req, res) => {
 
               .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 10px; font-weight: bold; color: #ffd700; }
               
-              .pity-box { background: rgba(255,107,129,0.1); border: 1px solid #ff4757; padding: 8px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: #ff6b81; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+              .pity-box { background: rgba(255,107,129,0.1); border: 1px solid #ff4757; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: #ff6b81; text-align: left; }
 
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
@@ -505,8 +506,11 @@ app.get("/lootbox", async (req, res) => {
               </div>
 
               <div class="pity-box">
-                  <span>🎯 ระบบการันตีเกลือออกไอดี:</span>
-                  <span><b id="pity-current">${pityCurrent}</b> / <span id="pity-max">${pityMax}</span> ครั้ง</span>
+                  <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:3px;">
+                      <span>🎯 ระบบการันตีเกลือ:</span>
+                      <span><b id="pity-current">${pityCurrent}</b> / <span id="pity-max">${pityMax}</span> ครั้ง</span>
+                  </div>
+                  <div style="font-size:11px; color:#ffd700;">🎁 รับไอดีการันตีเมื่อครบ: <span id="pity-reward-text">${pityReward}</span></div>
               </div>
 
               ${pendingWithdrawNotice}
@@ -634,6 +638,7 @@ app.get("/lootbox", async (req, res) => {
 
                       document.getElementById("pity-current").innerText = data.pityCurrent;
                       document.getElementById("pity-max").innerText = data.pityMax;
+                      document.getElementById("pity-reward-text").innerText = data.pityReward;
 
                       let pendingHtml = "";
                       if (data.pendingRows && data.pendingRows.length > 0) {
@@ -1062,39 +1067,35 @@ app.post("/open-lootbox", async (req, res) => {
         let reward = "";
         let handled = false;
 
-        // 1. เช็คระบบการันตี (Pity Trigger)
-        pityCounter += 1;
-        if (pityCounter >= pityMax) {
-            pityCounter = 0; // รีเซ็ตการันตี
-            if (pityRewardTitle) {
-                // ค้นหาไอดีที่ตรงกับการันตีในคลัง
-                const targetAcc = availableAccounts.find(acc => acc.title === pityRewardTitle && acc.status !== 'out_of_stock');
-                if (targetAcc) {
-                    reward = `🛡️ [${targetAcc.rarity}] ${targetAcc.title}`;
-                    // ทำเครื่องหมายว่าหมด
-                    await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', targetAcc.id);
-                    // ตัดออกจาก available ในรอบนี้
-                    availableAccounts = availableAccounts.filter(a => a.id !== targetAcc.id);
-                    handled = true;
-                }
+        // 1. เช็คระบบ 5 สเต็ปก่อน
+        for (let s = 0; s < steps.length; s++) {
+            if (steps[s].salt > 0) {
+                reward = "🧂 เกลือ";
+                steps[s].salt -= 1; 
+                pityCounter += 1; // นับเกลือสะสมการันตี
+                handled = true;
+                break;
+            } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
+                reward = `🛡️ ${steps[s].reward}`;
+                steps[s].reward = 'normal'; 
+                pityCounter = 0; // ได้รางวัล รีเซ็ตการันตี
+                handled = true;
+                break;
             }
         }
 
-        // 2. เช็คระบบ 5 สเต็ป
+        // 2. ถ้าไม่อยู่ใน 5 สเต็ป ให้เช็คระบบการันตีกลาง (Pity Trigger)
         if (!handled) {
-            for (let s = 0; s < steps.length; s++) {
-                if (steps[s].salt > 0) {
-                    reward = "🧂 เกลือ";
-                    steps[s].salt -= 1; 
-                    handled = true;
-                    break;
-                } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
-                    reward = `🛡️ ${steps[s].reward}`;
-                    steps[s].reward = 'normal'; 
-                    handled = true;
-                    // ถ้าหลุดรางวัลใหญ่ รีเซ็ตการันตีด้วย
-                    pityCounter = 0;
-                    break;
+            if (pityCounter >= pityMax) {
+                pityCounter = 0; // รีเซ็ตการันตี
+                if (pityRewardTitle) {
+                    const targetAcc = availableAccounts.find(acc => acc.title === pityRewardTitle && acc.status !== 'out_of_stock');
+                    if (targetAcc) {
+                        reward = `🛡️ [${targetAcc.rarity}] ${targetAcc.title}`;
+                        await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', targetAcc.id);
+                        availableAccounts = availableAccounts.filter(a => a.id !== targetAcc.id);
+                        handled = true;
+                    }
                 }
             }
         }
@@ -1124,6 +1125,7 @@ app.post("/open-lootbox", async (req, res) => {
                   .eq('id', wonAcc.id);
             } else {
                 reward = "🧂 เกลือ";
+                pityCounter += 1; // เกลือปกติ นับเพิ่มการันตี
             }
         }
 
@@ -1147,7 +1149,7 @@ app.post("/open-lootbox", async (req, res) => {
         pity_counter: parseInt(pityCounter) || 0,
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
@@ -1171,7 +1173,7 @@ app.post("/open-lootbox", async (req, res) => {
   }
 });
 
-// ------------------- ADMIN DASHBOARD (Batch Update / ปุ่มบันทึกทีเดียว) -------------------
+// ------------------- ADMIN DASHBOARD -------------------
 
 app.get("/admin", async (req, res) => {
   if (req.session.isAdmin) return renderAdminDashboard(req, res);
@@ -1246,7 +1248,6 @@ app.post("/admin/add-game-account", async (req, res) => {
   res.send(`<script>alert("เพิ่มรางวัล Line Rangers เข้าสู่คลังสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// บันทึกเรตและสถานะไอดีพร้อมกันทั้งตาราง
 app.post("/admin/update-all-game-accounts", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { ids, rates, statuses } = req.body;
@@ -1274,7 +1275,6 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบไอดีสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// บันทึกระบบการันตี (Pity Settings)
 app.post("/admin/update-pity-settings", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { pity_max, pity_reward } = req.body;
