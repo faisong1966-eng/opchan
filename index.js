@@ -467,10 +467,20 @@ app.get("/lootbox", async (req, res) => {
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
               .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #2c314f; margin: 20% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+              @keyframes shake {
+                  0% { transform: translate(1px, 1px) rotate(0deg); }
+                  20% { transform: translate(-3px, 0px) rotate(-1deg); }
+                  40% { transform: translate(1px, -1px) rotate(1deg); }
+                  60% { transform: translate(-3px, 1px) rotate(0deg); }
+                  80% { transform: translate(1px, -1px) rotate(1deg); }
+                  100% { transform: translate(0px, 0px) rotate(0deg); }
+              }
+              .screen-shake { animation: shake 0.5s; }
           </style>
       </head>
       <body>
-          <div class="main-wrapper">
+          <div class="main-wrapper" id="mainWrapper">
               
               <div class="banner-header">
                   <h2>🛡️ LINE RANGERS BOX</h2>
@@ -569,35 +579,81 @@ app.get("/lootbox", async (req, res) => {
               const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-              function playSadSound() {
-                  try {
-                      const osc = audioCtx.createOscillator();
-                      const gain = audioCtx.createGain();
-                      osc.type = 'sawtooth';
-                      osc.frequency.setValueAtTime(140, audioCtx.currentTime);
-                      osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
-                      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                      osc.connect(gain);
-                      gain.connect(audioCtx.destination);
-                      osc.start();
-                      osc.stop(audioCtx.currentTime + 0.5);
-                  } catch(e){}
-              }
 
-              function playWinSound() {
+              // ฟังก์ชันเสียงและเอฟเฟกต์แยกตามระดับความอลังการ
+              function playTierSound(highestRarity) {
                   try {
-                      const osc = audioCtx.createOscillator();
-                      const gain = audioCtx.createGain();
-                      osc.type = 'triangle';
-                      osc.frequency.setValueAtTime(523, audioCtx.currentTime);
-                      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
-                      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                      osc.connect(gain);
-                      gain.connect(audioCtx.destination);
-                      osc.start();
-                      osc.stop(audioCtx.currentTime + 0.5);
+                      if (!audioCtx) return;
+                      const now = audioCtx.currentTime;
+
+                      if (highestRarity === 'เทพมังกร') {
+                          // อลังการขั้นสุดยอด: เสียงรัวระเบิดตื่นเต้นถี่ๆ + คลื่นความถี่กังวาน
+                          for (let i = 0; i < 5; i++) {
+                              const osc = audioCtx.createOscillator();
+                              const gain = audioCtx.createGain();
+                              osc.type = 'sawtooth';
+                              osc.frequency.setValueAtTime(300 + (i * 150), now + (i * 0.1));
+                              gain.gain.setValueAtTime(0.4, now + (i * 0.1));
+                              gain.gain.exponentialRampToValueAtTime(0.01, now + (i * 0.1) + 0.3);
+                              osc.connect(gain);
+                              gain.connect(audioCtx.destination);
+                              osc.start(now + (i * 0.1));
+                              osc.stop(now + (i * 0.1) + 0.3);
+                          }
+                      } else if (highestRarity === 'SSR') {
+                          // ระดับ SSR: เสียงคอร์ดกังวาน 3 โน้ตแจ่มใส
+                          [523.25, 659.25, 783.99].forEach((freq, idx) => {
+                              const osc = audioCtx.createOscillator();
+                              const gain = audioCtx.createGain();
+                              osc.type = 'triangle';
+                              osc.frequency.setValueAtTime(freq, now + (idx * 0.12));
+                              gain.gain.setValueAtTime(0.35, now + (idx * 0.12));
+                              gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.12) + 0.4);
+                              osc.connect(gain);
+                              gain.connect(audioCtx.destination);
+                              osc.start(now + (idx * 0.12));
+                              osc.stop(now + (idx * 0.12) + 0.4);
+                          });
+                      } else if (highestRarity === 'SS+') {
+                          // ระดับ SS+: เสียงคู่โน้ตตื่นเต้น
+                          [440, 659.25].forEach((freq, idx) => {
+                              const osc = audioCtx.createOscillator();
+                              const gain = audioCtx.createGain();
+                              osc.type = 'sine';
+                              osc.frequency.setValueAtTime(freq, now + (idx * 0.1));
+                              gain.gain.setValueAtTime(0.3, now + (idx * 0.1));
+                              gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.1) + 0.3);
+                              osc.connect(gain);
+                              gain.connect(audioCtx.destination);
+                              osc.start(now + (idx * 0.1));
+                              osc.stop(now + (idx * 0.1) + 0.3);
+                          });
+                      } else if (highestRarity === 'S') {
+                          // ระดับ S: เสียงปี๊บกังวานสั้น
+                          const osc = audioCtx.createOscillator();
+                          const gain = audioCtx.createGain();
+                          osc.type = 'sine';
+                          osc.frequency.setValueAtTime(440, now);
+                          gain.gain.setValueAtTime(0.25, now);
+                          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                          osc.connect(gain);
+                          gain.connect(audioCtx.destination);
+                          osc.start(now);
+                          osc.stop(now + 0.3);
+                      } else {
+                          // เกลือ / Normal: เสียงต่ำหดหู่
+                          const osc = audioCtx.createOscillator();
+                          const gain = audioCtx.createGain();
+                          osc.type = 'sawtooth';
+                          osc.frequency.setValueAtTime(140, now);
+                          osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
+                          gain.gain.setValueAtTime(0.2, now);
+                          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                          osc.connect(gain);
+                          gain.connect(audioCtx.destination);
+                          osc.start(now);
+                          osc.stop(now + 0.4);
+                      }
                   } catch(e){}
               }
 
@@ -743,6 +799,11 @@ app.get("/lootbox", async (req, res) => {
 
                       if (!data.success) {
                           alert(data.message || "เกิดข้อผิดพลาดในการเปิดกล่อง");
+                          if (data.outOfStock) {
+                              hasAvailableStock = false;
+                              openBtn.disabled = true;
+                              openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
+                          }
                           return;
                       }
 
@@ -754,12 +815,19 @@ app.get("/lootbox", async (req, res) => {
                       let summaryListHtml = "";
                       let hasWin = false;
                       let winDetails = "";
+                      let highestRarityFound = 'Normal';
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
                           if (!rew.includes("เกลือ")) {
                               hasWin = true;
                               winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
+                              
+                              // จัดลำดับความอลังการสูงสุดที่สุ่มได้
+                              if (rew.includes("เทพมังกร")) highestRarityFound = 'เทพมังกร';
+                              else if (rew.includes("SSR") && highestRarityFound !== 'เทพมังกร') highestRarityFound = 'SSR';
+                              else if (rew.includes("SS+") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR') highestRarityFound = 'SS+';
+                              else if (rew.includes("S") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR' && highestRarityFound !== 'SS+') highestRarityFound = 'S';
                           }
                       }
 
@@ -769,17 +837,46 @@ app.get("/lootbox", async (req, res) => {
                       const modalCard = document.getElementById("modalCard");
                       const modalTitle = document.getElementById("modalTitle");
                       const modalBody = document.getElementById("modalBody");
+                      const mainWrapper = document.getElementById("mainWrapper");
+
+                      // เล่นเสียงและเอฟเฟกต์ตามระดับความอลังการ
+                      playTierSound(hasWin ? highestRarityFound : 'Normal');
 
                       if (hasWin) {
-                          playWinSound();
-                          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-                          modalCard.style.borderColor = "#ffd700";
-                          modalCard.style.boxShadow = "0 0 30px rgba(255,215,0,0.6)";
-                          modalTitle.style.color = "#ffd700";
-                          modalTitle.innerText = "🎉 ยินดีด้วย! แจ็คพอตแตก 🎉";
+                          // เอฟเฟกต์หน้าจอตามระดับความอลังการ
+                          if (highestRarityFound === 'เทพมังกร') {
+                              mainWrapper.classList.add('screen-shake');
+                              setTimeout(() => mainWrapper.classList.remove('screen-shake'), 500);
+                              confetti({ particleCount: 250, spread: 120, origin: { y: 0.6 } });
+                              setTimeout(() => confetti({ particleCount: 150, angle: 60, spread: 80, origin: { x: 0 } }), 300);
+                              setTimeout(() => confetti({ particleCount: 150, angle: 120, spread: 80, origin: { x: 1 } }), 600);
+                              
+                              modalCard.style.borderColor = "#ff4757";
+                              modalCard.style.boxShadow = "0 0 50px rgba(255,71,87,0.9)";
+                              modalTitle.style.color = "#ff4757";
+                              modalTitle.innerText = "🐲 แจ็คพอตระดับเทพมังกรสุดอลังการ! 🐲";
+                          } else if (highestRarityFound === 'SSR') {
+                              confetti({ particleCount: 180, spread: 100, origin: { y: 0.6 } });
+                              modalCard.style.borderColor = "#ffd700";
+                              modalCard.style.boxShadow = "0 0 40px rgba(255,215,0,0.8)";
+                              modalTitle.style.color = "#ffd700";
+                              modalTitle.innerText = "👑 ยินดีด้วย! ระดับ SSR ขั้นเทพ! 👑";
+                          } else if (highestRarityFound === 'SS+') {
+                              confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                              modalCard.style.borderColor = "#ffa502";
+                              modalCard.style.boxShadow = "0 0 30px rgba(255,165,2,0.7)";
+                              modalTitle.style.color = "#ffa502";
+                              modalTitle.innerText = "⚔️ ยินดีด้วย! ระดับ SS+ สุดยอด! ⚔️";
+                          } else {
+                              confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+                              modalCard.style.borderColor = "#70a1ff";
+                              modalCard.style.boxShadow = "0 0 25px rgba(112,161,255,0.6)";
+                              modalTitle.style.color = "#70a1ff";
+                              modalTitle.innerText = "🎉 ยินดีด้วย! คุณได้รับรางวัล! 🎉";
+                          }
+
                           modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
                       } else {
-                          playSadSound();
                           modalCard.style.borderColor = "#ff4757";
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
@@ -1004,7 +1101,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (แก้ไขจุดที่ 1 & 3: การันตีรีเซ็ตทั้งหมด + รูป/อิโมจิรางวัลตรงจริง) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบเช็คสต็อกหมดทั้งฝั่งผู้เล่นและแอดมิน) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1024,12 +1121,15 @@ app.post("/open-lootbox", async (req, res) => {
     if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
+    // ตรวจสอบสต็อกไอดีในคลังว่ามีเหลือพอเปิดหรือไม่
     let { data: availableAccounts } = await supabase
       .from('game_accounts')
       .select('*')
       .or('status.eq.available,status.is.null');
 
-    if (!availableAccounts) availableAccounts = [];
+    if (!availableAccounts || availableAccounts.length === 0) {
+      return res.json({ success: false, message: "ขออภัยครับ ไอดีในคลังหมดเกลี้ยงแล้ว กรุณารอแอดมินเติมของครับ!", outOfStock: true });
+    }
 
     let historyBatch = [];
     let summaryRewards = {};
@@ -1050,10 +1150,15 @@ app.post("/open-lootbox", async (req, res) => {
     const targetAccList = allTargetAccounts || [];
 
     for (let i = 0; i < selectedCount; i++) {
+        // เช็คสต็อกหน้าลูปย่อย หากของหมดกลางทางให้หยุดสุ่มทันที
+        if (!availableAccounts || availableAccounts.length === 0) {
+            break;
+        }
+
         let reward = "";
         let handled = false;
         let wonAccId = null; 
-        let isGuaranteeHit = false; // ตรวจสอบว่ารอบนี้ได้จากระบบการันตีหรือไม่
+        let isGuaranteeHit = false;
 
         // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
@@ -1065,19 +1170,22 @@ app.post("/open-lootbox", async (req, res) => {
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
                 let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
                 let matchedAcc = availableAccounts.find(a => a.title === cleanRewardName);
-                let exactRarity = matchedAcc ? matchedAcc.rarity : "Normal";
-                
-                // แก้ไขจุดที่ 3: กำหนดอิโมจิและรูปแบบให้ตรงกับคลังจริง (เหมือนหน้าจอ UI)
-                let iconSymbol = "🛡️";
-                if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
-                else if (exactRarity === "SSR") iconSymbol = "👑";
-                else if (exactRarity === "SS+") iconSymbol = "⚔️";
-                else if (exactRarity === "S") iconSymbol = "🔮";
+                if (matchedAcc && matchedAcc.status !== 'out_of_stock') {
+                    let exactRarity = matchedAcc.rarity;
+                    let iconSymbol = "🛡️";
+                    if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
+                    else if (exactRarity === "SSR") iconSymbol = "👑";
+                    else if (exactRarity === "SS+") iconSymbol = "⚔️";
+                    else if (exactRarity === "S") iconSymbol = "🔮";
 
-                reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
-                if (matchedAcc) {
+                    reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
                     wonAccId = matchedAcc.id;
                     isGuaranteeHit = true;
+
+                    await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', matchedAcc.id);
+                    availableAccounts = availableAccounts.filter(a => a.id !== matchedAcc.id);
+                } else {
+                    reward = "🧂 เกลือ";
                 }
 
                 steps[s].reward = 'normal'; 
@@ -1113,52 +1221,52 @@ app.post("/open-lootbox", async (req, res) => {
 
         // 3. สุ่มตาม % เรตปกติ
         if (!handled) {
-            const rand = Math.random() * 100;
-            let winningAccIndex = -1;
+            if (availableAccounts.length === 0) {
+                reward = "🧂 เกลือ";
+            } else {
+                const rand = Math.random() * 100;
+                let winningAccIndex = -1;
 
-            for (let aIndex = 0; aIndex < availableAccounts.length; aIndex++) {
-                const rate = parseFloat(availableAccounts[aIndex].rate) || 0;
-                if (rand < rate) {
-                    winningAccIndex = aIndex;
-                    break;
-                }
-            }
-
-            if (winningAccIndex !== -1) {
-                const wonNormalAcc = availableAccounts[winningAccIndex];
-                
-                let badgeColorIcon = "🛡️";
-                if (wonNormalAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                else if (wonNormalAcc.rarity === "SSR") badgeColorIcon = "👑";
-                else if (wonNormalAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                else if (wonNormalAcc.rarity === "S") badgeColorIcon = "🔮";
-
-                reward = `${badgeColorIcon} [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
-                wonAccId = wonNormalAcc.id;
-                
-                // ตรวจสอบว่าไอเทมที่สุ่มได้ตามเรตปกตินี้ มีการตั้งค่าระบบการันตีไว้ด้วยหรือไม่ ถ้ามี และแต้มถึงเป้าหมาย ให้ถือเป็นการตีแตกการันตีด้วยเช่นกัน
-                const matchedTargetConfig = targetAccList.find(t => t.id === wonNormalAcc.id);
-                if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
-                    const currentC = pityCounters[wonNormalAcc.id] || 0;
-                    if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
-                        isGuaranteeHit = true;
+                for (let aIndex = 0; aIndex < availableAccounts.length; aIndex++) {
+                    const rate = parseFloat(availableAccounts[aIndex].rate) || 0;
+                    if (rand < rate) {
+                        winningAccIndex = aIndex;
+                        break;
                     }
                 }
 
-                availableAccounts.splice(winningAccIndex, 1);
+                if (winningAccIndex !== -1) {
+                    const wonNormalAcc = availableAccounts[winningAccIndex];
+                    
+                    let badgeColorIcon = "🛡️";
+                    if (wonNormalAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                    else if (wonNormalAcc.rarity === "SSR") badgeColorIcon = "👑";
+                    else if (wonNormalAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                    else if (wonNormalAcc.rarity === "S") badgeColorIcon = "🔮";
 
-                await supabase
-                  .from('game_accounts')
-                  .update({ status: 'out_of_stock' })
-                  .eq('id', wonNormalAcc.id);
-            } else {
-                reward = "🧂 เกลือ";
+                    reward = `${badgeColorIcon} [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
+                    wonAccId = wonNormalAcc.id;
+                    
+                    const matchedTargetConfig = targetAccList.find(t => t.id === wonNormalAcc.id);
+                    if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
+                        const currentC = pityCounters[wonNormalAcc.id] || 0;
+                        if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
+                            isGuaranteeHit = true;
+                        }
+                    }
+
+                    availableAccounts.splice(winningAccIndex, 1);
+
+                    await supabase
+                      .from('game_accounts')
+                      .update({ status: 'out_of_stock' })
+                      .eq('id', wonNormalAcc.id);
+                } else {
+                    reward = "🧂 เกลือ";
+                }
             }
         }
 
-        // แก้ไขจุดที่ 1: เงื่อนไขการนับหรือรีเซ็ตแต้มการันตี
-        // หากผู้เล่นสุ่มได้ไอเทมการันตีตัวใดตัวหนึ่ง (isGuaranteeHit เป็น true) ให้รีเซ็ตแต้มการันตีของ "ทุกไอเทมทั้งหมด" เป็น 0 ทันที
-        // หากสุ่มได้ไอเทมอื่นที่ไม่ใช่การันตี (หรือได้เกลือ) ห้ามรีเซ็ต ให้สะสมบวกเพิ่มต่อไปเรื่อยๆ
         if (isGuaranteeHit) {
             targetAccList.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1170,7 +1278,6 @@ app.post("/open-lootbox", async (req, res) => {
             targetAccList.forEach(acc => {
                 const target = parseInt(acc.pity_target) || 0;
                 if (target > 0) {
-                    // เฉพาะไอเทมที่มีการตั้งค่าการันตี และรอบนี้ไม่ได้รางวัลนั้น ให้สะสมแต้มเพิ่มขึ้นเท่ากันหรือสะสมตามปกติ
                     if (wonAccId === acc.id) {
                         pityCounters[acc.id] = 0;
                     } else {
@@ -1191,8 +1298,9 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
-    const newPoints = user.points - selectedCount;
-    const newSpent = (user.total_spent || 0) + selectedCount;
+    const actualOpenedCount = historyBatch.length;
+    const newPoints = user.points - actualOpenedCount;
+    const newSpent = (user.total_spent || 0) + actualOpenedCount;
 
     await supabase.from('users').update({ 
         points: parseInt(newPoints) || 0, 
@@ -1205,9 +1313,8 @@ app.post("/open-lootbox", async (req, res) => {
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
 
-    const { error: histError } = await supabase.from('history').insert(historyBatch);
-    if (histError) {
-        console.error("History Insert Error:", histError);
+    if (historyBatch.length > 0) {
+        await supabase.from('history').insert(historyBatch);
     }
 
     return res.json({
@@ -1362,8 +1469,6 @@ app.post("/admin/delete-user", async (req, res) => {
   res.send(`<script>alert("ลบสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// ------------------- ADMIN DASHBOARD RENDER (แก้ไขจุดที่ 2: เพิ่มปุ่มกดดูประวัติ และซ่อนประวัติทั้งหมดไม่ให้รกหน้าจอ) -------------------
-
 async function renderAdminDashboard(req, res) {
   const { data: usersRows } = await supabase.from('users').select('*').order('id', { ascending: false });
   const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending');
@@ -1421,7 +1526,6 @@ async function renderAdminDashboard(req, res) {
         <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
         <td style="color:#ffd700; font-size:12px; text-align:left;">
            <b>รายการหลัก:</b> ${rewardsList} <br>
-           <!-- แก้ไขจุดที่ 2: เพิ่มปุ่มกดดูประวัติแบบซ่อนรายละเอียดไว้ ไม่ให้รกหน้าจอ -->
            <details style="margin-top:6px; background:rgba(0,0,0,0.2); padding:4px 8px; border-radius:4px; border:1px solid #444;">
                <summary style="color:#00d2d3; font-weight:bold; font-size:12px; cursor:pointer;">🔍 [ปุ่มกดดูประวัติ] แสดงประวัติการกดขอรับรางวัลทั้งหมด (${w.total_opens} ครั้ง)</summary>
                <ul style="padding-left:18px; margin:6px 0; font-size:11px; color:#a4b0be; max-height:120px; overflow-y:auto;">
