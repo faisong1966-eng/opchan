@@ -615,7 +615,6 @@ app.get("/lootbox", async (req, res) => {
                   .then(data => {
                       if (!data.success) return;
 
-                      // ป้องกันไม่ให้ค่ารีเซ็ตเป็น 0 ระหว่างโหลด ปรับเฉพาะเมื่อมีข้อมูลจริง
                       if (data.points !== undefined && userPoints !== data.points) {
                           userPoints = data.points;
                           document.getElementById("points").innerText = userPoints;
@@ -1011,7 +1010,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีแยกรายชิ้นอิสระ) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีสะสมรวมเมื่อได้ไอดีการันตี) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1056,7 +1055,7 @@ app.post("/open-lootbox", async (req, res) => {
     for (let i = 0; i < selectedCount; i++) {
         let reward = "";
         let handled = false;
-        let triggeredPityAccId = null;
+        let wonPityId = null; // เก็บ ID ไอดีที่ออกจากการันตีรอบนี้
 
         // 1. เช็คระบบ 5 สเต็ปก่อน
         for (let s = 0; s < steps.length; s++) {
@@ -1073,7 +1072,7 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 2. เช็คระบบการันตีรายชิ้นไอดี (ดูว่าชิ้นไหนแต้มเกลือสะสมถึงเป้าหมายบ้าง)
+        // 2. เช็คระบบการันตีรายชิ้น (แต้มถึงเป้าหมาย)
         if (!handled) {
             const pityTargetAcc = availableAccounts.find(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1083,7 +1082,7 @@ app.post("/open-lootbox", async (req, res) => {
 
             if (pityTargetAcc) {
                 reward = `🛡️ [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                triggeredPityAccId = pityTargetAcc.id; 
+                wonPityId = pityTargetAcc.id; 
                 
                 await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
                 availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
@@ -1119,17 +1118,28 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // อัปเดตแต้มสะสมเกลือเฉพาะชิ้นที่มีการตั้งค่าการันตีไว้เท่านั้น
-        availableAccounts.forEach(acc => {
+        // เช็คว่ารอบนี้ได้ไอดีที่มีการตั้งค่าการันตีไว้จริงๆ หรือไม่ (ไม่ว่าจะได้จากการันตีถึงแต้ม หรือสุ่มได้เองตามเรต)
+        const hitAnyPityItem = availableAccounts.some(acc => {
             const target = parseInt(acc.pity_target) || 0;
-            if (target > 0) {
-                if (triggeredPityAccId === acc.id || (wonNormalAcc && wonNormalAcc.id === acc.id)) {
-                    pityCounters[acc.id] = 0;
-                } else {
-                    pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1;
-                }
-            }
+            return target > 0 && (wonPityId === acc.id || (wonNormalAcc && wonNormalAcc.id === acc.id));
         });
+
+        // อัปเดตแต้มการันตี
+        // ตามกฎของคุณ: ถ้าได้ไอดีที่มีการันตีตัวใดตัวหนึ่ง จะรีเซ็ตแต้มทุกชิ้นเป็น 0 พร้อมกัน
+        // แต่ถ้าไม่ได้ (ได้เกลือหรือได้ไอดีธรรมดา) ทุกชิ้นที่มีเป้าหมายการันตีจะบวกแต้มสะสมเพิ่มขึ้นต่อเนื่อง
+        const allTargetAccounts = await supabase.from('game_accounts').select('id, pity_target');
+        if (allTargetAccounts.data) {
+            allTargetAccounts.data.forEach(acc => {
+                const target = parseInt(acc.pity_target) || 0;
+                if (target > 0) {
+                    if (hitAnyPityItem) {
+                        pityCounters[acc.id] = 0; // รีเซ็ตทุกชิ้นเป็น 0 เมื่อได้ไอดีที่มีการันตี
+                    } else {
+                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; // สะสมแต้มต่อเนื่องไปเรื่อยๆ
+                    }
+                }
+            });
+        }
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
 
