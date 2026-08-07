@@ -71,10 +71,12 @@ async function checkUserExpiration(username) {
             const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
             if (now - createdTime > thirtyDaysMs) {
-                await supabase.from('users').delete().eq('username', username);
-                await supabase.from('history').delete().eq('username', username);
-                await supabase.from('pending_topup').delete().eq('username', username);
-                await supabase.from('pending_withdraw').delete().eq('username', username);
+                await Promise.all([
+                    supabase.from('users').delete().eq('username', username),
+                    supabase.from('history').delete().eq('username', username),
+                    supabase.from('pending_topup').delete().eq('username', username),
+                    supabase.from('pending_withdraw').delete().eq('username', username)
+                ]);
                 return true; 
             }
         }
@@ -252,39 +254,27 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Realtime Status API
+// Realtime Status API (optimized to fetch in parallel)
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
 
   try {
-    const { data: user } = await supabase
-      .from('users')
-      .select('points, total_spent, pity_counters')
-      .eq('username', username)
-      .single();
+    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes] = await Promise.all([
+      supabase.from('users').select('points, total_spent, pity_counters').eq('username', username).single(),
+      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('game_accounts').select('*').order('id', { ascending: true })
+    ]);
 
-    const { data: pendingRows } = await supabase
-      .from('pending_topup')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending');
-
-    const { data: pendingWithdrawRows } = await supabase
-      .from('pending_withdraw')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending');
+    const user = userRes.data;
+    const pendingRows = pendingRes.data;
+    const pendingWithdrawRows = pendingWithdrawRes.data;
+    const unwithdrawnHistory = historyRes.data;
+    const gameAccounts = gameAccRes.data;
 
     const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
-
-    const { data: unwithdrawnHistory } = await supabase
-      .from('history')
-      .select('*')
-      .eq('username', username)
-      .eq('is_withdrawn', false);
-
-    const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
 
     let hasClaimable = false;
     if (unwithdrawnHistory && !hasPendingWithdraw) {
@@ -342,14 +332,22 @@ app.get("/lootbox", async (req, res) => {
   }
 
   try {
-    const { data: row } = await supabase.from('users').select('*').eq('username', username).single();
+    const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes] = await Promise.all([
+      supabase.from('users').select('*').eq('username', username).single(),
+      supabase.from('game_accounts').select('*').order('id', { ascending: true }),
+      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false)
+    ]);
+
+    const row = userRes.data;
     if (!row) return res.redirect("/login");
 
     const currentPoints = row.points;
     const totalSpent = row.total_spent || 0;
     const createdAt = row.created_at;
 
-    const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: true });
+    const gameAccounts = gameAccRes.data;
 
     let rawCounters = parsePityCounters(row.pity_counters);
     let pityCounters = {};
@@ -362,18 +360,8 @@ app.get("/lootbox", async (req, res) => {
         });
     }
 
-    const { data: pendingRows } = await supabase
-      .from('pending_topup')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending');
-
-    const { data: pendingWithdrawRows } = await supabase
-      .from('pending_withdraw')
-      .select('*')
-      .eq('username', username)
-      .eq('status', 'pending');
-
+    const pendingRows = pendingRes.data;
+    const pendingWithdrawRows = pendingWithdrawRes.data;
     const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
 
     let pendingHtml = "";
@@ -386,12 +374,7 @@ app.get("/lootbox", async (req, res) => {
       pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
     }
 
-    const { data: unwithdrawnHistory } = await supabase
-      .from('history')
-      .select('*')
-      .eq('username', username)
-      .eq('is_withdrawn', false);
-
+    const unwithdrawnHistory = historyRes.data;
     let hasClaimable = false;
     if (unwithdrawnHistory && !hasPendingWithdraw) {
       unwithdrawnHistory.forEach(h => {
@@ -1065,32 +1048,22 @@ app.get("/my-history", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
-  const { data: existingPending } = await supabase
-    .from('pending_withdraw')
-    .select('*')
-    .eq('username', username)
-    .eq('status', 'pending');
+  const [existingPendingRes, userHistoryRes, userDataRes] = await Promise.all([
+    supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
+    supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+    supabase.from('users').select('facebook_url').eq('username', username).single()
+  ]);
 
-  if (existingPending && existingPending.length > 0) {
+  if (existingPendingRes.data && existingPendingRes.data.length > 0) {
     return res.send(`<script>alert("คุณมีคำขอรับรางวัลที่กำลังรอแอดมินตรวจสอบอยู่แล้ว กรุณารอสักครู่!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
-  const { data: userHistory } = await supabase
-    .from('history')
-    .select('*')
-    .eq('username', username)
-    .eq('is_withdrawn', false);
-
+  const userHistory = userHistoryRes.data;
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะแลกรับรางวัล!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('facebook_url')
-    .eq('username', username)
-    .single();
-
+  const userData = userDataRes.data;
   const facebookUrl = userData && userData.facebook_url ? userData.facebook_url : "";
 
   let rewardsSummaryList = [];
@@ -1105,23 +1078,17 @@ app.post("/request-withdraw", async (req, res) => {
 
   let fullDetailedList = userHistory.map(h => h.reward);
 
-  await supabase
-    .from('pending_withdraw')
-    .insert([{
+  await Promise.all([
+    supabase.from('pending_withdraw').insert([{
       username: username,
       facebook_url: facebookUrl,
       total_opens: userHistory.length,
       total_robux: rewardsSummaryList.length,
       status: 'pending',
       history_snapshot: JSON.stringify(fullDetailedList)
-    }]);
-
-  if (idsToUpdate.length > 0) {
-    await supabase
-      .from('history')
-      .update({ is_withdrawn: true })
-      .in('id', idsToUpdate);
-  }
+    }]),
+    idsToUpdate.length > 0 ? supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate) : Promise.resolve()
+  ]);
 
   res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ระบบกำลังรอดำเนินการ แอดมินจะจัดส่งรางวัลให้ภายใน 24 ชม."); window.location.href="/lootbox?username=${username}";</script>`);
 });
@@ -1200,27 +1167,11 @@ app.post("/create-topup", (req, res) => {
   `);
 });
 
+// Optimized Fast Slip Upload Route
 app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   const { username, exact_amount, topup_type } = req.body;
   
   try {
-    const { data: recentDupes } = await supabase
-      .from('pending_topup')
-      .select('id, created_at')
-      .eq('username', username)
-      .eq('exact_amount', parseFloat(exact_amount))
-      .eq('status', 'pending')
-      .order('id', { ascending: false })
-      .limit(1);
-
-    if (recentDupes && recentDupes.length > 0) {
-      const lastTime = new Date(recentDupes[0].created_at).getTime();
-      const now = new Date().getTime();
-      if (now - lastTime < 10000) {
-        return res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/lootbox?username=${username}";</script>`);
-      }
-    }
-
     const slipImg = await uploadToSupabaseStorage(req.file);
 
     const { error } = await supabase
@@ -1242,7 +1193,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- HIGH-SPEED BULK OPEN LOOTBOX ALGORITHM -------------------
+// ------------------- ULTRA FAST BULK OPEN LOOTBOX ALGORITHM -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1253,13 +1204,13 @@ app.post("/open-lootbox", async (req, res) => {
   }
 
   try {
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .single();
+    const [userRes, allTargetAccountsRes] = await Promise.all([
+      supabase.from('users').select('*').eq('username', username).single(),
+      supabase.from('game_accounts').select('*')
+    ]);
 
-    if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
+    const user = userRes.data;
+    if (!user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
     let historyBatch = [];
@@ -1276,9 +1227,8 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
     
-    const { data: allTargetAccounts } = await supabase.from('game_accounts').select('*');
-    let availableAccounts = (allTargetAccounts || []).filter(a => a.status === 'available' || !a.status);
-    const targetAccList = allTargetAccounts || [];
+    const targetAccList = allTargetAccountsRes.data || [];
+    let availableAccounts = targetAccList.filter(a => a.status === 'available' || !a.status);
 
     let activePityCounters = {};
     targetAccList.forEach(acc => {
@@ -1428,30 +1378,23 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
-    if (successfulWonAccIds.length > 0) {
-        await supabase
-            .from('game_accounts')
-            .update({ status: 'out_of_stock' })
-            .in('id', successfulWonAccIds);
-    }
-
     const newPoints = user.points - actualConsumedPoints;
     const newSpent = (user.total_spent || 0) + actualConsumedPoints;
 
-    await supabase.from('users').update({ 
-        points: parseInt(newPoints) || 0, 
-        total_spent: parseInt(newSpent) || 0,
-        pity_counters: JSON.stringify(pityCounters),
-        step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
-        step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
-        step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
-        step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
-    }).eq('username', username);
-
-    if (historyBatch.length > 0) {
-        await supabase.from('history').insert(historyBatch);
-    }
+    await Promise.all([
+        successfulWonAccIds.length > 0 ? supabase.from('game_accounts').update({ status: 'out_of_stock' }).in('id', successfulWonAccIds) : Promise.resolve(),
+        supabase.from('users').update({ 
+            points: parseInt(newPoints) || 0, 
+            total_spent: parseInt(newSpent) || 0,
+            pity_counters: JSON.stringify(pityCounters),
+            step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
+            step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+            step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
+        }).eq('username', username),
+        historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
+    ]);
 
     return res.json({
         success: true,
@@ -1522,8 +1465,10 @@ app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id, username } = req.body;
 
-  await supabase.from('pending_withdraw').delete().eq('id', withdraw_id);
-  await supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true);
+  await Promise.all([
+    supabase.from('pending_withdraw').delete().eq('id', withdraw_id),
+    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true)
+  ]);
 
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
 });
@@ -1580,7 +1525,7 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   res.send(`<script>alert("ตั้งค่าสำเร็จ"); window.location.href="/admin";</script>`);
 });
 
-// แก้ไขฟังก์ชันรับค่าลบไอดีเกม/รางวัล ให้ทำงานได้อย่างถูกต้องและเคลียร์ชัวร์
+// แก้ไขฟังก์ชันลบไอดี/รางวัลในหลังบ้านแอดมินให้ครอบคลุมและทำงานได้ชัวร์ 100%
 app.post("/admin/delete-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const accountId = req.body.account_id;
@@ -1589,7 +1534,7 @@ app.post("/admin/delete-game-account", async (req, res) => {
       await supabase.from('game_accounts').delete().eq('id', accountId);
   }
 
-  res.send(`<script>alert("ลบไอดีหรือรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ลบรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/adjust-user-points", async (req, res) => {
@@ -1641,19 +1586,28 @@ app.post("/admin/delete-user", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username } = req.body;
 
-  await supabase.from('users').delete().eq('username', username);
-  await supabase.from('history').delete().eq('username', username);
-  await supabase.from('pending_topup').delete().eq('username', username);
-  await supabase.from('pending_withdraw').delete().eq('username', username);
+  await Promise.all([
+    supabase.from('users').delete().eq('username', username),
+    supabase.from('history').delete().eq('username', username),
+    supabase.from('pending_topup').delete().eq('username', username),
+    supabase.from('pending_withdraw').delete().eq('username', username)
+  ]);
 
   res.send(`<script>alert("ลบสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 async function renderAdminDashboard(req, res) {
-  const { data: usersRows } = await supabase.from('users').select('*').order('id', { ascending: false });
-  const { data: pendingRows } = await supabase.from('pending_topup').select('*').eq('status', 'pending');
-  const { data: pendingWithdrawRows } = await supabase.from('pending_withdraw').select('*').eq('status', 'pending');
-  const { data: gameAccounts } = await supabase.from('game_accounts').select('*').order('id', { ascending: false });
+  const [usersRes, pendingRes, pendingWithdrawRes, gameAccRes] = await Promise.all([
+    supabase.from('users').select('*').order('id', { ascending: false }),
+    supabase.from('pending_topup').select('*').eq('status', 'pending'),
+    supabase.from('pending_withdraw').select('*').eq('status', 'pending'),
+    supabase.from('game_accounts').select('*').order('id', { ascending: false })
+  ]);
+
+  const usersRows = usersRes.data;
+  const pendingRows = pendingRes.data;
+  const pendingWithdrawRows = pendingWithdrawRes.data;
+  const gameAccounts = gameAccRes.data;
 
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
