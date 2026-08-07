@@ -235,7 +235,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// API สำหรับดึงข้อมูลล่าสุดของผู้ใช้แบบ Real-time (ใช้ตรวจสอบแต้มและสถานะถอนอัตโนมัติ)
+// API สำหรับดึงข้อมูลล่าสุดของผู้ใช้แบบ Real-time แยกยอดรอถอนกับยอดปัจจุบันอย่างชัดเจน
 app.get("/api/user-status", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.json({ success: false });
@@ -262,13 +262,15 @@ app.get("/api/user-status", async (req, res) => {
 
     const { data: userHistoryRows } = await supabase
       .from('history')
-      .select('reward_num')
+      .select('reward_num, is_withdrawn')
       .eq('username', username);
 
     let totalEarnedRobux = 0;
     if (userHistoryRows) {
       userHistoryRows.forEach(h => {
-        totalEarnedRobux += (h.reward_num || 0);
+        if (!h.is_withdrawn) {
+          totalEarnedRobux += (h.reward_num || 0);
+        }
       });
     }
 
@@ -277,6 +279,7 @@ app.get("/api/user-status", async (req, res) => {
       points: user ? user.points : 0,
       total_spent: user ? user.total_spent : 0,
       hasPendingWithdraw: !!pendingWithdrawRow,
+      pendingWithdrawAmount: pendingWithdrawRow ? pendingWithdrawRow.total_robux : 0,
       pendingRows: pendingRows || [],
       totalEarnedRobux: totalEarnedRobux
     });
@@ -331,13 +334,15 @@ app.get("/lootbox", async (req, res) => {
 
     const { data: userHistoryRows } = await supabase
       .from('history')
-      .select('reward_num')
+      .select('reward_num, is_withdrawn')
       .eq('username', username);
 
     let totalEarnedRobux = 0;
     if (userHistoryRows) {
       userHistoryRows.forEach(h => {
-        totalEarnedRobux += (h.reward_num || 0);
+        if (!h.is_withdrawn) {
+          totalEarnedRobux += (h.reward_num || 0);
+        }
       });
     }
 
@@ -636,14 +641,13 @@ app.get("/lootbox", async (req, res) => {
               setInterval(updateCountdown, 1000);
               updateCountdown();
 
-              // ระบบ Real-time Polling อัปเดตแต้มและสถานะถอนอัตโนมัติทันทีที่แอดมินกดอนุมัติ
+              // ระบบ Real-time Polling แยกยอดรอถอนและยอดปัจจุบันออกจากกันอย่างอิสระ
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (!data.success) return;
 
-                      // อัปเดตแต้ม
                       if (userPoints !== data.points) {
                           userPoints = data.points;
                           document.getElementById("points").innerText = userPoints;
@@ -653,7 +657,6 @@ app.get("/lootbox", async (req, res) => {
                           document.getElementById("spent").innerText = userSpent;
                       }
 
-                      // อัปเดตรายการรอเติมเงิน
                       let pendingHtml = "";
                       if (data.pendingRows && data.pendingRows.length > 0) {
                           data.pendingRows.forEach(p => {
@@ -664,13 +667,12 @@ app.get("/lootbox", async (req, res) => {
                       }
                       document.getElementById("pending-list-container").innerHTML = pendingHtml;
 
-                      // อัปเดตสถานะการถอนทันทีโดยไม่ต้องรีหน้าใหม่
                       totalEarnedRobux = data.totalEarnedRobux;
                       const container = document.getElementById("dynamic-withdraw-container");
                       if (data.hasPendingWithdraw) {
                           container.innerHTML = \`
                             <div style="background:rgba(255,165,2,0.15); border:1px solid #ffa502; padding:10px; border-radius:6px; margin-top:15px; font-size:13px; color:#ffa502; text-align:center;">
-                                ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">\${totalEarnedRobux} Robux</b> (ยอดจะเข้าภายใน 24ชม. )
+                                ⏳ กำลังรอยอดถอน: <b style="color:#ffd700;" id="pending-robux-display">\${data.pendingWithdrawAmount} Robux</b> (ยอดจะเข้าภายใน 24ชม. )
                             </div>
                             <div style="margin-top:8px; background:rgba(46,213,115,0.15); border:1px solid #2ed573; padding:10px; border-radius:6px; font-size:13px; color:#2ed573; text-align:center;">
                                 💰 ยอดปัจจุบัน: <b style="color:#ffd700;" id="total-earned-robux">\${totalEarnedRobux} Robux</b>
@@ -948,14 +950,14 @@ app.post("/request-withdraw", async (req, res) => {
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
-    .eq('username', username);
+    .eq('username', username)
+    .eq('is_withdrawn', false);
 
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะถอน!"); window.location.href="/lootbox?username=${username}";</script>`);
   }
 
   let totalRobux = 0;
-  let totalOpens = userHistory.length;
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
   });
@@ -1008,7 +1010,8 @@ app.post("/confirm-withdraw", async (req, res) => {
   const { data: userHistory } = await supabase
     .from('history')
     .select('*')
-    .eq('username', username);
+    .eq('username', username)
+    .eq('is_withdrawn', false);
 
   if (!userHistory || userHistory.length === 0) {
     return res.send(`<script>alert("เกิดข้อผิดพลาด ไม่พบประวัติการสุ่ม!"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -1017,10 +1020,10 @@ app.post("/confirm-withdraw", async (req, res) => {
   let totalRobux = 0;
   let totalOpens = userHistory.length;
   let historyDataSnapshot = JSON.stringify(userHistory);
-  let idsToDelete = [];
+  let idsToUpdate = [];
   userHistory.forEach(h => {
     totalRobux += (h.reward_num || 0);
-    idsToDelete.push(h.id);
+    idsToUpdate.push(h.id);
   });
 
   const { data: userData } = await supabase
@@ -1053,11 +1056,11 @@ app.post("/confirm-withdraw", async (req, res) => {
       history_snapshot: historyDataSnapshot
     }]);
 
-  if (idsToDelete.length > 0) {
+  if (idsToUpdate.length > 0) {
     await supabase
       .from('history')
-      .delete()
-      .in('id', idsToDelete);
+      .update({ is_withdrawn: true })
+      .in('id', idsToUpdate);
   }
 
   res.send(`<script>alert("กดถอนแต้ม ${totalRobux} Robux สำเร็จแล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -1274,7 +1277,8 @@ app.post("/open-lootbox", async (req, res) => {
           username: username,
           roblox_img: user.roblox_img,
           reward: reward,
-          reward_num: rewardNum
+          reward_num: rewardNum,
+          is_withdrawn: false
       });
   }
 
@@ -1396,6 +1400,13 @@ app.post("/admin/approve-withdraw", async (req, res) => {
       .from('pending_withdraw')
       .delete()
       .eq('id', withdraw_id);
+
+    // ลบประวัติสุ่มชุดที่ถอนไปแล้วออกจากตาราง history ถาวรเมื่อแอดมินกดอนุมัติสำเร็จ
+    await supabase
+      .from('history')
+      .delete()
+      .eq('username', username)
+      .eq('is_withdrawn', true);
   }
 
   res.send(`<script>alert("อนุมัติการถอนของ ${username} เรียบร้อย!"); window.location.href="/admin";</script>`);
@@ -1405,10 +1416,25 @@ app.post("/admin/delete-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { withdraw_id } = req.body;
 
-  await supabase
+  const { data: withdrawData } = await supabase
     .from('pending_withdraw')
-    .delete()
-    .eq('id', withdraw_id);
+    .select('*')
+    .eq('id', withdraw_id)
+    .single();
+
+  if (withdrawData) {
+    // หากลบคำขอถอน ให้คืนสถานะ is_withdrawn เป็น false เพื่อให้แต้มกลับมารวมสะสมต่อได้
+    await supabase
+      .from('history')
+      .update({ is_withdrawn: false })
+      .eq('username', withdrawData.username)
+      .eq('is_withdrawn', true);
+
+    await supabase
+      .from('pending_withdraw')
+      .delete()
+      .eq('id', withdraw_id);
+  }
 
   res.send(`<script>alert("เคลียร์รายการถอนเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
@@ -1672,6 +1698,7 @@ async function renderAdminDashboard(req, res) {
               <select name="step2_reward" style="flex:1; font-size:10px; padding:2px;">${renderRewardOptions(u.step2_reward)}</select>
             </div>
             <div style="display:flex; gap:4px; align-items:center; margin-bottom:3px; font-size:10px;">
+              <span style="color:#00d2d3; width:35px;">สเต็ป 2:</span>
               <span style="color:#00d2d3; width:35px;">สเต็ป 3:</span>
               <input type="number" name="step3_salt" value="${u.step3_salt || 0}" min="0" style="width:35px; padding:2px; text-align:center;"> เกลือ
               <select name="step3_reward" style="flex:1; font-size:10px; padding:2px;">${renderRewardOptions(u.step3_reward)}</select>
