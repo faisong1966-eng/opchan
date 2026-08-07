@@ -1135,14 +1135,15 @@ app.post("/create-topup", (req, res) => {
             <input type="hidden" name="exact_amount" value="${exactAmount}">
             <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
             
-            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
+            <label style="font-size:13px; display:block; margin-bottom:5px;">📤 เลือกรูปสลิปโอนเงิน (แนะนำรูปขนาดเล็กเพื่อความเร็ว):</label>
             <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
             
-            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px;">ส่งสลิปให้แอดมินตรวจสอบ</button>
+            <button type="submit" id="submit-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบทันที</button>
         </form>
 
-        <div id="loading-text" style="display:none; text-align:center; margin-top:10px; color:#ffd700; font-size:13px; font-weight:bold;">
-            ⏳ กำลังอัปโหลดสลิปและบันทึกข้อมูล กรุณารอ...
+        <div id="loading-box" style="display:none; text-align:center; margin-top:15px; background:rgba(0,0,0,0.4); padding:12px; border-radius:6px;">
+            <div style="color:#ffd700; font-size:14px; font-weight:bold;">🚀 กำลังส่งสลิปและบันทึกข้อมูล...</div>
+            <div style="color:#a4b0be; font-size:11px; margin-top:3px;">กรุณารอสักครู่ ระบบกำลังอัปโหลดไปยังคลังข้อมูล</div>
         </div>
 
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
@@ -1154,10 +1155,10 @@ app.post("/create-topup", (req, res) => {
             isSubmitting = true;
             
             const btn = document.getElementById('submit-btn');
-            const loading = document.getElementById('loading-text');
+            const loading = document.getElementById('loading-box');
             btn.disabled = true;
             btn.style.background = '#555';
-            btn.innerText = 'กำลังส่งข้อมูล...';
+            btn.innerText = '⏳ กำลังส่งข้อมูล...';
             loading.style.display = 'block';
             return true;
         }
@@ -1503,7 +1504,7 @@ app.post("/admin/delete-game-account", async (req, res) => {
   res.send(`<script>alert("ลบรางวัลออกจากคลังเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-// บันทึกการแก้ไขเรต/สถานะทั้งหมด
+// บันทึกการแก้ไขเรต/สถานะทั้งหมด (รองรับกรณีเหลือรางวัลชิ้นเดียวหรือหมดเกลี้ยง)
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   
@@ -1511,25 +1512,29 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
 
   if (ids) {
       const idArray = Array.isArray(ids) ? ids : [ids];
+      const rateArray = Array.isArray(rates) ? rates : [rates];
+      const pityArray = Array.isArray(pity_targets) ? pity_targets : [pity_targets];
+      const imageArray = Array.isArray(old_image_urls) ? old_image_urls : [old_image_urls];
+      const statusArray = Array.isArray(statuses) ? statuses : [statuses];
       
       const processPromises = idArray.map(async (accId, i) => {
-          const newRate = Array.isArray(rates) ? parseFloat(rates[i]) : parseFloat(rates);
-          const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
-          const oldImage = Array.isArray(old_image_urls) ? old_image_urls[i] : old_image_urls;
-          const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
+          const newRate = parseFloat(rateArray[i]) || 0;
+          const newPity = parseInt(pityArray[i]) || 0;
+          const oldImage = imageArray[i] || '';
+          const newStatus = statusArray[i] || 'available';
 
-          let finalImageUrl = oldImage || '';
-          const uploadedFile = req.files.find(f => f.fieldname === `image_file_${accId}`);
+          let finalImageUrl = oldImage;
+          const uploadedFile = req.files ? req.files.find(f => f.fieldname === `image_file_${accId}`) : null;
           if (uploadedFile) {
               const newUploadedUrl = await uploadToSupabaseStorage(uploadedFile);
               if (newUploadedUrl) finalImageUrl = newUploadedUrl;
           }
 
           return supabase.from('game_accounts').update({
-              rate: isNaN(newRate) ? 0 : newRate,
-              pity_target: isNaN(newPity) ? 0 : newPity,
+              rate: newRate,
+              pity_target: newPity,
               image_url: finalImageUrl,
-              status: newStatus || 'available'
+              status: newStatus
           }).eq('id', accId);
       });
 
@@ -1718,7 +1723,7 @@ async function renderAdminDashboard(req, res) {
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;" id="no-game-acc-row">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
+    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;" id="no-game-acc-row">ยังไม่มีไอดี Line Rangers ในคลัง (เหลือ 0 รายการ)</td></tr>`;
   }
 
   function renderRewardOptions(currentVal) {
