@@ -397,6 +397,7 @@ app.get("/lootbox", async (req, res) => {
 
         let pityInfoHtml = "";
         const targetVal = parseInt(acc.pity_target) || 0;
+        // แสดงผลการันตีเฉพาะเมื่อมีการตั้งค่าเป้าหมายมากกว่า 0 เท่านั้น (ถ้าปิดไว้จะไม่แสดงแต้มค้าง)
         if (targetVal > 0) {
             const currentPity = pityCounters[acc.id] || 0;
             pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${currentPity}/${targetVal} เกลือ</div>`;
@@ -580,14 +581,12 @@ app.get("/lootbox", async (req, res) => {
 
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-              // ฟังก์ชันเสียงและเอฟเฟกต์แยกตามระดับความอลังการ
               function playTierSound(highestRarity) {
                   try {
                       if (!audioCtx) return;
                       const now = audioCtx.currentTime;
 
                       if (highestRarity === 'เทพมังกร') {
-                          // อลังการขั้นสุดยอด: เสียงรัวระเบิดตื่นเต้นถี่ๆ + คลื่นความถี่กังวาน
                           for (let i = 0; i < 5; i++) {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -601,7 +600,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (i * 0.1) + 0.3);
                           }
                       } else if (highestRarity === 'SSR') {
-                          // ระดับ SSR: เสียงคอร์ดกังวาน 3 โน้ตแจ่มใส
                           [523.25, 659.25, 783.99].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -615,7 +613,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (idx * 0.12) + 0.4);
                           });
                       } else if (highestRarity === 'SS+') {
-                          // ระดับ SS+: เสียงคู่โน้ตตื่นเต้น
                           [440, 659.25].forEach((freq, idx) => {
                               const osc = audioCtx.createOscillator();
                               const gain = audioCtx.createGain();
@@ -629,7 +626,6 @@ app.get("/lootbox", async (req, res) => {
                               osc.stop(now + (idx * 0.1) + 0.3);
                           });
                       } else if (highestRarity === 'S') {
-                          // ระดับ S: เสียงปี๊บกังวานสั้น
                           const osc = audioCtx.createOscillator();
                           const gain = audioCtx.createGain();
                           osc.type = 'sine';
@@ -641,7 +637,6 @@ app.get("/lootbox", async (req, res) => {
                           osc.start(now);
                           osc.stop(now + 0.3);
                       } else {
-                          // เกลือ / Normal: เสียงต่ำหดหู่
                           const osc = audioCtx.createOscillator();
                           const gain = audioCtx.createGain();
                           osc.type = 'sawtooth';
@@ -725,6 +720,7 @@ app.get("/lootbox", async (req, res) => {
 
                               let pityInfoHtml = "";
                               const targetVal = parseInt(acc.pity_target) || 0;
+                              // แสดงผลการันตีเฉพาะเมื่อมีการตั้งค่าเป้าหมายมากกว่า 0 เท่านั้น
                               if (targetVal > 0) {
                                   const currentPity = (data.pityCounters && data.pityCounters[acc.id]) || 0;
                                   pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${currentPity}/\${targetVal} เกลือ</div>\`;
@@ -823,7 +819,6 @@ app.get("/lootbox", async (req, res) => {
                               hasWin = true;
                               winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
                               
-                              // จัดลำดับความอลังการสูงสุดที่สุ่มได้
                               if (rew.includes("เทพมังกร")) highestRarityFound = 'เทพมังกร';
                               else if (rew.includes("SSR") && highestRarityFound !== 'เทพมังกร') highestRarityFound = 'SSR';
                               else if (rew.includes("SS+") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR') highestRarityFound = 'SS+';
@@ -839,11 +834,9 @@ app.get("/lootbox", async (req, res) => {
                       const modalBody = document.getElementById("modalBody");
                       const mainWrapper = document.getElementById("mainWrapper");
 
-                      // เล่นเสียงและเอฟเฟกต์ตามระดับความอลังการ
                       playTierSound(hasWin ? highestRarityFound : 'Normal');
 
                       if (hasWin) {
-                          // เอฟเฟกต์หน้าจอตามระดับความอลังการ
                           if (highestRarityFound === 'เทพมังกร') {
                               mainWrapper.classList.add('screen-shake');
                               setTimeout(() => mainWrapper.classList.remove('screen-shake'), 500);
@@ -1101,7 +1094,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบเช็คสต็อกหมดทั้งฝั่งผู้เล่นและแอดมิน) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (อัปเดตระบบเช็คเฉพาะไอเทมที่เปิดการันตี > 0 เท่านั้น) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1121,7 +1114,6 @@ app.post("/open-lootbox", async (req, res) => {
     if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
-    // ตรวจสอบสต็อกไอดีในคลังว่ามีเหลือพอเปิดหรือไม่
     let { data: availableAccounts } = await supabase
       .from('game_accounts')
       .select('*')
@@ -1150,7 +1142,6 @@ app.post("/open-lootbox", async (req, res) => {
     const targetAccList = allTargetAccounts || [];
 
     for (let i = 0; i < selectedCount; i++) {
-        // เช็คสต็อกหน้าลูปย่อย หากของหมดกลางทางให้หยุดสุ่มทันที
         if (!availableAccounts || availableAccounts.length === 0) {
             break;
         }
@@ -1194,7 +1185,7 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // 2. เช็คระบบการันตีรายชิ้น (แต้มถึงเป้าหมาย)
+        // 2. เช็คระบบการันตีรายชิ้น (เฉพาะชิ้นที่ตั้งค่า target > 0 เท่านั้น)
         if (!handled) {
             const pityTargetAcc = availableAccounts.find(acc => {
                 const target = parseInt(acc.pity_target) || 0;
@@ -1266,6 +1257,14 @@ app.post("/open-lootbox", async (req, res) => {
                 }
             }
         }
+
+        // อัปเดตและเคลียร์แต้มการันตีเฉพาะไอเทมที่เปิดใช้งาน (target > 0) หากปิดไว้ (target = 0) จะไม่เก็บแต้มและล้างทิ้งทันที
+        targetAccList.forEach(acc => {
+            const target = parseInt(acc.pity_target) || 0;
+            if (target <= 0) {
+                delete pityCounters[acc.id]; // ลบแต้มค้างทิ้งทันทีถ้าไม่ได้เปิดใช้งานการันตี
+            }
+        });
 
         if (isGuaranteeHit) {
             targetAccList.forEach(acc => {
@@ -1418,6 +1417,7 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
           const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
           const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
 
+          // เมื่อมีการเปลี่ยนค่า pity_target เป็น 0 หรือเปลี่ยนค่าใหม่ ให้ระบบเคลียร์และเริ่มนับ 0 ใหม่ทันที
           await supabase.from('game_accounts').update({
               rate: isNaN(newRate) ? 0 : newRate,
               pity_target: isNaN(newPity) ? 0 : newPity,
