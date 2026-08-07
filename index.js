@@ -615,11 +615,12 @@ app.get("/lootbox", async (req, res) => {
                   .then(data => {
                       if (!data.success) return;
 
-                      if (userPoints !== data.points) {
+                      // ป้องกันไม่ให้ค่ารีเซ็ตเป็น 0 ระหว่างโหลด ปรับเฉพาะเมื่อมีข้อมูลจริง
+                      if (data.points !== undefined && userPoints !== data.points) {
                           userPoints = data.points;
                           document.getElementById("points").innerText = userPoints;
                       }
-                      if (userSpent !== data.total_spent) {
+                      if (data.total_spent !== undefined && userSpent !== data.total_spent) {
                           userSpent = data.total_spent;
                           document.getElementById("spent").innerText = userSpent;
                       }
@@ -1082,7 +1083,7 @@ app.post("/open-lootbox", async (req, res) => {
 
             if (pityTargetAcc) {
                 reward = `🛡️ [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                triggeredPityAccId = pityTargetAcc.id; // บันทึกว่าชิ้นนี้ได้การันตี ต้องรีเซ็ตเฉพาะชิ้นนี้เป็น 0
+                triggeredPityAccId = pityTargetAcc.id; 
                 
                 await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
                 availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
@@ -1118,15 +1119,13 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // อัปเดตแต้มสะสมเกลือเฉพาะชิ้นที่มีการตั้งค่าการันตีไว้เท่านั้น (ไม่กระทบชิ้นอื่น)
+        // อัปเดตแต้มสะสมเกลือเฉพาะชิ้นที่มีการตั้งค่าการันตีไว้เท่านั้น
         availableAccounts.forEach(acc => {
             const target = parseInt(acc.pity_target) || 0;
             if (target > 0) {
-                // ถ้าสุ่มรอบนี้ได้ไอดีชิ้นนี้พอดี ให้รีเซ็ตแต้มเกลือของชิ้นนี้เป็น 0
                 if (triggeredPityAccId === acc.id || (wonNormalAcc && wonNormalAcc.id === acc.id)) {
                     pityCounters[acc.id] = 0;
                 } else {
-                    // ถ้าไม่ได้ชิ้นนี้ ให้บวกสะสมเกลือเพิ่ม 1 โดยไม่ไปรีเซ็ตค่าของมัน
                     pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1;
                 }
             }
@@ -1152,7 +1151,7 @@ app.post("/open-lootbox", async (req, res) => {
         pity_counters: pityCounters,
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
