@@ -999,7 +999,6 @@ app.get("/my-history", async (req, res) => {
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
-  // เช็คว่ามีคำขอที่ค้างอยู่ระดับ pending หรือไม่ ป้องกันการกดซ้ำ
   const { data: existingPending } = await supabase
     .from('pending_withdraw')
     .select('*')
@@ -1495,7 +1494,8 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
       console.error("Clear Pity Error:", e);
   }
 
-  res.send(`<script>alert("บันทึกเรต คลังไอดี และรีเซ็ตแต้มการันตีเริ่มนับ 0 ใหม่ทั้งหมดเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+  // ปรับแก้ข้อความแจ้งเตือนให้สั้นกระชับเหลือเพียง "ตั้งค่าสำเร็จ" ตามต้องการ
+  res.send(`<script>alert("ตั้งค่าสำเร็จ"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-game-account", async (req, res) => {
