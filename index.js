@@ -94,7 +94,153 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- FRONTEND ROUTES (ULTRA GLOWING & SPARKLE DESIGN) -------------------
+// ------------------- SHARED CSS STYLES FOR SCI-FI SPACE THEME -------------------
+const sciFiGlobalCSS = `
+    * { box-sizing: border-box; }
+    body { 
+        background: radial-gradient(circle at 50% 30%, #291157 0%, #10062b 50%, #05020d 100%);
+        color: #ffffff; 
+        text-align: center; 
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'Kanit', sans-serif;
+        overflow-x: hidden;
+        position: relative;
+    }
+    /* Space background lighting effects */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: 
+            radial-gradient(circle at 20% 20%, rgba(138, 43, 226, 0.25) 0%, transparent 40%),
+            radial-gradient(circle at 80% 30%, rgba(0, 210, 211, 0.2) 0%, transparent 40%),
+            radial-gradient(circle at 50% 80%, rgba(255, 71, 87, 0.15) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    .top-lang-bar {
+        position: absolute;
+        top: 15px; right: 20px;
+        display: flex; gap: 10px; align-items: center;
+        z-index: 10;
+        font-size: 13px;
+    }
+    .lang-badge {
+        background: rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: flex; align-items: center; gap: 6px;
+        backdrop-filter: blur(5px);
+    }
+    .audio-btn {
+        background: rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.2);
+        width: 35px; height: 35px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; color: #fff; backdrop-filter: blur(5px);
+    }
+    .main-title-container {
+        position: relative;
+        padding-top: 25px;
+        z-index: 2;
+    }
+    .game-logo-badge {
+        background: linear-gradient(90deg, #ffd700, #ff8c00);
+        color: #000;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 3px 15px;
+        border-radius: 12px;
+        display: inline-block;
+        margin-bottom: 5px;
+        box-shadow: 0 0 15px rgba(255,215,0,0.6);
+        letter-spacing: 1px;
+    }
+    h1.main-title {
+        font-size: 38px;
+        font-weight: 900;
+        line-height: 1.1;
+        margin: 0;
+        background: linear-gradient(180deg, #ffffff 30%, #00ff87 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 30px rgba(0, 255, 135, 0.5);
+        letter-spacing: 2px;
+    }
+    .sub-title-box {
+        font-size: 13px;
+        color: #00d2d3;
+        margin-top: 8px;
+        font-weight: 600;
+        text-shadow: 0 0 10px rgba(0,210,211,0.6);
+    }
+    /* Sci-Fi Container Box with Neon Border */
+    .scifi-box {
+        background: rgba(13, 15, 30, 0.88);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 2px solid #00d2d3;
+        border-radius: 24px;
+        box-shadow: 0 0 40px rgba(0, 210, 211, 0.3), inset 0 0 20px rgba(0, 210, 211, 0.1);
+        position: relative;
+        z-index: 3;
+        margin: 20px auto;
+        padding: 25px;
+        width: 92%;
+        max-width: 440px;
+    }
+    .scifi-box::before {
+        content: '';
+        position: absolute;
+        top: -6px; left: -6px; right: -6px; bottom: -6px;
+        border: 1px solid rgba(255, 0, 127, 0.5);
+        border-radius: 28px;
+        pointer-events: none;
+    }
+    /* Feature highlights bottom row */
+    .feature-row {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 25px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        z-index: 3;
+        position: relative;
+        max-width: 440px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .feature-item {
+        text-align: center;
+        flex: 1;
+        padding: 0 5px;
+    }
+    .feature-icon {
+        width: 36px; height: 36px;
+        background: rgba(0, 210, 211, 0.15);
+        border: 1px solid #00d2d3;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 6px auto;
+        font-size: 16px;
+        box-shadow: 0 0 10px rgba(0,210,211,0.4);
+    }
+    .feature-title { font-size: 11px; font-weight: bold; color: #fff; margin: 0; }
+    .feature-desc { font-size: 9px; color: #a4b0be; margin: 2px 0 0 0; }
+    
+    .footer-copy {
+        font-size: 10px;
+        color: #718093;
+        margin: 20px 0 15px 0;
+        z-index: 3;
+        position: relative;
+        letter-spacing: 0.5px;
+    }
+`;
+
+// ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -103,183 +249,90 @@ app.get("/", (req, res) => {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <title>🛡️ Line Rangers LootBox - หน้าแรก</title>
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
+        <title>🛡️ LINE RANGERS BOX - หน้าแรก</title>
+        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; }
-            body { 
-                background: linear-gradient(135deg, #070514, #1a103c, #0b132b);
-                background-size: 400% 400%;
-                animation: gradientBG 15s ease infinite;
-                color: #ffffff; 
-                text-align: center; 
-                margin: 0;
-                min-height: 100vh;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                font-family: 'Kanit', sans-serif; 
-                overflow: hidden;
-                position: relative;
-            }
-            @keyframes gradientBG {
-                0% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
-            }
-            /* Glowing background ambient lights */
-            .ambient-glow-1 {
-                position: absolute;
-                width: 350px;
-                height: 350px;
-                background: rgba(0, 255, 135, 0.15);
-                top: 10%;
-                left: 15%;
-                border-radius: 50%;
-                filter: blur(80px);
-                z-index: 1;
-                animation: pulseGlow 6s ease-in-out infinite alternate;
-            }
-            .ambient-glow-2 {
-                position: absolute;
-                width: 400px;
-                height: 400px;
-                background: rgba(255, 0, 127, 0.15);
-                bottom: 10%;
-                right: 15%;
-                border-radius: 50%;
-                filter: blur(90px);
-                z-index: 1;
-                animation: pulseGlow 8s ease-in-out infinite alternate;
-            }
-            @keyframes pulseGlow {
-                0% { transform: scale(1); opacity: 0.6; }
-                100% { transform: scale(1.25); opacity: 1; }
-            }
-            /* Sparkles & Stars Effect */
-            .sparkles {
-                position: absolute;
+            ${sciFiGlobalCSS}
+            .btn-scifi {
+                display: block;
                 width: 100%;
-                height: 100%;
-                top: 0; left: 0;
-                background-image: 
-                    radial-gradient(2px 2px at 40px 60px, #ffffff, rgba(0,0,0,0)),
-                    radial-gradient(2px 2px at 120px 180px, #ffd700, rgba(0,0,0,0)),
-                    radial-gradient(3px 3px at 250px 90px, #00ff87, rgba(0,0,0,0)),
-                    radial-gradient(2px 2px at 380px 240px, #00d2d3, rgba(0,0,0,0)),
-                    radial-gradient(2px 2px at 500px 150px, #ff4757, rgba(0,0,0,0)),
-                    radial-gradient(3px 3px at 650px 320px, #ffffff, rgba(0,0,0,0)),
-                    radial-gradient(2px 2px at 780px 80px, #ffd700, rgba(0,0,0,0)),
-                    radial-gradient(2px 2px at 900px 380px, #00ff87, rgba(0,0,0,0));
-                background-repeat: repeat;
-                background-size: 1000px 500px;
-                opacity: 0.6;
-                z-index: 1;
-                animation: sparkleMove 20s linear infinite;
-            }
-            @keyframes sparkleMove {
-                from { transform: translateY(0) translateX(0); }
-                to { transform: translateY(-250px) translateX(-100px); }
-            }
-            .container { 
-                background: rgba(18, 20, 32, 0.82); 
-                backdrop-filter: blur(25px);
-                -webkit-backdrop-filter: blur(25px);
-                padding: 45px 35px; 
-                border-radius: 28px; 
-                display: inline-block; 
-                box-shadow: 0 0 50px rgba(0, 255, 135, 0.25), 0 25px 60px rgba(0,0,0,0.9); 
-                width: 430px; 
-                border: 2px solid rgba(0, 255, 135, 0.4);
-                position: relative;
-                z-index: 2;
-                animation: floatBox 4s ease-in-out infinite;
-            }
-            @keyframes floatBox {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-8px); }
-            }
-            .container::before {
-                content: '';
-                position: absolute;
-                top: -3px; left: -3px; right: -3px; bottom: -3px;
-                background: linear-gradient(45deg, #00ff87, #00d2d3, #ff007f, #ffd700);
-                border-radius: 30px;
-                z-index: -1;
-                opacity: 0.7;
-                animation: borderGlow 6s linear infinite;
-                background-size: 400% 400%;
-            }
-            @keyframes borderGlow {
-                0% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
-            }
-            h1 { 
-                color: #00ff87; 
-                font-size: 30px;
+                padding: 14px;
+                margin: 15px 0;
+                border-radius: 12px;
+                font-size: 16px;
                 font-weight: 800;
-                margin-bottom: 12px;
-                text-shadow: 0 0 20px rgba(0, 255, 135, 0.8), 0 0 40px rgba(0, 255, 135, 0.4);
-            }
-            p {
-                color: #dcdde1;
-                font-size: 14px;
-                margin-bottom: 30px;
-                line-height: 1.6;
-                text-shadow: 0 0 10px rgba(0,0,0,0.5);
-            }
-            .btn-glow { 
-                display: block; 
-                background: linear-gradient(135deg, #00b09b, #96c93d); 
-                color: white; 
-                padding: 15px; 
-                margin: 16px 0; 
-                border-radius: 14px; 
-                text-decoration: none; 
-                font-weight: bold; 
-                font-size: 16px; 
-                box-shadow: 0 6px 20px rgba(0, 176, 155, 0.4);
+                text-decoration: none;
+                font-family: 'Kanit', sans-serif;
                 transition: all 0.3s ease;
-                position: relative;
-                overflow: hidden;
+                cursor: pointer;
             }
-            .btn-glow::after {
-                content: '';
-                position: absolute;
-                top: -50%; left: -50%; width: 200%; height: 200%;
-                background: linear-gradient(rgba(255,255,255,0.2), transparent);
-                transform: rotate(45deg) translateY(-100%);
-                transition: transform 0.5s ease;
+            .btn-login {
+                background: linear-gradient(135deg, #2ed573, #17b978);
+                color: #000;
+                box-shadow: 0 4px 20px rgba(46, 213, 115, 0.5);
+                border: 1px solid #7efff5;
             }
-            .btn-glow:hover::after {
-                transform: rotate(45deg) translateY(100%);
+            .btn-login:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 25px rgba(46, 213, 115, 0.8);
+                filter: brightness(1.1);
             }
-            .btn-glow:hover { 
-                transform: translateY(-3px);
-                box-shadow: 0 10px 30px rgba(0, 255, 135, 0.7);
-                filter: brightness(1.15);
-            }
-            .btn-reg { 
-                background: linear-gradient(135deg, #3a7bd5, #00d2d3); 
-                box-shadow: 0 6px 20px rgba(58, 123, 213, 0.4);
+            .btn-reg {
+                background: linear-gradient(135deg, #1e90ff, #3742fa);
+                color: #fff;
+                box-shadow: 0 4px 20px rgba(30, 144, 255, 0.5);
+                border: 1px solid #70a1ff;
             }
             .btn-reg:hover {
-                box-shadow: 0 10px 30px rgba(0, 210, 211, 0.7);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 25px rgba(30, 144, 255, 0.8);
+                filter: brightness(1.1);
             }
         </style>
     </head>
     <body>
-        <div class="ambient-glow-1"></div>
-        <div class="ambient-glow-2"></div>
-        <div class="sparkles"></div>
-        
-        <div class="container">
-            <h1>🛡️ LINE RANGERS BOX</h1>
-            <p>✨ เว็บสุ่มไอดีเกม Line Rangers ลุ้นไอดีสุดเทพ เรตแตกง่าย การันตีแน่นๆ! ✨</p>
-            <a href="/login" class="btn-glow">🔑 เข้าสู่ระบบ</a>
-            <a href="/register" class="btn-glow btn-reg">📝 สมัครสมาชิก</a>
+        <div class="top-lang-bar">
+            <div class="audio-btn">🔊</div>
+            <div class="lang-badge">🌐 ไทย ∨</div>
         </div>
+
+        <div class="main-title-container">
+            <div class="game-logo-badge">LINE RANGERS</div>
+            <h1 class="main-title">LINE<br>RANGERS<br><span style="font-size: 20px; letter-spacing: 6px; color: #00d2d3;">--- B O X ---</span></h1>
+            <div class="sub-title-box">✨ ศูนย์รวมพลังฮีโร่ ปกป้องโลกและพิชิตทุกภารกิจ! ✨</div>
+        </div>
+
+        <div class="scifi-box">
+            <div style="color: #00ff87; font-weight: bold; font-size: 14px; margin-bottom: 15px;">
+                🛡️ LINE RANGERS BOX
+            </div>
+            <div style="font-size: 12px; color: #a4b0be; margin-bottom: 20px;">
+                ✦ เข้าสู่ระบบเพื่อเริ่มต้นการผจญภัยสุดเร้าใจ ✦
+            </div>
+
+            <a href="/login" class="btn-scifi btn-login">🔑 เข้าสู่ระบบ</a>
+            <a href="/register" class="btn-scifi btn-reg">📝 สมัครสมาชิก</a>
+        </div>
+
+        <div class="feature-row">
+            <div class="feature-item">
+                <div class="feature-icon">🛡️</div>
+                <div class="feature-title">ปลอดภัย 100%</div>
+                <div class="feature-desc">มั่นใจในความปลอดภัย<br>ข้อมูลถูกเข้ารหัส</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">รวดเร็วทันใจ</div>
+                <div class="feature-desc">เข้าสู่ระบบง่าย<br>เพียงไม่กี่วินาที</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⭐</div>
+                <div class="feature-title">สิทธิพิเศษมากมาย</div>
+                <div class="feature-desc">รับของรางวัลพิเศษ<br>สำหรับสมาชิก</div>
+            </div>
+        </div>
+
+        <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
     </body>
     </html>
   `);
@@ -294,19 +347,19 @@ app.get("/register", (req, res) => {
         <title>สมัครสมาชิก</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 30px; font-family: 'Kanit', sans-serif; }
-            .container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 360px; text-align: left; border: 1px solid #25283c; }
-            h2 { color: #00b900; text-align: center; margin-top:0; }
-            label { display: block; margin-top: 10px; font-size: 14px; }
-            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
-            button { width: 100%; background-color: #00b900; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:'Kanit'; }
+            ${sciFiGlobalCSS}
+            .container { background: #13151f; padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #00d2d3; margin-top:20px; box-shadow:0 0 25px rgba(0,210,211,0.3); }
+            h2 { color: #00ff87; text-align: center; margin-top:0; font-size: 20px; }
+            label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
+            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
+            button { width: 100%; background: linear-gradient(135deg, #2ed573, #17b978); color: #000; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: 800; cursor: pointer; font-family:'Kanit'; font-size:15px; }
             a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
-            <p style="font-size:12px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
+            <p style="font-size:11px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
             <form action="/register" method="POST">
                 <label>Username (สำหรับเข้าเว็บ):</label>
                 <input type="text" name="username" placeholder="ตั้งชื่อผู้ใช้งาน" required>
@@ -314,11 +367,12 @@ app.get("/register", (req, res) => {
                 <input type="password" name="password" placeholder="ตั้งรหัสผ่าน" required>
                 <label>ลิงก์ Facebook ส่วนตัวของคุณ:</label>
                 <input type="url" name="facebook_url" placeholder="https://www.facebook.com/your.profile" required>
-                <span style="font-size:11px; color:#a4b0be; display:block; margin-top:3px;">*คัดลอกลิงก์โปรไฟล์เฟซบุ๊กมาวางไว้ เพื่อให้แอดมินทักไปส่งรางวัล</span>
+                <span style="font-size:10px; color:#a4b0be; display:block; margin-top:3px;">*คัดลอกลิงก์โปรไฟล์เฟซบุ๊กมาวางไว้ เพื่อให้แอดมินทักไปส่งรางวัล</span>
                 <button type="submit">ยืนยันการสมัคร</button>
             </form>
             <a href="/">กลับหน้าแรก</a>
         </div>
+        <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
     </body>
     </html>
   `);
@@ -363,12 +417,12 @@ app.get("/login", (req, res) => {
         <title>เข้าสู่ระบบ</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { background-color: #0b0c10; color: #ffffff; text-align: center; padding-top: 50px; font-family:'Kanit'; }
-            .container { background: #13151f; padding: 30px; border-radius: 10px; display: inline-block; width: 350px; text-align: left; border: 1px solid #25283c; }
-            h2 { color: #ffd700; text-align: center; margin-top:0; }
-            label { display: block; margin-top: 10px; font-size: 14px; }
-            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
-            button { width: 100%; background-color: #ff4757; color: white; padding: 12px; border: none; border-radius: 5px; margin-top: 20px; font-weight: bold; cursor: pointer; font-family:'Kanit'; }
+            ${sciFiGlobalCSS}
+            .container { background: #13151f; padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; box-shadow:0 0 25px rgba(0,210,211,0.3); }
+            h2 { color: #ffd700; text-align: center; margin-top:0; font-size:20px; }
+            label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
+            input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b1e2e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
+            button { width: 100%; background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: 800; cursor: pointer; font-family:'Kanit'; font-size:15px; }
             a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size:13px; }
         </style>
     </head>
@@ -384,6 +438,7 @@ app.get("/login", (req, res) => {
             </form>
             <a href="/">กลับหน้าแรก</a>
         </div>
+        <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
     </body>
     </html>
   `);
@@ -479,7 +534,7 @@ app.get("/api/user-status", async (req, res) => {
   }
 });
 
-// ------------------- MAIN LOOTBOX PAGE -------------------
+// ------------------- MAIN LOOTBOX PAGE (SCI-FI STYLE MATCHING REFERENCE) -------------------
 
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
@@ -620,20 +675,15 @@ app.get("/lootbox", async (req, res) => {
       <html lang="th">
       <head>
           <meta charset="UTF-8">
-          <title>สุ่มกล่องไอดี Line Rangers</title>
-          <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
+          <title>🛡️ LINE RANGERS BOX - สุ่มไอดี</title>
+          <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
           <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
           <style>
-              body { background-color: #0b0c10; color: #ffffff; text-align: center; margin: 0; padding: 15px 0; font-family: 'Kanit', sans-serif; }
-              .main-wrapper { max-width: 460px; margin: 0 auto; background: #13151f; border-radius: 16px; border: 1px solid #25283c; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; padding: 20px; box-sizing: border-box; }
-              
-              .banner-header h2 { color: #ffd700; font-size: 20px; margin: 5px 0 0 0; text-shadow: 0 0 10px rgba(255,215,0,0.4); }
-              .banner-header p { color: #00d2d3; font-size: 13px; margin: 3px 0 0 0; font-weight: bold; }
+              ${sciFiGlobalCSS}
+              .user-bar { background: #1b1e2e; border: 1px solid #00d2d3; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+              .btn-history { background: #00d2d3; color: #000; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
 
-              .user-bar { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-              .btn-history { background: #00d2d3; color: #000; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; }
-
-              .wallet-box { background: #1b1e2e; border: 1px solid #2a2e45; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 10px; font-weight: bold; color: #ffd700; }
+              .wallet-box { background: #1b1e2e; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 10px; font-weight: bold; color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.2); }
               
               #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
@@ -659,7 +709,7 @@ app.get("/lootbox", async (req, res) => {
               .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; font-family:'Kanit'; }
               
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
-              .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #2c314f; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
+              .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #00d2d3; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,210,211,0.5); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
               @keyframes shake {
@@ -674,12 +724,21 @@ app.get("/lootbox", async (req, res) => {
           </style>
       </head>
       <body>
-          <div class="main-wrapper" id="mainWrapper">
-              
-              <div class="banner-header">
-                  <h2>🛡️ LINE RANGERS BOX</h2>
-                  <p>✨ สุ่มไอดีเกมสุดเทพ ลุ้นรางวัลใหญ่! ✨</p>
-              </div>
+          <div class="top-lang-bar">
+              <div class="audio-btn">🔊</div>
+              <div class="lang-badge">🌐 ไทย ∨</div>
+          </div>
+
+          <div class="main-title-container">
+              <div class="game-logo-badge">LINE RANGERS</div>
+              <h1 class="main-title" style="font-size: 32px;">LINE RANGERS</h1>
+              <div style="font-size: 18px; font-weight: 900; letter-spacing: 5px; color: #00d2d3; text-shadow: 0 0 10px rgba(0,210,211,0.6);">--- B O X ---</div>
+              <div class="sub-title-box">✦ ศูนย์รวมพลังฮีโร่ ปกป้องโลกและพิชิตทุกภารกิจ! ✦</div>
+          </div>
+
+          <div class="scifi-box">
+              <div style="font-size: 16px; color: #00ff87; font-weight: 800; margin-bottom: 5px;">🛡️ LINE RANGERS BOX</div>
+              <div style="font-size: 11px; color: #00d2d3; margin-bottom: 15px;">✨ สุ่มไอเทมมูลค่าแพง ลุ้นรางวัลใหญ่! ✨</div>
 
               <div class="user-bar">
                   <div style="text-align: left; font-size: 12px;">
@@ -754,6 +813,26 @@ app.get("/lootbox", async (req, res) => {
 
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
+
+          <div class="feature-row">
+              <div class="feature-item">
+                  <div class="feature-icon">🛡️</div>
+                  <div class="feature-title">ปลอดภัย 100%</div>
+                  <div class="feature-desc">มั่นใจในความปลอดภัย<br>ข้อมูลถูกเข้ารหัส</div>
+              </div>
+              <div class="feature-item">
+                  <div class="feature-icon">⚡</div>
+                  <div class="feature-title">รวดเร็วทันใจ</div>
+                  <div class="feature-desc">เข้าสู่ระบบง่าย<br>เพียงไม่กี่วินาที</div>
+              </div>
+              <div class="feature-item">
+                  <div class="feature-icon">⭐</div>
+                  <div class="feature-title">สิทธิพิเศษมากมาย</div>
+                  <div class="feature-desc">รับของรางวัลพิเศษ<br>สำหรับสมาชิก</div>
+              </div>
+          </div>
+
+          <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
 
           <!-- Popup Result Modal -->
           <div id="resultModal" class="modal">
@@ -1190,8 +1269,8 @@ app.get("/my-history", async (req, res) => {
         <title>ประวัติการสุ่มของฉัน</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { background-color: #1e1e2f; color: #ffffff; text-align: center; padding-top: 40px; font-family:'Kanit'; }
-            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+            ${sciFiGlobalCSS}
+            .container { background: #2b2b40; padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #00d2d3; margin-top:30px; }
             table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
             th { padding: 10px; background: #3d3d5c; color: #ffd700; }
             a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
@@ -1206,6 +1285,7 @@ app.get("/my-history", async (req, res) => {
             </table>
             <a href="/lootbox?username=${username}">⬅️ กลับหน้าสุ่มกล่อง</a>
         </div>
+        <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
     </body>
     </html>
   `);
@@ -1286,11 +1366,11 @@ app.post("/create-topup", (req, res) => {
   res.send(`
     <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${titleText}</title>
     <style>
-        body { background: #1e1e2f; color: #fff; text-align: center; padding-top: 30px; font-family:'Kanit'; }
-        .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; }
+        ${sciFiGlobalCSS}
+        .box { background: #2b2b40; padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #00d2d3; margin-top:30px; }
     </style></head>
     <body><div class="box">
-        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center;">${titleText}</h2>
+        <h2 style="color:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; text-align:center; font-size:18px;">${titleText}</h2>
         ${infoHtml}
         
         <h2 style="color:#ffd700; text-align:center; margin:5px 0;">${exactAmount} บาท</h2>
@@ -1314,6 +1394,7 @@ app.post("/create-topup", (req, res) => {
 
         <a href="/lootbox?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าสุ่มกล่อง</a>
     </div>
+    <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
     <script>
         let isUploading = false;
         function handleUpload(form) {
