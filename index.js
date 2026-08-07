@@ -627,7 +627,6 @@ app.get("/lootbox", async (req, res) => {
                       }
                       document.getElementById("pending-list-container").innerHTML = pendingHtml;
 
-                      // อัปเดตปุ่มขอรับรางวัลแบบ Realtime โดยไม่ต้องรีเฟรชหน้าเว็บ
                       if (data.hasClaimable) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <form action="/request-withdraw" method="POST" style="margin-top:10px;">
@@ -1005,7 +1004,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีแยกรายชิ้นอิสระสมบูรณ์แบบ) -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (ระบบการันตีรายชิ้นอิสระสมบูรณ์แบบ & ไอคอนตรงกัน) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1047,7 +1046,6 @@ app.post("/open-lootbox", async (req, res) => {
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
 
-    // โหลดข้อมูลการันตีทั้งหมดล่วงหน้าเพื่อความเร็วสูงสุด
     const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, pity_target');
     const targetAccList = allTargetAccounts || [];
 
@@ -1064,7 +1062,12 @@ app.post("/open-lootbox", async (req, res) => {
                 handled = true;
                 break;
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
-                reward = `🛡️ ${steps[s].reward}`;
+                let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
+                let matchedAcc = availableAccounts.find(a => a.title === cleanRewardName);
+                let exactRarity = matchedAcc ? matchedAcc.rarity : "Normal";
+                reward = `🛡️ [${exactRarity}] ${cleanRewardName}`;
+                if (matchedAcc) wonAccId = matchedAcc.id;
+
                 steps[s].reward = 'normal'; 
                 handled = true;
                 break;
@@ -1117,16 +1120,13 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        // อัปเดตแต้มการันตีตามกฎที่กำหนด:
-        // - ถ้าสุ่มได้ไอเทมชิ้นใด ชิ้นนั้นจะถูกรีเซ็ตแต้มการันตีเป็น 0 เฉพาะตัวมันเอง
-        // - ส่วนไอเทมชิ้นอื่นที่มีระบบการันตีแต่ไม่ได้ชิ้นนั้น จะสะสมแต้มบวกเพิ่มต่อเนื่องไปเรื่อยๆ
         targetAccList.forEach(acc => {
             const target = parseInt(acc.pity_target) || 0;
             if (target > 0) {
                 if (wonAccId === acc.id) {
-                    pityCounters[acc.id] = 0; // รีเซ็ตเฉพาะชิ้นที่ได้
+                    pityCounters[acc.id] = 0; 
                 } else {
-                    pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; // ชิ้นอื่นบวกสะสมต่อเนื่อง
+                    pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
                 }
             }
         });
@@ -1151,7 +1151,7 @@ app.post("/open-lootbox", async (req, res) => {
         pity_counters: JSON.stringify(pityCounters),
         step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
         step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+        step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
         step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
         step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
     }).eq('username', username);
