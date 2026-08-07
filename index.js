@@ -447,12 +447,18 @@ app.get("/lootbox", async (req, res) => {
             pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${currentPity}/${targetVal} เกลือ</div>`;
         }
 
+        let imageBtnHtml = "";
+        if (acc.image_url && acc.image_url.trim() !== "") {
+            imageBtnHtml = `<button type="button" onclick="openImageModal('${encodeURIComponent(acc.image_url)}', '${encodeURIComponent(acc.title)}')" style="margin-top:4px; background:#1f6beb; color:#fff; border:none; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer; font-family:'Kanit';">🖼️ ดูรูปภาพ</button>`;
+        }
+
         showcaseCardsHtml += `
           <div class="reward-card" style="${cardStyle}">
               <div style="font-size:22px; text-shadow: 0 0 8px ${badgeColor};">${iconSymbol}</div>
               <div class="r-name" style="color:${isOutOfStock ? '#ff4757' : badgeColor}">${acc.title}</div>
               ${stockStatusHtml}
               ${pityInfoHtml}
+              ${imageBtnHtml}
           </div>
         `;
       });
@@ -510,7 +516,7 @@ app.get("/lootbox", async (req, res) => {
               .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; font-family:'Kanit'; }
               
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
-              .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #2c314f; margin: 20% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
+              .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #2c314f; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
               @keyframes shake {
@@ -615,6 +621,15 @@ app.get("/lootbox", async (req, res) => {
               </div>
           </div>
 
+          <!-- Image Viewer Modal -->
+          <div id="imageModal" class="modal">
+              <div class="modal-content" style="max-width: 400px; padding: 20px;">
+                  <h3 id="imageModalTitle" style="color:#ffd700; margin-top:0; font-size:15px;">รูปภาพรางวัล</h3>
+                  <div id="imageContainer" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+                  <button onclick="closeImageModal()" style="background:#ff4757; color:#fff; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ปิด</button>
+              </div>
+          </div>
+
           <script>
               let userPoints = ${currentPoints};
               let userSpent = ${totalSpent};
@@ -694,6 +709,24 @@ app.get("/lootbox", async (req, res) => {
                           osc.stop(now + 0.4);
                       }
                   } catch(e){}
+              }
+
+              function openImageModal(urlEncoded, titleEncoded) {
+                  const urlStr = decodeURIComponent(urlEncoded);
+                  const titleStr = decodeURIComponent(titleEncoded);
+                  document.getElementById("imageModalTitle").innerText = "🖼️ " + titleStr;
+                  
+                  const urls = urlStr.split(',').map(u => u.trim()).filter(u => u !== '');
+                  let html = "";
+                  urls.forEach(u => {
+                      html += \`<img src="\${u}" style="width:100%; border-radius:6px; margin-bottom:8px; object-fit:contain;" onerror="this.onerror=null;this.src='https://placehold.co/300x200?text=Invalid+Image';">\`;
+                  });
+                  document.getElementById("imageContainer").innerHTML = html;
+                  document.getElementById("imageModal").style.display = "block";
+              }
+
+              function closeImageModal() {
+                  document.getElementById("imageModal").style.display = "none";
               }
 
               setInterval(() => {
@@ -776,12 +809,18 @@ app.get("/lootbox", async (req, res) => {
                                   pityInfoHtml = \`<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี \${currentPity}/\${targetVal} เกลือ</div>\`;
                               }
 
+                              let imageBtnHtml = "";
+                              if (acc.image_url && acc.image_url.trim() !== "") {
+                                  imageBtnHtml = \`<button type="button" onclick="openImageModal('\${encodeURIComponent(acc.image_url)}', '\${encodeURIComponent(acc.title)}')" style="margin-top:4px; background:#1f6beb; color:#fff; border:none; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer; font-family:'Kanit';">🖼️ ดูรูปภาพ</button>\`;
+                              }
+
                               showcaseHtml += \`
                                 <div class="reward-card" style="\${cardStyle}">
                                     <div style="font-size:22px; text-shadow: 0 0 8px \${badgeColor};">\${iconSymbol}</div>
                                     <div class="r-name" style="color:\${isOutOfStock ? '#ff4757' : badgeColor}">\${acc.title}</div>
                                     \${stockStatusHtml}
                                     \${pityInfoHtml}
+                                    \${imageBtnHtml}
                                 </div>
                               \`;
                           });
@@ -876,7 +915,12 @@ app.get("/lootbox", async (req, res) => {
                           }
                       }
 
-                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
+                      let clashNoticeHtml = "";
+                      if (data.clashDetected) {
+                          clashNoticeHtml = \`<div style="color:#ffa502; font-size:12px; margin-bottom:8px; background:rgba(255,165,2,0.1); padding:6px; border-radius:4px;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลบางรายการไปแล้ว ระบบได้ทำการคืนแต้มส่วนต่างให้คุณแล้วครับ</div>\`;
+                      }
+
+                      resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>\`;
 
                       const modalCard = document.getElementById("modalCard");
@@ -918,13 +962,13 @@ app.get("/lootbox", async (req, res) => {
                               modalTitle.innerText = "🎉 ยินดีด้วย! คุณได้รับรางวัล! 🎉";
                           }
 
-                          modalBody.innerHTML = \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
+                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`คุณสุ่มได้ไอดี Line Rangers!<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">อย่าลืมกดปุ่ม "ขอรับรางวัล" ที่หน้าเว็บนะครับ</span>\`;
                       } else {
                           modalCard.style.borderColor = "#ff4757";
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
+                          modalBody.innerHTML = (data.clashDetected ? '<b style="color:#ffa502;">⚠️ มีผู้ใช้คนอื่นสุ่มรางวัลนี้ไปแล้ว (ระบบคืนแต้มส่วนต่างให้แล้ว)</b><br><br>' : '') + \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ลองเติมเงินแล้วกดสุ่มใหม่อีกครั้ง!\`;
                       }
 
                       document.getElementById("resultModal").style.display = "block";
@@ -1154,7 +1198,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ALGORITHM กล่องสุ่ม -------------------
+// ------------------- ALGORITHM กล่องสุ่ม (พร้อมระบบป้องกันแย่งของและคืนแต้มส่วนต่าง) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1174,18 +1218,8 @@ app.post("/open-lootbox", async (req, res) => {
     if (userError || !user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
     if (user.points < selectedCount) return res.json({ success: false, message: "แต้มของคุณไม่พอใช้งาน!" });
 
-    let { data: availableAccounts } = await supabase
-      .from('game_accounts')
-      .select('*')
-      .or('status.eq.available,status.is.null');
-
-    if (!availableAccounts || availableAccounts.length === 0) {
-      return res.json({ success: false, message: "ขออภัยครับ ไอดีในคลังหมดเกลี้ยงแล้ว กรุณารอแอดมินเติมของครับ!", outOfStock: true });
-    }
-
     let historyBatch = [];
     let summaryRewards = {};
-
     let pityCounters = parsePityCounters(user.pity_counters);
 
     let steps = [
@@ -1197,7 +1231,6 @@ app.post("/open-lootbox", async (req, res) => {
     ];
 
     const safeFacebookUrl = (user && user.facebook_url) ? user.facebook_url : '';
-
     const { data: allTargetAccounts } = await supabase.from('game_accounts').select('id, rarity, title, pity_target');
     const targetAccList = allTargetAccounts || [];
 
@@ -1210,11 +1243,22 @@ app.post("/open-lootbox", async (req, res) => {
     });
     pityCounters = activePityCounters;
 
+    let clashDetected = false;
+    let actualConsumedPoints = 0;
+
     for (let i = 0; i < selectedCount; i++) {
+        // ดึงรายการไอดีที่ยังว่างอยู่แบบเรียลไทม์ในแต่ละรอบการสุ่ม เพื่อป้องกันการแย่งกัน
+        let { data: availableAccounts } = await supabase
+          .from('game_accounts')
+          .select('*')
+          .or('status.eq.available,status.is.null');
+
         if (!availableAccounts || availableAccounts.length === 0) {
+            // ถ้าของหมดเกลี้ยงระหว่างทาง หยุดลูปแล้วคิดแต้มเฉพาะจำนวนที่สุ่มไปแล้ว
             break;
         }
 
+        actualConsumedPoints += 1;
         let reward = "";
         let handled = false;
         let wonAccId = null; 
@@ -1230,21 +1274,33 @@ app.post("/open-lootbox", async (req, res) => {
                 let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
                 let matchedAcc = availableAccounts.find(a => a.title === cleanRewardName);
                 if (matchedAcc && matchedAcc.status !== 'out_of_stock') {
-                    let exactRarity = matchedAcc.rarity;
-                    let iconSymbol = "🛡️";
-                    if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
-                    else if (exactRarity === "SSR") iconSymbol = "👑";
-                    else if (exactRarity === "SS+") iconSymbol = "⚔️";
-                    else if (exactRarity === "S") iconSymbol = "🔮";
+                    // ใช้ Atomic Update เพื่อจองสิทธิ์แย่งไอดีชิ้นนี้
+                    const { data: updateCheck, error: updateErr } = await supabase
+                        .from('game_accounts')
+                        .update({ status: 'out_of_stock' })
+                        .eq('id', matchedAcc.id)
+                        .eq('status', 'available')
+                        .select();
 
-                    reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
-                    wonAccId = matchedAcc.id;
-                    isGuaranteeHit = true;
+                    if (!updateErr && updateCheck && updateCheck.length > 0) {
+                        let exactRarity = matchedAcc.rarity;
+                        let iconSymbol = "🛡️";
+                        if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
+                        else if (exactRarity === "SSR") iconSymbol = "👑";
+                        else if (exactRarity === "SS+") iconSymbol = "⚔️";
+                        else if (exactRarity === "S") iconSymbol = "🔮";
 
-                    await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', matchedAcc.id);
-                    availableAccounts = availableAccounts.filter(a => a.id !== matchedAcc.id);
+                        reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
+                        wonAccId = matchedAcc.id;
+                        isGuaranteeHit = true;
+                    } else {
+                        // ถ้าโดนคนอื่นแย่งไปเสี้ยววิเดียวกัน ให้ตีเป็นเกลือและแจ้งเตือนชนกัน
+                        reward = "🧂 เกลือ";
+                        clashDetected = true;
+                    }
                 } else {
                     reward = "🧂 เกลือ";
+                    if (steps[s].reward !== 'normal') clashDetected = true;
                 }
 
                 steps[s].reward = 'normal'; 
@@ -1261,18 +1317,27 @@ app.post("/open-lootbox", async (req, res) => {
             });
 
             if (pityTargetAcc) {
-                let badgeColorIcon = "🛡️";
-                if (pityTargetAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                else if (pityTargetAcc.rarity === "SSR") badgeColorIcon = "👑";
-                else if (pityTargetAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                else if (pityTargetAcc.rarity === "S") badgeColorIcon = "🔮";
+                const { data: updateCheck, error: updateErr } = await supabase
+                    .from('game_accounts')
+                    .update({ status: 'out_of_stock' })
+                    .eq('id', pityTargetAcc.id)
+                    .eq('status', 'available')
+                    .select();
 
-                reward = `${badgeColorIcon} [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
-                wonAccId = pityTargetAcc.id; 
-                isGuaranteeHit = true;
-                
-                await supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', pityTargetAcc.id);
-                availableAccounts = availableAccounts.filter(a => a.id !== pityTargetAcc.id);
+                if (!updateErr && updateCheck && updateCheck.length > 0) {
+                    let badgeColorIcon = "🛡️";
+                    if (pityTargetAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                    else if (pityTargetAcc.rarity === "SSR") badgeColorIcon = "👑";
+                    else if (pityTargetAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                    else if (pityTargetAcc.rarity === "S") badgeColorIcon = "🔮";
+
+                    reward = `${badgeColorIcon} [${pityTargetAcc.rarity}] ${pityTargetAcc.title}`;
+                    wonAccId = pityTargetAcc.id; 
+                    isGuaranteeHit = true;
+                } else {
+                    reward = "🧂 เกลือ";
+                    clashDetected = true;
+                }
                 handled = true;
             }
         }
@@ -1295,29 +1360,34 @@ app.post("/open-lootbox", async (req, res) => {
                 if (winningAccIndex !== -1) {
                     const wonNormalAcc = availableAccounts[winningAccIndex];
                     
-                    let badgeColorIcon = "🛡️";
-                    if (wonNormalAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                    else if (wonNormalAcc.rarity === "SSR") badgeColorIcon = "👑";
-                    else if (wonNormalAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                    else if (wonNormalAcc.rarity === "S") badgeColorIcon = "🔮";
+                    const { data: updateCheck, error: updateErr } = await supabase
+                        .from('game_accounts')
+                        .update({ status: 'out_of_stock' })
+                        .eq('id', wonNormalAcc.id)
+                        .eq('status', 'available')
+                        .select();
 
-                    reward = `${badgeColorIcon} [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
-                    wonAccId = wonNormalAcc.id;
-                    
-                    const matchedTargetConfig = targetAccList.find(t => t.id === wonNormalAcc.id);
-                    if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
-                        const currentC = pityCounters[wonNormalAcc.id] || 0;
-                        if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
-                            isGuaranteeHit = true;
+                    if (!updateErr && updateCheck && updateCheck.length > 0) {
+                        let badgeColorIcon = "🛡️";
+                        if (wonNormalAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                        else if (wonNormalAcc.rarity === "SSR") badgeColorIcon = "👑";
+                        else if (wonNormalAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                        else if (wonNormalAcc.rarity === "S") badgeColorIcon = "🔮";
+
+                        reward = `${badgeColorIcon} [${wonNormalAcc.rarity}] ${wonNormalAcc.title}`;
+                        wonAccId = wonNormalAcc.id;
+                        
+                        const matchedTargetConfig = targetAccList.find(t => t.id === wonNormalAcc.id);
+                        if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0) {
+                            const currentC = pityCounters[wonNormalAcc.id] || 0;
+                            if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
+                                isGuaranteeHit = true;
+                            }
                         }
+                    } else {
+                        reward = "🧂 เกลือ";
+                        clashDetected = true;
                     }
-
-                    availableAccounts.splice(winningAccIndex, 1);
-
-                    await supabase
-                      .from('game_accounts')
-                      .update({ status: 'out_of_stock' })
-                      .eq('id', wonNormalAcc.id);
                 } else {
                     reward = "🧂 เกลือ";
                 }
@@ -1355,9 +1425,8 @@ app.post("/open-lootbox", async (req, res) => {
         });
     }
 
-    const actualOpenedCount = historyBatch.length;
-    const newPoints = user.points - actualOpenedCount;
-    const newSpent = (user.total_spent || 0) + actualOpenedCount;
+    const newPoints = user.points - actualConsumedPoints;
+    const newSpent = (user.total_spent || 0) + actualConsumedPoints;
 
     await supabase.from('users').update({ 
         points: parseInt(newPoints) || 0, 
@@ -1378,7 +1447,8 @@ app.post("/open-lootbox", async (req, res) => {
         success: true,
         newPoints: newPoints,
         newSpent: newSpent,
-        summaryRewards: summaryRewards
+        summaryRewards: summaryRewards,
+        clashDetected: clashDetected
     });
 
   } catch (err) {
@@ -1450,13 +1520,14 @@ app.post("/admin/approve-withdraw", async (req, res) => {
 
 app.post("/admin/add-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { title, rarity, rate, pity_target } = req.body;
+  const { title, rarity, rate, pity_target, image_url } = req.body;
 
   await supabase.from('game_accounts').insert([{
       title,
       rarity,
       rate: parseFloat(rate) || 1.0,
       pity_target: parseInt(pity_target) || 0,
+      image_url: image_url || '',
       status: 'available'
   }]);
 
@@ -1465,7 +1536,7 @@ app.post("/admin/add-game-account", async (req, res) => {
 
 app.post("/admin/update-all-game-accounts", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { ids, rates, pity_targets, statuses } = req.body;
+  const { ids, rates, pity_targets, image_urls, statuses } = req.body;
 
   if (ids) {
       const idArray = Array.isArray(ids) ? ids : [ids];
@@ -1473,11 +1544,13 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
           const accId = idArray[i];
           const newRate = Array.isArray(rates) ? parseFloat(rates[i]) : parseFloat(rates);
           const newPity = Array.isArray(pity_targets) ? parseInt(pity_targets[i]) : parseInt(pity_targets);
+          const newImage = Array.isArray(image_urls) ? image_urls[i] : image_urls;
           const newStatus = Array.isArray(statuses) ? statuses[i] : statuses;
 
           await supabase.from('game_accounts').update({
               rate: isNaN(newRate) ? 0 : newRate,
               pity_target: isNaN(newPity) ? 0 : newPity,
+              image_url: newImage || '',
               status: newStatus || 'available'
           }).eq('id', accId);
       }
@@ -1494,7 +1567,6 @@ app.post("/admin/update-all-game-accounts", async (req, res) => {
       console.error("Clear Pity Error:", e);
   }
 
-  // ปรับแก้ข้อความแจ้งเตือนให้สั้นกระชับเหลือเพียง "ตั้งค่าสำเร็จ" ตามต้องการ
   res.send(`<script>alert("ตั้งค่าสำเร็จ"); window.location.href="/admin";</script>`);
 });
 
@@ -1625,10 +1697,13 @@ async function renderAdminDashboard(req, res) {
         <td style="color:#ffd700;">${acc.rarity}</td>
         <td>
            <input type="hidden" name="ids" value="${acc.id}">
-           <input type="number" step="0.0001" name="rates" value="${acc.rate || 0}" style="width:55px; padding:3px; text-align:center;"> %
+           <input type="number" step="0.0001" name="rates" value="${acc.rate || 0}" style="width:50px; padding:3px; text-align:center;"> %
         </td>
         <td>
-           <input type="number" name="pity_targets" value="${acc.pity_target || 0}" placeholder="0 = ปิด" style="width:55px; padding:3px; text-align:center; color:#ff6b81; font-weight:bold;"> ครั้ง
+           <input type="number" name="pity_targets" value="${acc.pity_target || 0}" placeholder="0 = ปิด" style="width:45px; padding:3px; text-align:center; color:#ff6b81; font-weight:bold;"> ครั้ง
+        </td>
+        <td>
+           <input type="text" name="image_urls" value="${acc.image_url || ''}" placeholder="ลิงก์รูปภาพ (คั่นด้วย ,)" style="width:130px; padding:3px; font-size:11px;">
         </td>
         <td>
            <select name="statuses" style="padding:3px; font-size:11px;">
@@ -1645,7 +1720,7 @@ async function renderAdminDashboard(req, res) {
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="7" style="color:#aaa; padding:10px;">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
+    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:10px;">ยังไม่มีไอดี Line Rangers ในคลัง</td></tr>`;
   }
 
   function renderRewardOptions(currentVal) {
@@ -1699,7 +1774,7 @@ async function renderAdminDashboard(req, res) {
         ${withdrawHtml}
       </table>
 
-      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:900px; margin:20px auto; text-align:left;">
+      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:950px; margin:20px auto; text-align:left;">
           <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม / รางวัล Line Rangers เข้าคลัง</h3>
           <form action="/admin/add-game-account" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
               <input type="text" name="title" placeholder="ชื่อรางวัล เช่น ID SSR" required style="padding:8px; flex:2;">
@@ -1710,18 +1785,19 @@ async function renderAdminDashboard(req, res) {
                   <option value="SSR">ระดับ SSR</option>
                   <option value="เทพมังกร">ระดับ เทพมังกร</option>
               </select>
-              <input type="number" step="0.0001" name="rate" placeholder="อัตรา %" required style="padding:8px; width:80px;">
-              <input type="number" name="pity_target" placeholder="การันตีเกลือ (ครั้ง)" style="padding:8px; width:110px;">
+              <input type="number" step="0.0001" name="rate" placeholder="อัตรา %" required style="padding:8px; width:70px;">
+              <input type="number" name="pity_target" placeholder="การันตี" style="padding:8px; width:70px;">
+              <input type="text" name="image_url" placeholder="ลิงก์รูปภาพ (คั่นด้วย ,)" style="padding:8px; flex:2;">
               <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่มไอดี</button>
           </form>
 
-          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตีรายชิ้นไอดี</h4>
+          <h4 style="color:#ffd700; margin-top:10px;">📦 คลังรางวัล และ การตั้งค่าการันตี / รูปภาพ</h4>
           <form action="/admin/update-all-game-accounts" method="POST">
               <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-                 <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตีเกลือ</th><th>สถานะ</th><th>จัดการ</th></tr>
+                 <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตี</th><th>🖼️ ลิงก์รูปภาพ</th><th>สถานะ</th><th>จัดการ</th></tr>
                  ${gameAccHtml}
               </table>
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:10px 20px; margin-top:15px; width:100%;">💾 กดบันทึกเรต การันตี และสถานะคลังไอดีทั้งหมดทีเดียว (และรีเซ็ตแต้มการันตีเป็น 0)</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:10px 20px; margin-top:15px; width:100%;">💾 บันทึกการตั้งค่าทั้งหมด</button>
           </form>
       </div>
 
