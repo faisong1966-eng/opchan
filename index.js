@@ -495,14 +495,15 @@ app.get("/api/user-status", async (req, res) => {
   if (!username) return res.json({ success: false });
 
   try {
-    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes, recentWinnersRes, captionsRes] = await Promise.all([
+    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes, recentWinnersRes, captionsRes, purchasedCaptionsRes] = await Promise.all([
       supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false).order('id', { ascending: false }),
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('history').select('username, reward, time').not('reward', 'ilike', '%เกลือ%').not('reward', 'ilike', '%สิทธิ์สุ่มฟรี%').order('id', { ascending: false }).limit(5),
-      supabase.from('captions').select('*').order('price', { ascending: true })
+      supabase.from('captions').select('*').order('id', { ascending: true }),
+      supabase.from('purchased_captions').select('caption_id').eq('username', username)
     ]);
 
     const user = userRes.data;
@@ -510,7 +511,14 @@ app.get("/api/user-status", async (req, res) => {
     const pendingWithdrawRows = pendingWithdrawRes.data;
     const unwithdrawnHistory = historyRes.data || [];
     const gameAccounts = gameAccRes.data;
-    const captions = captionsRes.data || [];
+    const allCaptions = captionsRes.data || [];
+    const purchasedIds = (purchasedCaptionsRes.data || []).map(p => p.caption_id);
+
+    // วนลูปแคปชั่นแบบไม่ซ้ำ (กรองตัวที่ซื้อไปแล้วออก ถ้าหมดแล้วให้วนรอบใหม่ทั้งหมด)
+    let availableCaptions = allCaptions.filter(c => !purchasedIds.includes(c.id));
+    if (availableCaptions.length === 0 && allCaptions.length > 0) {
+        availableCaptions = allCaptions; // วนลูปกลับมาแสดงใหม่ทั้งหมดเมื่อซื้อครบทุกอันแล้ว
+    }
 
     const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
 
@@ -556,7 +564,7 @@ app.get("/api/user-status", async (req, res) => {
       hasPendingWithdraw: hasPendingWithdraw,
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
-      captions: captions,
+      captions: availableCaptions,
       hasAvailableStock: availableCount > 0,
       recentWinners: recentWinnersRes.data || []
     });
@@ -572,17 +580,25 @@ app.get("/store", async (req, res) => {
   if (!username) return res.redirect("/login");
 
   try {
-    const [userRes, captionsRes, pendingRes] = await Promise.all([
+    const [userRes, captionsRes, purchasedCaptionsRes, pendingRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
-      supabase.from('captions').select('*').order('price', { ascending: true }),
+      supabase.from('captions').select('*').order('id', { ascending: true }),
+      supabase.from('purchased_captions').select('caption_id').eq('username', username),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending')
     ]);
 
     const user = userRes.data;
     if (!user) return res.redirect("/login");
 
-    const captions = captionsRes.data || [];
+    const allCaptions = captionsRes.data || [];
+    const purchasedIds = (purchasedCaptionsRes.data || []).map(p => p.caption_id);
     const pendingRows = pendingRes.data || [];
+
+    // ระบบวนลูปและไม่ซ้ำ: กรองตัวที่ซื้อแล้วออก หากหมดให้วนครบรอบใหม่
+    let captions = allCaptions.filter(c => !purchasedIds.includes(c.id));
+    if (captions.length === 0 && allCaptions.length > 0) {
+        captions = allCaptions;
+    }
 
     let pendingHtml = "";
     if (pendingRows.length > 0) {
@@ -758,7 +774,7 @@ app.get("/store", async (req, res) => {
                           if (data.pendingRows.length > 0) {
                               data.pendingRows.forEach(p => {
                                   const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
-                                  pHtml += \`يodโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)\`;
+                                  pHtml += \`ยอดโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)\`;
                               });
                           } else {
                               pHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
@@ -806,11 +822,17 @@ app.post("/buy-caption", async (req, res) => {
       const newTickets = (user.tickets || 0) + bonusTickets;
       const newSpent = (user.total_spent || 0) + price;
 
-      await supabase.from('users').update({
-          points: newPoints,
-          tickets: newTickets,
-          total_spent: newSpent
-      }).eq('username', username);
+      await Promise.all([
+          supabase.from('users').update({
+              points: newPoints,
+              tickets: newTickets,
+              total_spent: newSpent
+          }).eq('username', username),
+          supabase.from('purchased_captions').insert([{
+              username: username,
+              caption_id: parseInt(caption_id)
+          }])
+      ]);
 
       res.send(`
         <!DOCTYPE html>
@@ -2131,7 +2153,8 @@ app.post("/admin/delete-user", async (req, res) => {
     supabase.from('users').delete().eq('username', username),
     supabase.from('history').delete().eq('username', username),
     supabase.from('pending_topup').delete().eq('username', username),
-    supabase.from('pending_withdraw').delete().eq('username', username)
+    supabase.from('pending_withdraw').delete().eq('username', username),
+    supabase.from('purchased_captions').delete().eq('username', username)
   ]);
 
   res.send(`<script>alert("ลบสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
