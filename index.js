@@ -57,33 +57,6 @@ app.use(session({
     cookie: { maxAge: 600000 }
 }));
 
-async function checkUserExpiration(username) {
-    try {
-        const { data: user } = await supabase
-            .from('users')
-            .select('created_at, username')
-            .eq('username', username)
-            .single();
-
-        if (user && user.created_at) {
-            const createdTime = new Date(user.created_at).getTime();
-            const now = new Date().getTime();
-            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-
-            if (now - createdTime > thirtyDaysMs) {
-                await Promise.all([
-                    supabase.from('users').delete().eq('username', username),
-                    supabase.from('history').delete().eq('username', username),
-                    supabase.from('pending_topup').delete().eq('username', username),
-                    supabase.from('pending_withdraw').delete().eq('username', username)
-                ]);
-                return true; 
-            }
-        }
-    } catch (e) {}
-    return false; 
-}
-
 function parsePityCounters(val) {
     if (!val) return {};
     if (typeof val === 'object') return val;
@@ -408,7 +381,6 @@ app.get("/register", (req, res) => {
         
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
-            <p style="font-size:11px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
             <form action="/register" method="POST">
                 <label>Username (สำหรับเข้าเว็บ):</label>
                 <input type="text" name="username" placeholder="ตั้งชื่อผู้ใช้งาน" required>
@@ -452,7 +424,7 @@ app.post("/register", async (req, res) => {
       console.error("Register Error:", error);
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
     }
-    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! บัญชีใช้งานได้ 30 วัน กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
+    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
   } catch (err) {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล"); window.location.href="/register";</script>`);
   }
@@ -499,11 +471,6 @@ app.get("/login", (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  
-  const isExpired = await checkUserExpiration(username);
-  if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
-  }
 
   try {
     const { data: row } = await supabase
@@ -603,11 +570,6 @@ app.get("/api/user-status", async (req, res) => {
 app.get("/store", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
-
-  const isExpired = await checkUserExpiration(username);
-  if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
-  }
 
   try {
     const [userRes, captionsRes, pendingRes] = await Promise.all([
@@ -904,11 +866,6 @@ app.get("/lootbox", async (req, res) => {
   const countParam = parseInt(req.query.count) || 1;
   if (!username) return res.redirect("/login");
 
-  const isExpired = await checkUserExpiration(username);
-  if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
-  }
-
   try {
     const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes, recentWinnersRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
@@ -925,7 +882,6 @@ app.get("/lootbox", async (req, res) => {
     const currentPoints = row.points || 0;
     const currentTickets = row.tickets || 0;
     const totalSpent = row.total_spent || 0;
-    const createdAt = row.created_at;
 
     const gameAccounts = gameAccRes.data;
 
@@ -1067,8 +1023,6 @@ app.get("/lootbox", async (req, res) => {
               .btn-nav { background: #00d2d3; color: #000; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
 
               .wallet-box { background: #1b1e2e; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 13.5px; margin-bottom: 10px; font-weight: bold; color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.2); }
-              
-              #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
 
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; }
@@ -1127,8 +1081,6 @@ app.get("/lootbox", async (req, res) => {
                   </div>
               </div>
 
-              <div id="countdown-box">⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...</div>
-              
               <div class="wallet-box">
                   <div>🎟️ สิทธิ์สุ่ม: <span id="tickets" style="color:#00ff87;">${currentTickets}</span> ครั้ง</div>
                   <div>💰 แต้มสะสม: <span id="points">${currentPoints}</span></div>
@@ -1184,8 +1136,6 @@ app.get("/lootbox", async (req, res) => {
               let userTickets = ${currentTickets};
               let selectedCount = ${countParam};
               let hasAvailableStock = ${!isAllOut};
-              const createdAtTime = new Date("${createdAt}").getTime();
-              const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -1371,22 +1321,6 @@ app.get("/lootbox", async (req, res) => {
                       openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${count} ครั้ง / ใช้ \${count} สิทธิ์)\`;
                   }
               }
-
-              function updateCountdown() {
-                  const now = new Date().getTime();
-                  const timeLeft = (createdAtTime + thirtyDaysMs) - now;
-                  const box = document.getElementById("countdown-box");
-                  if (timeLeft <= 0) {
-                      box.innerHTML = "❌ บัญชีของคุณหมดอายุการใช้งานแล้ว!";
-                      return;
-                  }
-                  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-                  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                  box.innerHTML = \`⏳ ID นี้ใช้งานได้อีก: \${days} วัน \${hours} ชม. \${minutes} นาที\`;
-              }
-              setInterval(updateCountdown, 1000);
-              updateCountdown();
 
               function openBox() {
                   if (!hasAvailableStock) {
