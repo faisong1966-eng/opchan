@@ -119,7 +119,6 @@ const exactSciFiCSS = `
         pointer-events: none;
         z-index: 0;
     }
-    /* แถบประกาศผู้โชคดีด้านบน (Winner Ticker Banner) */
     .winner-ticker-banner {
         background: linear-gradient(90deg, #ff4757, #ffa502, #2ed573, #00d2d3);
         background-size: 300% 300%;
@@ -321,8 +320,7 @@ const exactSciFiCSS = `
 app.get("/", async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   
-  // ดึงข้อมูลผู้โชคดีล่าสุดมาแสดงบน Ticker Banner
-  const { data: recentWins } = await supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(5);
+  const { data: recentWins } = await supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5);
   let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
   if (recentWins && recentWins.length > 0) {
       let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> สุ่มได้ <span style="color:#ffd700;">${w.reward}</span>`);
@@ -431,7 +429,7 @@ app.get("/", async (req, res) => {
 });
 
 app.get("/register", async (req, res) => {
-  const { data: recentWins } = await supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(5);
+  const { data: recentWins } = await supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5);
   let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
   if (recentWins && recentWins.length > 0) {
       let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> สุ่มได้ <span style="color:#ffd700;">${w.reward}</span>`);
@@ -516,7 +514,7 @@ app.post("/register", async (req, res) => {
 });
 
 app.get("/login", async (req, res) => {
-  const { data: recentWins } = await supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(5);
+  const { data: recentWins } = await supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5);
   let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
   if (recentWins && recentWins.length > 0) {
       let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> สุ่มได้ <span style="color:#ffd700;">${w.reward}</span>`);
@@ -657,7 +655,7 @@ app.get("/api/user-status", async (req, res) => {
   }
 });
 
-// ------------------- 1. CAPSULE STORE ROUTE (MARKETING LAW COMPLIANT) -------------------
+// ------------------- 1. CAPSULE STORE ROUTE -------------------
 
 app.get("/store", async (req, res) => {
   const username = req.query.username;
@@ -665,7 +663,7 @@ app.get("/store", async (req, res) => {
 
   const isExpired = await checkUserExpiration(username);
   if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
+      return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
   }
 
   try {
@@ -673,7 +671,7 @@ app.get("/store", async (req, res) => {
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('captions').select('*').order('price', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(5)
+      supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5)
     ]);
 
     const user = userRes.data;
@@ -932,7 +930,7 @@ app.get("/lootbox", async (req, res) => {
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(5)
+      supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5)
     ]);
 
     const row = userRes.data;
@@ -940,7 +938,6 @@ app.get("/lootbox", async (req, res) => {
 
     const currentPoints = row.points || 0;
     const currentTickets = row.tickets || 0;
-    const totalSpent = row.total_spent || 0;
     const createdAt = row.created_at;
 
     const gameAccounts = gameAccRes.data;
@@ -1182,24 +1179,6 @@ app.get("/lootbox", async (req, res) => {
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
 
-          <div class="feature-row">
-              <div class="feature-item">
-                  <div class="feature-icon">🛡️</div>
-                  <div class="feature-title">ปลอดภัย 100%</div>
-                  <div class="feature-desc">มั่นใจในความปลอดภัย<br>ข้อมูลถูกเข้ารหัส</div>
-              </div>
-              <div class="feature-item">
-                  <div class="feature-icon">⚡</div>
-                  <div class="feature-title">รวดเร็วทันใจ</div>
-                  <div class="feature-desc">เข้าสู่ระบบง่าย<br>เพียงไม่กี่วินาที</div>
-              </div>
-              <div class="feature-item">
-                  <div class="feature-icon">⭐</div>
-                  <div class="feature-title">สิทธิพิเศษมากมาย</div>
-                  <div class="feature-desc">รับของรางวัลพิเศษ<br>สำหรับสมาชิก</div>
-              </div>
-          </div>
-
           <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
 
           <!-- Popup Result Modal -->
@@ -1303,7 +1282,6 @@ app.get("/lootbox", async (req, res) => {
                   document.getElementById("imageModal").style.display = "none";
               }
 
-              // ใช้ Supabase Realtime อัปเดตสถานะปุ่มขอรับรางวัลทันทีโดยไม่ต้องรีเฟรชหน้าจอ
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
@@ -1470,18 +1448,19 @@ app.get("/lootbox", async (req, res) => {
                       let highestRarityFound = 'Salt';
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
+                          // ไม่โชว์เกลือในหน้าต่างแสดงผลรางวัล (กรองเกลือออก)
+                          if (rew.includes("เกลือ")) continue;
+
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
-                          if (!rew.includes("เกลือ")) {
-                              hasWin = true;
-                              winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
-                              
-                              if (rew.includes("สิทธิ์สุ่มฟรี")) highestRarityFound = 'FreeTicket';
-                              else if (rew.includes("เทพมังกร")) highestRarityFound = 'เทพมังกร';
-                              else if (rew.includes("SSR") && highestRarityFound !== 'เทพมังกร') highestRarityFound = 'SSR';
-                              else if (rew.includes("SS+") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR') highestRarityFound = 'SS+';
-                              else if (rew.includes("S") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR' && highestRarityFound !== 'SS+') highestRarityFound = 'S';
-                              else if (highestRarityFound === 'Salt') highestRarityFound = 'Normal';
-                          }
+                          hasWin = true;
+                          winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
+                          
+                          if (rew.includes("สิทธิ์สุ่มฟรี")) highestRarityFound = 'FreeTicket';
+                          else if (rew.includes("เทพมังกร")) highestRarityFound = 'เทพมังกร';
+                          else if (rew.includes("SSR") && highestRarityFound !== 'เทพมังกร') highestRarityFound = 'SSR';
+                          else if (rew.includes("SS+") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR') highestRarityFound = 'SS+';
+                          else if (rew.includes("S") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR' && highestRarityFound !== 'SS+') highestRarityFound = 'S';
+                          else if (highestRarityFound === 'Salt') highestRarityFound = 'Normal';
                       }
 
                       let clashNoticeHtml = "";
@@ -1489,8 +1468,12 @@ app.get("/lootbox", async (req, res) => {
                           clashNoticeHtml = \`<div style="color:#ff4757; font-size:12px; margin-bottom:8px; background:rgba(255,71,87,0.1); padding:6px; border-radius:4px; font-weight:bold;">😢 เสียใจด้วย รางวัลนี้มีคนอื่นได้ไปแล้ว! (ระบบได้ทำการคืนสิทธิ์สุ่มส่วนต่างให้คุณแล้ว)</div>\`;
                       }
 
-                      resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
-                          <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>\`;
+                      if (hasWin) {
+                          resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่มพิเศษ \${selectedCount} ครั้ง:</b><br>
+                              <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>\`;
+                      } else {
+                          resBox.innerHTML = clashNoticeHtml + \`🧂 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b> รอบนี้ได้เกลือทั้งหมด ไม่แสดงรายการเกลือตามตั้งค่า\`;
+                      }
 
                       const modalCard = document.getElementById("modalCard");
                       const modalTitle = document.getElementById("modalTitle");
@@ -1510,7 +1493,7 @@ app.get("/lootbox", async (req, res) => {
                           modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
-                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ซื้อแคปชั่นที่ร้านค้าเพื่อรับสิทธิ์สุ่มเพิ่มได้เลย!\`;
+                          modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">รอบนี้ได้เกลือ พยายามอีกนิดนะ!</span><br><br>ซื้อแคปชั่นที่ร้านค้าเพื่อรับสิทธิ์สุ่มเพิ่มได้เลย!\`;
                       }
 
                       document.getElementById("resultModal").style.display = "block";
@@ -1742,7 +1725,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- 2. UPDATED BULK OPEN LOOTBOX ALGORITHM (WITH DUAL PITY & ANTI RACE CONDITION) -------------------
+// ------------------- 2. UPDATED BULK OPEN LOOTBOX ALGORITHM (DUAL PITY) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1810,7 +1793,7 @@ app.post("/open-lootbox", async (req, res) => {
         }
 
         actualConsumedTickets += 1;
-        serverPityCount += 1; // นับ Server-wide Pity สะสมรวมทั้งเซิร์ฟเวอร์
+        serverPityCount += 1; 
 
         let reward = "";
         let handled = false;
@@ -2131,18 +2114,6 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   res.send(`<script>alert("บันทึกข้อมูลและอัปเดตคลังรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// ฟังก์ชันเพิ่มแพ็กเกจย่อย (Sub-packages & Seamless Management)
-app.post("/admin/add-sub-package", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const { main_package_id, sub_title, rotation_order } = req.body;
-  await supabase.from('sub_packages').insert([{
-      main_package_id: parseInt(main_package_id) || 0,
-      sub_title,
-      rotation_order: parseInt(rotation_order) || 1
-  }]);
-  res.send(`<script>alert("เพิ่มแพ็กเกจย่อยสำเร็จแบบไร้รอยต่อ!"); window.location.href="/admin";</script>`);
-});
-
 app.post("/admin/add-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { title, content, price, tickets_bonus } = req.body;
@@ -2240,13 +2211,12 @@ app.post("/admin/delete-user", async (req, res) => {
 });
 
 async function renderAdminDashboard(req, res) {
-  const [usersRes, pendingRes, pendingWithdrawRes, gameAccRes, captionsRes, subPkgRes] = await Promise.all([
+  const [usersRes, pendingRes, pendingWithdrawRes, gameAccRes, captionsRes] = await Promise.all([
     supabase.from('users').select('*').order('id', { ascending: false }),
     supabase.from('pending_topup').select('*').eq('status', 'pending'),
     supabase.from('pending_withdraw').select('*').eq('status', 'pending'),
     supabase.from('game_accounts').select('*').order('id', { ascending: false }),
-    supabase.from('captions').select('*').order('id', { ascending: false }),
-    supabase.from('sub_packages').select('*').order('id', { ascending: false })
+    supabase.from('captions').select('*').order('id', { ascending: false })
   ]);
 
   const usersRows = usersRes.data;
@@ -2254,7 +2224,6 @@ async function renderAdminDashboard(req, res) {
   const pendingWithdrawRows = pendingWithdrawRes.data;
   const gameAccounts = gameAccRes.data;
   const captionsRows = captionsRes.data || [];
-  const subPkgRows = subPkgRes.data || [];
 
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
@@ -2325,15 +2294,6 @@ async function renderAdminDashboard(req, res) {
     });
   } else {
     withdrawHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
-  }
-
-  let subPkgHtml = "";
-  if (subPkgRows.length > 0) {
-      subPkgRows.forEach((sp, idx) => {
-          subPkgHtml += `<tr><td>${idx + 1}</td><td>ID หลัก: ${sp.main_package_id}</td><td><b>${sp.sub_title}</b></td><td>ลำดับที่ ${sp.rotation_order}</td></tr>`;
-      });
-  } else {
-      subPkgHtml = `<tr><td colspan="4" style="color:#aaa; padding:8px;">ยังไม่มีแพ็กเกจย่อย (ระบบวนลูป)</td></tr>`;
   }
 
   let captionsTableHtml = "";
@@ -2476,21 +2436,7 @@ async function renderAdminDashboard(req, res) {
         ${withdrawHtml}
       </table>
 
-      <!-- จัดการแพ็กเกจย่อยและระบบสุ่มวนลูป (Sub-packages / Sequential Rotation) -->
-      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
-          <h3 style="color:#ffd700; margin-top:0;">🔄 จัดการแพ็กเกจย่อยและระบบวนลูป (Sequential Rotation)</h3>
-          <form action="/admin/add-sub-package" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
-              <input type="number" name="main_package_id" placeholder="ID แพ็กเกจหลัก" required style="padding:8px; width:120px;">
-              <input type="text" name="sub_title" placeholder="ชื่อไอเทมย่อยในลูป (เช่น ย่อยที่ 1)" required style="padding:8px; flex:2;">
-              <input type="number" name="rotation_order" placeholder="ลำดับลูป" required style="padding:8px; width:90px;">
-              <button type="submit" style="background:#ffd700; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">เพิ่มแพ็กเกจย่อย</button>
-          </form>
-          <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ID หลัก</th><th>ชื่อไอเทมย่อย</th><th>ลำดับการวนลูป</th></tr>
-              ${subPkgHtml}
-          </table>
-      </div>
-
+      <!-- จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store Management) พร้อมปุ่มย่อยเพิ่มในแพ็กเกจ -->
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#00d2d3; margin-top:0;">🛒 จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store)</h3>
           <form action="/admin/add-caption" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
@@ -2498,10 +2444,10 @@ async function renderAdminDashboard(req, res) {
               <input type="text" name="content" placeholder="ข้อความแคปชั่นดิจิทัล" required style="padding:8px; flex:2.5;">
               <input type="number" name="price" placeholder="ราคา (แต้ม)" required style="padding:8px; width:90px;">
               <input type="number" name="tickets_bonus" placeholder="แถมสิทธิ์สุ่ม" required style="padding:8px; width:90px;">
-              <button type="submit" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">เพิ่มแพ็กเกจ</button>
+              <button type="submit" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">➕ เพิ่มแพ็กเกจหลัก</button>
           </form>
           <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ข้อความแคปชั่น</th><th>ราคา</th><th>แถมสิทธิ์สุ่ม</th><th>จัดการ</th></tr>
+              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ข้อความแคปชั่น</th><th>ราคา</th><th>แถมสิทธิ์สุ่ม</th><th>ปุ่มย่อย / จัดการ</th></tr>
               ${captionsTableHtml}
           </table>
       </div>
