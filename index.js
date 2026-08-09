@@ -169,7 +169,6 @@ const exactSciFiCSS = `
         .space-chars-left, .space-chars-right { display: none; }
     }
     
-    /* กรอบข้างจอสำหรับโชว์รายชื่อผู้โชคดี (แสดงทั้งคอมและมือถือ) */
     .live-winner-sidebar {
         position: fixed; right: 10px; top: 80px; width: 220px; background: rgba(13, 15, 30, 0.92);
         border: 2px solid #ffd700; border-radius: 12px; padding: 10px; z-index: 99; backdrop-filter: blur(8px);
@@ -1521,7 +1520,7 @@ app.get("/my-history", async (req, res) => {
       historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
     });
   } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่มที่ยังไม่ขอรับรางวัล</td></tr>`;
+    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณไม่มีประวัติการสุ่มที่ยังไม่ขอรับรางวัล (หากคุณกดขอรับรางวัลไปแล้ว ประวัติจะถูกส่งไปให้แอดมินตรวจสอบ)</td></tr>`;
   }
 
   res.send(`
@@ -1603,10 +1602,10 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending',
       history_snapshot: JSON.stringify(fullDetailedList)
     }]),
-    supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate)
+    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', false)
   ]);
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ประวัติการสุ่มถูกเคลียร์เรียบร้อย รอแอดมินจัดส่งรางวัลภายใน 24 ชม."); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ประวัติทางฝั่งผู้เล่นถูกเคลียร์เรียบร้อยและส่งไปให้แอดมินตรวจสอบคนเดียวแล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1938,7 +1937,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
@@ -2012,14 +2011,10 @@ app.post("/admin/delete-topup", async (req, res) => {
 
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id, username } = req.body;
+  const { withdraw_id } = req.body;
 
-  await Promise.all([
-    supabase.from('pending_withdraw').delete().eq('id', withdraw_id),
-    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true)
-  ]);
-
-  res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
+  await supabase.from('pending_withdraw').delete().eq('id', withdraw_id);
+  res.send(`<script>alert("อนุมัติส่งมอบรางวัลเรียบร้อย! ลบรายการรอดำเนินการนี้แล้ว"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/add-game-account-json", upload.single('image_file'), async (req, res) => {
@@ -2106,16 +2101,22 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   res.send(`<script>alert("บันทึกข้อมูลและอัปเดตคลังรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/add-caption", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
+app.post("/admin/add-caption-json", async (req, res) => {
+  if (!req.session.isAdmin) return res.status(403).json({ success: false, message: "Unauthorized" });
   const { title, content, price, tickets_bonus } = req.body;
-  await supabase.from('captions').insert([{
+
+  const { data, error } = await supabase.from('captions').insert([{
       title,
       content,
       price: parseFloat(price) || 0,
       tickets_bonus: parseInt(tickets_bonus) || 0
-  }]);
-  res.send(`<script>alert("เพิ่มแคปชั่นลงร้านค้าสำเร็จ!"); window.location.href="/admin";</script>`);
+  }]).select();
+
+  if (error) {
+      return res.json({ success: false, message: error.message });
+  }
+
+  res.json({ success: true, newCaption: data[0] });
 });
 
 app.post("/admin/delete-caption", async (req, res) => {
@@ -2263,35 +2264,34 @@ async function renderAdminDashboard(req, res) {
       }
 
       withdrawHtml += `<tr>
-        <td>${index + 1}</td>
-        <td><b>${w.username}</b></td>
-        <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
-        <td style="color:#ffd700; font-size:12px; text-align:left;">
-           <b>รายการหลัก:</b> ${rewardsList} <br>
-           <details style="margin-top:6px; background:rgba(0,0,0,0.2); padding:4px 8px; border-radius:4px; border:1px solid #444;">
-               <summary style="color:#00d2d3; font-weight:bold; font-size:12px; cursor:pointer;">🔍 [ปุ่มกดดูประวัติ] แสดงประวัติการกดขอรับรางวัลทั้งหมด (${w.total_opens} ครั้ง)</summary>
+        <td style="padding:10px; vertical-align:middle;">${index + 1}</td>
+        <td style="padding:10px; vertical-align:middle;"><b>${w.username}</b></td>
+        <td style="padding:10px; vertical-align:middle; text-align:center;"><a href="${w.facebook_url || '#'}" target="_blank" style="display:inline-block; background:#70a1ff; color:#fff; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:12px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.3);">👤 เฟซบุ๊กส่วนตัว</a></td>
+        <td style="padding:10px; vertical-align:middle; color:#ffd700; font-size:12px; text-align:left;">
+           <div style="margin-bottom:4px;"><b>รายการหลัก:</b> ${rewardsList}</div>
+           <details style="background:rgba(0,0,0,0.25); padding:6px 10px; border-radius:6px; border:1px solid #444;">
+               <summary style="color:#00d2d3; font-weight:bold; font-size:12px; cursor:pointer;">🔍 ปุ่มกดดูประวัติ (${w.total_opens} รายการ)</summary>
                <ul style="padding-left:18px; margin:6px 0; font-size:11px; color:#a4b0be; max-height:120px; overflow-y:auto;">
                    ${detailedItemsHtml}
                </ul>
            </details>
         </td>
-        <td>
-          <form action="/admin/approve-withdraw" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันอนุมัติและเคลียร์ประวัติของ ${w.username}?');">
+        <td style="padding:10px; vertical-align:middle; text-align:center;">
+          <form action="/admin/approve-withdraw" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันอนุมัติส่งมอบรางวัลให้ ${w.username}?');">
             <input type="hidden" name="withdraw_id" value="${w.id}">
-            <input type="hidden" name="username" value="${w.username}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบ</button>
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.3);">✅ อนุมัติส่งมอบ</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    withdrawHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
+    withdrawHtml = `<tr><td colspan="5" style="color:#aaa; padding:15px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
   }
 
   let captionsTableHtml = "";
   if (captionsRows.length > 0) {
       captionsRows.forEach((c, idx) => {
-          captionsTableHtml += `<tr>
+          captionsTableHtml += `<tr id="caption-row-${c.id}">
               <td>${idx + 1}</td>
               <td><b>${c.title}</b></td>
               <td style="color:#a4b0be; font-size:11px;">${c.content}</td>
@@ -2306,7 +2306,7 @@ async function renderAdminDashboard(req, res) {
           </tr>`;
       });
   } else {
-      captionsTableHtml = `<tr><td colspan="6" style="color:#aaa; padding:12px;">ยังไม่มีแคปชั่นในระบบร้านค้า</td></tr>`;
+      captionsTableHtml = `<tr id="no-captions-row"><td colspan="6" style="color:#aaa; padding:12px;">ยังไม่มีแคปชั่นในระบบร้านค้า</td></tr>`;
   }
 
   let gameAccHtml = "";
@@ -2435,49 +2435,51 @@ async function renderAdminDashboard(req, res) {
       <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
 
       <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
-      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการขอรับรางวัล (กดปุ่มดูเพื่อขยาย)</th><th>จัดการ</th></tr>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 950px; background:#2b2b40; border-color:#444;">
+        <tr style="background:#3d3d5c; height: 40px;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการขอรับรางวัล (กดปุ่มดูเพื่อขยาย)</th><th>จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#00d2d3; margin-top:0;">🛒 จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store)</h3>
-          <form action="/admin/add-caption" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
-              <input type="text" name="title" placeholder="ชื่อแพ็กเกจ เช่น แคปชั่นสายเปย์" required style="padding:8px; flex:1.5;">
-              <input type="text" name="content" placeholder="ข้อความแคปชั่นดิจิทัล" required style="padding:8px; flex:2.5;">
-              <input type="number" name="price" placeholder="ราคา (แต้ม)" required style="padding:8px; width:90px;">
-              <input type="number" name="tickets_bonus" placeholder="แถมสิทธิ์สุ่ม" required style="padding:8px; width:90px;">
-              <button type="submit" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">เพิ่มแพ็กเกจ</button>
+          <form id="add-caption-form" onsubmit="addCaptionDynamic(event)" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
+              <input type="text" id="cap-title" placeholder="ชื่อแพ็กเกจ เช่น แคปชั่นสายเปย์" required style="padding:8px; flex:1.5; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <input type="text" id="cap-content" placeholder="ข้อความแคปชั่นดิจิทัล" required style="padding:8px; flex:2.5; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <input type="number" id="cap-price" placeholder="ราคา (แต้ม)" required style="padding:8px; width:90px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <input type="number" id="cap-bonus" placeholder="แถมสิทธิ์สุ่ม" required style="padding:8px; width:90px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <button type="submit" id="cap-btn-submit" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px; white-space:nowrap;">เพิ่มแพ็กเกจ</button>
           </form>
           <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
               <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ข้อความแคปชั่น</th><th>ราคา</th><th>แถมสิทธิ์สุ่ม</th><th>จัดการ</th></tr>
-              ${captionsTableHtml}
+              <tbody id="captions-tbody">
+                  ${captionsTableHtml}
+              </tbody>
           </table>
       </div>
 
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม หรือ รางวัล "สิทธิ์สุ่มฟรี" เข้าคลัง</h3>
           <form id="add-game-form" onsubmit="addGameAccountDynamic(event)" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
-              <input type="text" id="new-title" placeholder="ชื่อ เช่น [ฟรีสิทธิ์] สิทธิ์สุ่มฟรี 10 ครั้ง" required style="padding:8px; flex:1.8;">
-              <select id="new-rarity" style="padding:8px;">
+              <input type="text" id="new-title" placeholder="ชื่อ เช่น [ฟรีสิทธิ์] สิทธิ์สุ่มฟรี 10 ครั้ง" required style="padding:8px; flex:1.8; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <select id="new-rarity" style="padding:8px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
                   <option value="Normal">Normal</option>
                   <option value="S">S</option>
                   <option value="SS+">SS+</option>
                   <option value="SSR">SSR</option>
                   <option value="เทพมังกร">เทพมังกร</option>
               </select>
-              <input type="number" step="0.0001" id="new-rate" placeholder="อัตรา %" required style="padding:8px; width:65px;">
-              <input type="number" id="new-pity" placeholder="การันตี" style="padding:8px; width:65px;">
-              <select id="new-pity-mode" style="padding:8px;">
+              <input type="number" step="0.0001" id="new-rate" placeholder="อัตรา %" required style="padding:8px; width:65px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <input type="number" id="new-pity" placeholder="การันตี" style="padding:8px; width:65px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
+              <select id="new-pity-mode" style="padding:8px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
                   <option value="personal">👤 ส่วนตัว</option>
                   <option value="global">🌐 รวมเซิร์ฟ</option>
               </select>
-              <select id="new-show-pity" style="padding:8px;">
+              <select id="new-show-pity" style="padding:8px; border-radius:4px; border:1px solid #444; background:#1e1e2f; color:#fff;">
                   <option value="true">👁️ โชว์</option>
                   <option value="false">🙈 ซ่อน</option>
               </select>
               <input type="file" id="new-image" accept="image/*" style="padding:4px; background:#fff; color:#000; border-radius:4px; width:110px;">
-              <button type="submit" id="add-btn-submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่ม</button>
+              <button type="submit" id="add-btn-submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px; white-space:nowrap;">เพิ่ม</button>
           </form>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -2511,6 +2513,61 @@ async function renderAdminDashboard(req, res) {
       </table>
 
       <script>
+          async function addCaptionDynamic(event) {
+              event.preventDefault();
+              const title = document.getElementById('cap-title').value;
+              const content = document.getElementById('cap-content').value;
+              const price = document.getElementById('cap-price').value;
+              const tickets_bonus = document.getElementById('cap-bonus').value;
+
+              const btn = document.getElementById('cap-btn-submit');
+              btn.disabled = true;
+              btn.innerText = 'กำลังเพิ่ม...';
+
+              try {
+                  const res = await fetch('/admin/add-caption-json', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title, content, price, tickets_bonus })
+                  });
+                  const result = await res.json();
+                  if (result.success) {
+                      const tbody = document.getElementById('captions-tbody');
+                      const noRow = document.getElementById('no-captions-row');
+                      if (noRow) noRow.remove();
+
+                      const newRow = document.createElement('tr');
+                      newRow.id = 'caption-row-' + result.newCaption.id;
+                      newRow.innerHTML = \`
+                          <td>ใหม่</td>
+                          <td><b>\${result.newCaption.title}</b></td>
+                          <td style="color:#a4b0be; font-size:11px;">\${result.newCaption.content}</td>
+                          <td style="color:#2ed573;"><b>\${result.newCaption.price} แต้ม</b></td>
+                          <td style="color:#ffd700;"><b>+\${result.newCaption.tickets_bonus} ครั้ง</b></td>
+                          <td>
+                              <form action="/admin/delete-caption" method="POST" onsubmit="return confirm('ยืนยันลบแคปชั่นนี้?');">
+                                  <input type="hidden" name="caption_id" value="\${result.newCaption.id}">
+                                  <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">🗑️ ลบ</button>
+                              </form>
+                          </td>
+                      \`;
+                      tbody.prepend(newRow);
+
+                      document.getElementById('cap-title').value = '';
+                      document.getElementById('cap-content').value = '';
+                      document.getElementById('cap-price').value = '';
+                      document.getElementById('cap-bonus').value = '';
+                  } else {
+                      alert("เกิดข้อผิดพลาด: " + result.message);
+                  }
+              } catch (e) {
+                  alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+              } finally {
+                  btn.disabled = false;
+                  btn.innerText = 'เพิ่มแพ็กเกจ';
+              }
+          }
+
           async function addGameAccountDynamic(event) {
               event.preventDefault();
               const title = document.getElementById('new-title').value;
