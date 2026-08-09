@@ -847,6 +847,40 @@ app.post("/buy-caption", async (req, res) => {
           return res.send(`<script>alert("ไม่พบข้อมูลผู้ใช้หรือแพ็กเกจแคปชั่นนี้"); window.location.href="/store?username=${username}";</script>`);
       }
 
+      // ดึง Caption รองถ้ามี
+      let finalContent = caption.content;
+      let subCaptions = [];
+      try {
+          const { data: subData } = await supabase.from('sub_captions').select('*').eq('caption_id', caption.id).order('id', { ascending: true });
+          if (subData && subData.length > 0) {
+              subCaptions = subData;
+          }
+      } catch(e) {}
+
+      if (subCaptions.length > 0) {
+          // ตรวจสอบว่าผู้ใช้เคยสุ่มครบทุกซับแคปชั่นหรือยัง
+          let rawUsed = {};
+          try {
+              rawUsed = JSON.parse(user.used_sub_captions || '{}');
+          } catch(e) {}
+          let userUsedList = rawUsed[caption.id] || [];
+
+          let availableSubs = subCaptions.filter(sc => !userUsedList.includes(sc.id));
+          if (availableSubs.length === 0) {
+              // Reset วนลูปใหม่เฉพาะซับแคปชั่นตัวนี้
+              userUsedList = [];
+              availableSubs = subCaptions;
+          }
+
+          // สุ่มเอาซับแคปชั่นแบบไม่ซ้ำ
+          const randomSub = availableSubs[Math.floor(Math.random() * availableSubs.length)];
+          finalContent = randomSub.content;
+          userUsedList.push(randomSub.id);
+          rawUsed[caption.id] = userUsedList;
+
+          await supabase.from('users').update({ used_sub_captions: JSON.stringify(rawUsed) }).eq('username', username);
+      }
+
       const price = parseFloat(caption.price) || 0;
       const bonusTickets = parseInt(caption.tickets_bonus) || 0;
 
@@ -887,7 +921,7 @@ app.post("/buy-caption", async (req, res) => {
                 <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
                 
                 <label style="font-size:12px; color:#ffd700; font-weight:bold; display:block; margin-bottom:5px;">📋 ข้อความแคปชั่นของคุณ (ปลดล็อกและกดคัดลอกใช้งานได้เลย):</label>
-                <textarea id="captionText" readonly style="width:100%; height:90px; background:#0b0f19; color:#fff; border:1px solid #00d2d3; border-radius:6px; padding:10px; font-family:'Kanit'; font-size:13px; box-sizing:border-box;">${caption.content}</textarea>
+                <textarea id="captionText" readonly style="width:100%; height:90px; background:#0b0f19; color:#fff; border:1px solid #00d2d3; border-radius:6px; padding:10px; font-family:'Kanit'; font-size:13px; box-sizing:border-box;">${finalContent}</textarea>
                 
                 <button onclick="copyCaption()" style="width:100%; background:#00d2d3; color:#000; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:10px; font-family:'Kanit';">📋 คัดลอกข้อความแคปชั่น</button>
 
@@ -924,13 +958,14 @@ app.get("/lootbox", async (req, res) => {
   }
 
   try {
-    const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes, recentWinsRes] = await Promise.all([
+    const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes, recentWinsRes, settingsRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5)
+      supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5),
+      supabase.from('settings').select('*').single()
     ]);
 
     const row = userRes.data;
@@ -942,6 +977,8 @@ app.get("/lootbox", async (req, res) => {
 
     const gameAccounts = gameAccRes.data;
     const recentWins = recentWinsRes.data || [];
+    const siteSettings = settingsRes.data || { show_pity: 'on', pity_mode: 'user' };
+    const showPityFlag = siteSettings.show_pity === 'on';
 
     let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
     if (recentWins.length > 0) {
@@ -1031,7 +1068,7 @@ app.get("/lootbox", async (req, res) => {
 
         let pityInfoHtml = "";
         const targetVal = parseInt(acc.pity_target) || 0;
-        if (targetVal > 0 && !isFreeTicketReward) {
+        if (targetVal > 0 && !isFreeTicketReward && showPityFlag) {
             const currentPity = pityCounters[acc.id] || 0;
             pityInfoHtml = `<div style="font-size:9px; color:#ff6b81; margin-top:3px; background:rgba(255,71,87,0.1); border-radius:4px; padding:1px;">🎯 การันตี ${currentPity}/${targetVal} เกลือ</div>`;
         }
@@ -1448,7 +1485,6 @@ app.get("/lootbox", async (req, res) => {
                       let highestRarityFound = 'Salt';
 
                       for (const [rew, count] of Object.entries(data.summaryRewards)) {
-                          // ไม่โชว์เกลือในหน้าต่างแสดงผลรางวัล (กรองเกลือออก)
                           if (rew.includes("เกลือ")) continue;
 
                           summaryListHtml += \`• \${rew} x \${count} ครั้ง<br>\`;
@@ -1736,10 +1772,11 @@ app.post("/open-lootbox", async (req, res) => {
   }
 
   try {
-    const [userRes, allTargetAccountsRes, serverPityRes] = await Promise.all([
+    const [userRes, allTargetAccountsRes, serverPityRes, settingsRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('game_accounts').select('*'),
-      supabase.from('pity_counters').select('*').eq('pity_type', 'server').single()
+      supabase.from('pity_counters').select('*').eq('pity_type', 'server').single(),
+      supabase.from('settings').select('*').single()
     ]);
 
     const user = userRes.data;
@@ -1756,6 +1793,9 @@ app.post("/open-lootbox", async (req, res) => {
     if (currentTickets < selectedCount) {
         return res.json({ success: false, message: "สิทธิ์สุ่ม (Tickets) ของคุณไม่พอใช้งาน!" });
     }
+
+    const siteSettings = settingsRes.data || { pity_mode: 'user' };
+    const isServerPityMode = siteSettings.pity_mode === 'server';
 
     let historyBatch = [];
     let summaryRewards = {};
@@ -1842,25 +1882,49 @@ app.post("/open-lootbox", async (req, res) => {
         }
 
         if (!handled) {
-            const pityTargetIndex = availableAccounts.findIndex(acc => {
-                const target = parseInt(acc.pity_target) || 0;
-                const currentCount = pityCounters[acc.id] || 0;
-                const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-                return target > 0 && !isFreeTicket && currentCount >= target && acc.status !== 'out_of_stock';
-            });
+            if (isServerPityMode) {
+                // เช็ค Server-wide Pity
+                const pityTargetIndex = availableAccounts.findIndex(acc => {
+                    const target = parseInt(acc.pity_target) || 0;
+                    const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
+                    return target > 0 && !isFreeTicket && serverPityCount >= target && acc.status !== 'out_of_stock';
+                });
+                if (pityTargetIndex !== -1) {
+                    wonAcc = availableAccounts.splice(pityTargetIndex, 1)[0];
+                    let badgeColorIcon = "🛡️";
+                    if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                    else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
+                    else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                    else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
 
-            if (pityTargetIndex !== -1) {
-                wonAcc = availableAccounts.splice(pityTargetIndex, 1)[0];
-                let badgeColorIcon = "🛡️";
-                if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
-                else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
+                    reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
+                    successfulWonAccIds.push(wonAcc.id);
+                    isGuaranteeHit = true;
+                    handled = true;
+                    serverPityCount = 0; // รีเซ็ต Server pity
+                }
+            } else {
+                // เช็ค User รายบุคคล
+                const pityTargetIndex = availableAccounts.findIndex(acc => {
+                    const target = parseInt(acc.pity_target) || 0;
+                    const currentCount = pityCounters[acc.id] || 0;
+                    const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
+                    return target > 0 && !isFreeTicket && currentCount >= target && acc.status !== 'out_of_stock';
+                });
 
-                reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
-                successfulWonAccIds.push(wonAcc.id);
-                isGuaranteeHit = true;
-                handled = true;
+                if (pityTargetIndex !== -1) {
+                    wonAcc = availableAccounts.splice(pityTargetIndex, 1)[0];
+                    let badgeColorIcon = "🛡️";
+                    if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
+                    else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
+                    else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
+                    else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
+
+                    reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
+                    successfulWonAccIds.push(wonAcc.id);
+                    isGuaranteeHit = true;
+                    handled = true;
+                }
             }
         }
 
@@ -1913,26 +1977,28 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        if (isGuaranteeHit) {
-            targetAccList.forEach(acc => {
-                const target = parseInt(acc.pity_target) || 0;
-                const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-                if (target > 0 && !isFreeTicket) {
-                    pityCounters[acc.id] = 0; 
-                }
-            });
-        } else {
-            targetAccList.forEach(acc => {
-                const target = parseInt(acc.pity_target) || 0;
-                const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-                if (target > 0 && !isFreeTicket) {
-                    if (wonAcc && wonAcc.id === acc.id) {
-                        pityCounters[acc.id] = 0;
-                    } else {
-                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
+        if (!isServerPityMode) {
+            if (isGuaranteeHit) {
+                targetAccList.forEach(acc => {
+                    const target = parseInt(acc.pity_target) || 0;
+                    const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
+                    if (target > 0 && !isFreeTicket) {
+                        pityCounters[acc.id] = 0; 
                     }
-                }
-            });
+                });
+            } else {
+                targetAccList.forEach(acc => {
+                    const target = parseInt(acc.pity_target) || 0;
+                    const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
+                    if (target > 0 && !isFreeTicket) {
+                        if (wonAcc && wonAcc.id === acc.id) {
+                            pityCounters[acc.id] = 0;
+                        } else {
+                            pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
+                        }
+                    }
+                });
+            }
         }
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
@@ -1955,7 +2021,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
@@ -2132,6 +2198,25 @@ app.post("/admin/delete-caption", async (req, res) => {
   res.send(`<script>alert("ลบแคปชั่นออกจากร้านค้าสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
+// เพิ่ม Sub-caption รอง
+app.post("/admin/add-sub-caption", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { caption_id, content } = req.body;
+  await supabase.from('sub_captions').insert([{
+      caption_id: parseInt(caption_id),
+      content
+  }]);
+  res.send(`<script>alert("เพิ่ม Caption รองสำเร็จ!"); window.location.href="/admin";</script>`);
+});
+
+// ตั้งค่าระบบการันตี (เปิด/ปิด และโหมด User/Server)
+app.post("/admin/update-settings", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { show_pity, pity_mode } = req.body;
+  await supabase.from('settings').upsert({ id: 1, show_pity: show_pity || 'on', pity_mode: pity_mode || 'user' }, { onConflict: 'id' });
+  res.send(`<script>alert("บันทึกการตั้งค่าการันตีเรียบร้อย!"); window.location.href="/admin";</script>`);
+});
+
 app.post("/admin/adjust-user-points", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { username, action_type, point_amount } = req.body;
@@ -2211,12 +2296,14 @@ app.post("/admin/delete-user", async (req, res) => {
 });
 
 async function renderAdminDashboard(req, res) {
-  const [usersRes, pendingRes, pendingWithdrawRes, gameAccRes, captionsRes] = await Promise.all([
+  const [usersRes, pendingRes, pendingWithdrawRes, gameAccRes, captionsRes, subCaptionsRes, settingsRes] = await Promise.all([
     supabase.from('users').select('*').order('id', { ascending: false }),
     supabase.from('pending_topup').select('*').eq('status', 'pending'),
     supabase.from('pending_withdraw').select('*').eq('status', 'pending'),
     supabase.from('game_accounts').select('*').order('id', { ascending: false }),
-    supabase.from('captions').select('*').order('id', { ascending: false })
+    supabase.from('captions').select('*').order('id', { ascending: false }),
+    supabase.from('sub_captions').select('*').order('id', { ascending: false }),
+    supabase.from('settings').select('*').single()
   ]);
 
   const usersRows = usersRes.data;
@@ -2224,6 +2311,8 @@ async function renderAdminDashboard(req, res) {
   const pendingWithdrawRows = pendingWithdrawRes.data;
   const gameAccounts = gameAccRes.data;
   const captionsRows = captionsRes.data || [];
+  const subCaptionsRows = subCaptionsRes.data || [];
+  const siteSettings = settingsRes.data || { show_pity: 'on', pity_mode: 'user' };
 
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
@@ -2299,13 +2388,19 @@ async function renderAdminDashboard(req, res) {
   let captionsTableHtml = "";
   if (captionsRows.length > 0) {
       captionsRows.forEach((c, idx) => {
+          let subListText = subCaptionsRows.filter(sc => sc.caption_id === c.id).map(sc => `<div style="font-size:10px; color:#00d2d3;">- ${sc.content}</div>`).join('');
           captionsTableHtml += `<tr>
               <td>${idx + 1}</td>
               <td><b>${c.title}</b></td>
-              <td style="color:#a4b0be; font-size:11px;">${c.content}</td>
+              <td style="color:#a4b0be; font-size:11px;">${c.content} <br>${subListText}</td>
               <td style="color:#2ed573;"><b>${c.price} แต้ม</b></td>
               <td style="color:#ffd700;"><b>+${c.tickets_bonus} ครั้ง</b></td>
               <td>
+                  <form action="/admin/add-sub-caption" method="POST" style="margin-bottom:4px; display:flex; gap:4px;">
+                      <input type="hidden" name="caption_id" value="${c.id}">
+                      <input type="text" name="content" placeholder="เพิ่ม Caption รอง" required style="font-size:10px; padding:2px; flex:1;">
+                      <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:2px 6px; font-size:10px; font-weight:bold; cursor:pointer; border-radius:3px;">เพิ่มรอง</button>
+                  </form>
                   <form action="/admin/delete-caption" method="POST" onsubmit="return confirm('ยืนยันลบแคปชั่นนี้?');">
                       <input type="hidden" name="caption_id" value="${c.id}">
                       <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">🗑️ ลบ</button>
@@ -2430,13 +2525,35 @@ async function renderAdminDashboard(req, res) {
       <h2>🛠️ ระบบจัดการหลังบ้านแอดมิน (Line Rangers Box)</h2>
       <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
 
+      <!-- ตั้งค่าการแสดงผลการันตีและรูปแบบการันตี -->
+      <div style="background:#2b2b40; padding:15px; border-radius:10px; border:1px solid #444; width:900px; margin:20px auto; text-align:left;">
+          <h3 style="color:#ffd700; margin-top:0;">⚙️ ตั้งค่าระบบการันตี</h3>
+          <form action="/admin/update-settings" method="POST" style="display:flex; gap:15px; align-items:center;">
+              <div>
+                  <label style="font-size:12px; color:#fff;">การแสดงผลการันตีให้ผู้เล่นเห็น:</label>
+                  <select name="show_pity" style="padding:6px; font-size:12px;">
+                      <option value="on" ${siteSettings.show_pity === 'on' ? 'selected' : ''}>🟢 เปิด (ให้ผู้เล่นเห็น)</option>
+                      <option value="off" ${siteSettings.show_pity === 'off' ? 'selected' : ''}>🔴 ปิด (ซ่อนไม่ให้ผู้เล่นเห็น)</option>
+                  </select>
+              </div>
+              <div>
+                  <label style="font-size:12px; color:#fff;">รูปแบบการนับการันตี:</label>
+                  <select name="pity_mode" style="padding:6px; font-size:12px;">
+                      <option value="user" ${siteSettings.pity_mode === 'user' ? 'selected' : ''}>👤 แบบ User รายบุคคล</option>
+                      <option value="server" ${siteSettings.pity_mode === 'server' ? 'selected' : ''}>🌐 แบบรวม Server (ทุกคนนับรวมกัน)</option>
+                  </select>
+              </div>
+              <button type="submit" style="background:#ffd700; color:#000; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:16px;">💾 บันทึกการตั้งค่า</button>
+          </form>
+      </div>
+
       <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
         <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการขอรับรางวัล (กดปุ่มดูเพื่อขยาย)</th><th>จัดการ</th></tr>
         ${withdrawHtml}
       </table>
 
-      <!-- จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store Management) พร้อมปุ่มย่อยเพิ่มในแพ็กเกจ -->
+      <!-- จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store Management) พร้อมปุ่มเพิ่ม Caption รอง -->
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#00d2d3; margin-top:0;">🛒 จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store)</h3>
           <form action="/admin/add-caption" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
@@ -2444,10 +2561,10 @@ async function renderAdminDashboard(req, res) {
               <input type="text" name="content" placeholder="ข้อความแคปชั่นดิจิทัล" required style="padding:8px; flex:2.5;">
               <input type="number" name="price" placeholder="ราคา (แต้ม)" required style="padding:8px; width:90px;">
               <input type="number" name="tickets_bonus" placeholder="แถมสิทธิ์สุ่ม" required style="padding:8px; width:90px;">
-              <button type="submit" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">➕ เพิ่มแพ็กเกจหลัก</button>
+              <button type="submit" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">➕ เพิ่มแพ็กเกจ</button>
           </form>
           <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ข้อความแคปชั่น</th><th>ราคา</th><th>แถมสิทธิ์สุ่ม</th><th>ปุ่มย่อย / จัดการ</th></tr>
+              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ข้อความแคปชั่น</th><th>ราคา</th><th>แถมสิทธิ์สุ่ม</th><th>จัดการ / Caption รอง</th></tr>
               ${captionsTableHtml}
           </table>
       </div>
