@@ -637,7 +637,7 @@ app.get("/api/user-status", async (req, res) => {
       supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_with_drawn', false), // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
       supabase.from('game_accounts').select('*').order('id', { ascending: true })
     ]);
 
@@ -652,6 +652,7 @@ app.get("/api/user-status", async (req, res) => {
     let hasClaimable = false;
     if (unwithdrawnHistory) {
       unwithdrawnHistory.forEach(h => {
+        // แก้ไขเงื่อนไขตรงนี้ให้รองรับข้อความรางวัลไอดีเกมของคุณทุกรูปแบบ
         if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
           hasClaimable = true;
         }
@@ -1013,7 +1014,7 @@ app.get("/lootbox", async (req, res) => {
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_with_drawn', false), // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
       supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5)
     ]);
 
@@ -1077,7 +1078,8 @@ app.get("/lootbox", async (req, res) => {
     
     if (unwithdrawnHistory.length > 0) {
       unwithdrawnHistory.forEach(h => {
-        if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
+        // เงื่อนไขสากลสำหรับเช็กรางวัลที่จะให้กดรับ (ข้ามเกลือและสิทธิ์สุ่มฟรี)
+        if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี") && !h.reward.includes("0 Robux")) {
           hasClaimable = true;
         }
       });
@@ -1087,7 +1089,7 @@ app.get("/lootbox", async (req, res) => {
     if (hasPendingWithdraw) {
       claimButtonHtml = `
         <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
+            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบแชทในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
             <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
         </div>
       `;
@@ -1394,7 +1396,7 @@ app.get("/lootbox", async (req, res) => {
                       if (data.hasPendingWithdraw) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
+                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบแชทในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
                                 <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
                             </div>
                           \`;
@@ -1630,7 +1632,7 @@ app.get("/my-history", async (req, res) => {
     .from('history')
     .select('*')
     .eq('username', username)
-    .eq('is_with_drawn', false) // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+    .eq('is_withdrawn', false)
     .order('id', { ascending: false });
 
   let historyList = "";
@@ -1680,7 +1682,7 @@ app.post("/request-withdraw", async (req, res) => {
 
   const [existingPendingRes, userHistoryRes, userDataRes] = await Promise.all([
     supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-    supabase.from('history').select('*').eq('username', username).eq('is_with_drawn', false), // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+    supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
     supabase.from('users').select('facebook_url').eq('username', username).single()
   ]);
 
@@ -1700,7 +1702,7 @@ app.post("/request-withdraw", async (req, res) => {
   let idsToUpdate = [];
 
   userHistory.forEach(h => {
-    if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
+    if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี") && !h.reward.includes("0 Robux")) {
       rewardsSummaryList.push(h.reward);
       idsToUpdate.push(h.id);
     }
@@ -1721,7 +1723,7 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending',
       history_snapshot: JSON.stringify(fullDetailedList)
     }]),
-    supabase.from('history').update({ is_with_drawn: true }).in('id', idsToUpdate) // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+    supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate)
   ]);
 
   res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! รายการถูกส่งไปหาแอดมินเรียบร้อย ระหว่างนี้คุณยังสามารถสุ่มสะสมรางวัลอื่นเพิ่มได้เรื่อยๆ"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -2078,7 +2080,7 @@ app.post("/open-lootbox", async (req, res) => {
             facebook_url: safeFacebookUrl,
             reward: reward,
             reward_num: 0,
-            is_with_drawn: false // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+            is_withdrawn: false
         });
     }
 
@@ -2171,7 +2173,7 @@ app.post("/admin/approve-withdraw", async (req, res) => {
 
   await Promise.all([
     supabase.from('pending_withdraw').update({ status: 'completed' }).eq('id', withdraw_id),
-    supabase.from('history').delete().eq('username', username).eq('is_with_drawn', true) // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
+    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true)
   ]);
 
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ปุ่มขอรับของผู้เล่นจะเด้งกลับมาใช้งานได้ทันที"); window.location.href="/admin";</script>`);
@@ -2771,12 +2773,12 @@ async function renderAdminDashboard(req, res) {
                   } else {
                       alert("เกิดข้อผิดพลาด: " + result.message);
                       btn.disabled = false;
-                      btn.innerText = 'เพิ่มรางวัล';
+                      btn.innerText = 'เพิ่มรางวัลใหญ่';
                   }
               } catch (e) {
                   alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
                   btn.disabled = false;
-                  btn.innerText = 'เพิ่มรางวัล';
+                  btn.innerText = 'เพิ่มรางวัลใหญ่';
               }
           }
       </script>
