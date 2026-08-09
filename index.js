@@ -2107,7 +2107,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
