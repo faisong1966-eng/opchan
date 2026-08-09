@@ -1096,7 +1096,7 @@ app.get("/lootbox", async (req, res) => {
     if (hasPendingWithdraw) {
       claimButtonHtml = `
         <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล (Pending Queue)</div>
+            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
             <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
         </div>
       `;
@@ -1403,7 +1403,7 @@ app.get("/lootbox", async (req, res) => {
                       if (data.hasPendingWithdraw) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล (Pending Queue)</div>
+                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
                                 <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
                             </div>
                           \`;
