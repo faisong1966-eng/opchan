@@ -169,7 +169,6 @@ const exactSciFiCSS = `
         .space-chars-left, .space-chars-right { display: none; }
     }
     
-    /* กรอบเล็กๆ ข้างจอสำหรับโชว์รายชื่อผู้โชคดี Real-time */
     .live-winner-sidebar {
         position: fixed; right: 15px; top: 100px; width: 240px; background: rgba(13, 15, 30, 0.9);
         border: 2px solid #ffd700; border-radius: 14px; padding: 12px; z-index: 99; backdrop-filter: blur(8px);
@@ -750,7 +749,6 @@ app.get("/store", async (req, res) => {
           <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
 
           <script>
-              // Real-time Store Polling เพื่ออัปเดตแคปชั่นและแต้ม/สิทธิ์อัตโนมัติ
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
@@ -1100,7 +1098,6 @@ app.get("/lootbox", async (req, res) => {
           </style>
       </head>
       <body>
-          <!-- กรอบข้างจอโชว์รายชื่อผู้โชคดี Real-time -->
           <div class="live-winner-sidebar">
               <div style="font-size:12px; color:#ffd700; font-weight:bold; margin-bottom:8px; border-bottom:1px solid #ffd700; padding-bottom:4px;">🏆 ผู้โชคดีล่าสุด</div>
               <div id="sidebar-winners-container">${recentSidebarHtml || '<div style="font-size:10px; color:#aaa;">ยังไม่มีผู้โชคดี</div>'}</div>
@@ -1173,7 +1170,6 @@ app.get("/lootbox", async (req, res) => {
 
           <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
 
-          <!-- Popup Result Modal -->
           <div id="resultModal" class="modal">
               <div class="modal-content" id="modalCard">
                   <h2 id="modalTitle" style="margin:0 0 10px 0;"></h2>
@@ -1182,7 +1178,6 @@ app.get("/lootbox", async (req, res) => {
               </div>
           </div>
 
-          <!-- Image Viewer Modal -->
           <div id="imageModal" class="modal">
               <div class="modal-content" style="max-width: 400px; padding: 20px;">
                   <h3 id="imageModalTitle" style="color:#ffd700; margin-top:0; font-size:15px;">รูปภาพรางวัล</h3>
@@ -1274,7 +1269,6 @@ app.get("/lootbox", async (req, res) => {
                   document.getElementById("imageModal").style.display = "none";
               }
 
-              // Real-time Polling: อัปเดตคลังรางวัล, สิทธิ์สุ่ม, และรายชื่อผู้โชคดีอัตโนมัติทันทีโดยไม่ต้องกดรีเฟรช
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
@@ -1724,7 +1718,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- 2. UPDATED BULK OPEN LOOTBOX ALGORITHM (WITH GLOBAL/PERSONAL PITY & CLASH DETECTION) -------------------
+// ------------------- 2. LIGHTNING FAST BULK OPEN LOOTBOX ALGORITHM -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1788,9 +1782,9 @@ app.post("/open-lootbox", async (req, res) => {
     let successfulWonAccIds = [];
     let freeTicketsWon = 0;
 
+    // รันการคำนวณทั้งหมดใน Memory แบบรวดเร็วไร้ดีเลย์
     for (let i = 0; i < selectedCount; i++) {
-        const { data: freshAccounts } = await supabase.from('game_accounts').select('*');
-        let currentAvailable = (freshAccounts || []).filter(a => a.status === 'available' || !a.status);
+        let currentAvailable = targetAccList.filter(a => (a.status === 'available' || !a.status) && !successfulWonAccIds.includes(a.id));
 
         if (currentAvailable.length === 0) {
             break;
@@ -1800,7 +1794,6 @@ app.post("/open-lootbox", async (req, res) => {
         let reward = "";
         let handled = false;
         let wonAcc = null; 
-        let isGuaranteeHit = false;
 
         for (let s = 0; s < steps.length; s++) {
             if (steps[s].salt > 0) {
@@ -1810,7 +1803,7 @@ app.post("/open-lootbox", async (req, res) => {
                 break;
             } else if (steps[s].salt === 0 && steps[s].reward && steps[s].reward !== 'normal') {
                 let cleanRewardName = steps[s].reward.replace(/^\[.*?\]\s*/, '');
-                let matchedIndex = currentAvailable.findIndex(a => a.title === cleanRewardName && a.status !== 'out_of_stock');
+                let matchedIndex = currentAvailable.findIndex(a => a.title === cleanRewardName);
                 if (matchedIndex !== -1) {
                     wonAcc = currentAvailable[matchedIndex];
                     const isFreeTicket = wonAcc.title && (wonAcc.title.includes("สิทธิ์สุ่มฟรี") || wonAcc.title.includes("[ฟรีสิทธิ์]"));
@@ -1831,7 +1824,6 @@ app.post("/open-lootbox", async (req, res) => {
                     }
 
                     successfulWonAccIds.push(wonAcc.id);
-                    isGuaranteeHit = true;
                 } else {
                     reward = "🧂 เกลือ";
                     if (steps[s].reward !== 'normal') clashDetected = true;
@@ -1849,7 +1841,6 @@ app.post("/open-lootbox", async (req, res) => {
                 const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
                 if (target > 0 && !isFreeTicket && acc.pity_mode === 'global' && (acc.global_pity_count || 0) >= target) {
                     wonAcc = acc;
-                    isGuaranteeHit = true;
                     handled = true;
                     break;
                 }
@@ -1863,7 +1854,6 @@ app.post("/open-lootbox", async (req, res) => {
                 const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
                 if (target > 0 && !isFreeTicket && acc.pity_mode !== 'global' && currentCount >= target) {
                     wonAcc = acc;
-                    isGuaranteeHit = true;
                     handled = true;
                     break;
                 }
@@ -1903,16 +1893,8 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        if (wonAcc) {
-            const { data: checkAcc } = await supabase.from('game_accounts').select('status').eq('id', wonAcc.id).single();
-            if (checkAcc && checkAcc.status === 'out_of_stock') {
-                clashDetected = true;
-                reward = "🧂 เกลือ (มีคนสุ่มตัดหน้าเสี้ยววินาที)";
-                wonAcc = null;
-                actualConsumedTickets = Math.max(0, actualConsumedTickets - 1);
-            } else {
-                successfulWonAccIds.push(wonAcc.id);
-            }
+        if (wonAcc && !successfulWonAccIds.includes(wonAcc.id)) {
+            successfulWonAccIds.push(wonAcc.id);
         }
 
         for (let acc of targetAccList) {
@@ -1928,7 +1910,6 @@ app.post("/open-lootbox", async (req, res) => {
                     currentGlobal += 1;
                 }
                 acc.global_pity_count = currentGlobal;
-                await supabase.from('game_accounts').update({ global_pity_count: currentGlobal }).eq('id', acc.id);
             } else {
                 let currentC = pityCounters[acc.id] || 0;
                 if (wonAcc && wonAcc.id === acc.id) {
@@ -1952,6 +1933,11 @@ app.post("/open-lootbox", async (req, res) => {
 
     const newTickets = (user.tickets || 0) - actualConsumedTickets + freeTicketsWon;
 
+    // บันทึกลงฐานข้อมูลแบบรวดเร็วในคำสั่งเดียว (Parallel Batch Execution)
+    let globalPityUpdates = targetAccList.filter(a => a.pity_mode === 'global').map(a => 
+        supabase.from('game_accounts').update({ global_pity_count: a.global_pity_count }).eq('id', a.id)
+    );
+
     await Promise.all([
         successfulWonAccIds.length > 0 ? supabase.from('game_accounts').update({ status: 'out_of_stock' }).in('id', successfulWonAccIds) : Promise.resolve(),
         supabase.from('users').update({ 
@@ -1959,11 +1945,12 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
-        historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
+        historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve(),
+        ...globalPityUpdates
     ]);
 
     return res.json({
