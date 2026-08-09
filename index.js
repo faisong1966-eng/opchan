@@ -629,11 +629,18 @@ app.get("/api/user-status", async (req, res) => {
     let rawCounters = parsePityCounters(user ? user.pity_counters : {});
     let cleanCounters = {};
     if (gameAccounts) {
+        const isServerMode = gameAccounts.length > 0 && gameAccounts[0].pity_mode === 'server';
+        const globalServerCount = (gameAccounts.length > 0 && gameAccounts[0].global_pity_count !== undefined) ? gameAccounts[0].global_pity_count : 0;
+
         gameAccounts.forEach(acc => {
             const t = parseInt(acc.pity_target) || 0;
             const isFreeTicketReward = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-            if (t > 0 && !isFreeTicketReward && rawCounters[acc.id] !== undefined) {
-                cleanCounters[acc.id] = rawCounters[acc.id];
+            if (t > 0 && !isFreeTicketReward) {
+                if (isServerMode) {
+                    cleanCounters[acc.id] = globalServerCount;
+                } else if (rawCounters[acc.id] !== undefined) {
+                    cleanCounters[acc.id] = rawCounters[acc.id];
+                }
             }
         });
     }
@@ -847,7 +854,6 @@ app.post("/buy-caption", async (req, res) => {
           return res.send(`<script>alert("ไม่พบข้อมูลผู้ใช้หรือแพ็กเกจแคปชั่นนี้"); window.location.href="/store?username=${username}";</script>`);
       }
 
-      // ดึงซับแคปชั่น (Caption รอง) ถ้ามี
       let finalContent = caption.content;
       let subCaptions = [];
       try {
@@ -974,10 +980,13 @@ app.get("/lootbox", async (req, res) => {
     const gameAccounts = gameAccRes.data || [];
     const recentWins = recentWinsRes.data || [];
 
-    // ดึงค่าการแสดงผลการันตีจากคอลัมน์ของเกมอคาทาวน์ตัวแรก หรือใช้ค่ากลาง
     let showPityFlag = true;
-    if (gameAccounts.length > 0 && gameAccounts[0].show_pity !== undefined) {
-        showPityFlag = gameAccounts[0].show_pity;
+    let isServerPityMode = false;
+    let globalServerCount = 0;
+    if (gameAccounts.length > 0) {
+        if (gameAccounts[0].show_pity !== undefined) showPityFlag = gameAccounts[0].show_pity;
+        if (gameAccounts[0].pity_mode === 'server') isServerPityMode = true;
+        if (gameAccounts[0].global_pity_count !== undefined) globalServerCount = gameAccounts[0].global_pity_count;
     }
 
     let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
@@ -992,8 +1001,12 @@ app.get("/lootbox", async (req, res) => {
         gameAccounts.forEach(acc => {
             const t = parseInt(acc.pity_target) || 0;
             const isFreeTicketReward = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-            if (t > 0 && !isFreeTicketReward && rawCounters[acc.id] !== undefined) {
-                pityCounters[acc.id] = rawCounters[acc.id];
+            if (t > 0 && !isFreeTicketReward) {
+                if (isServerPityMode) {
+                    pityCounters[acc.id] = globalServerCount;
+                } else if (rawCounters[acc.id] !== undefined) {
+                    pityCounters[acc.id] = rawCounters[acc.id];
+                }
             }
         });
     }
@@ -1015,7 +1028,6 @@ app.get("/lootbox", async (req, res) => {
     const unwithdrawnHistory = historyRes.data || [];
     let hasClaimable = false;
     
-    // ปรับเงื่อนไขให้ตรวจสอบผลลัพธ์การสุ่มที่ยังไม่ถอนทั้งหมดให้ครบถ้วนทุก User
     if (unwithdrawnHistory.length > 0 && !hasPendingWithdraw) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
@@ -1794,7 +1806,6 @@ app.post("/open-lootbox", async (req, res) => {
         return res.json({ success: false, message: "สิทธิ์สุ่ม (Tickets) ของคุณไม่พอใช้งาน!" });
     }
 
-    // ตรวจสอบโหมดการันตีจาก game_accounts แถวแรกสุด
     let isServerPityMode = false;
     if (targetAccList.length > 0 && targetAccList[0].pity_mode === 'server') {
         isServerPityMode = true;
@@ -1978,7 +1989,11 @@ app.post("/open-lootbox", async (req, res) => {
             }
         }
 
-        if (!isServerPityMode) {
+        if (isServerPityMode) {
+            if (isGuaranteeHit) {
+                serverPityCount = 0;
+            }
+        } else {
             if (isGuaranteeHit) {
                 targetAccList.forEach(acc => {
                     const target = parseInt(acc.pity_target) || 0;
@@ -2015,7 +2030,6 @@ app.post("/open-lootbox", async (req, res) => {
 
     const newTickets = (user.tickets || 0) - actualConsumedTickets + freeTicketsWon;
 
-    // อัปเดต global_pity_count ไปยัง game_accounts ทุกแถวเพื่อให้จำค่าการันตีเซิร์ฟเวอร์ไว้ได้
     let globalPityUpdatePromises = targetAccList.map(acc => 
         supabase.from('game_accounts').update({ global_pity_count: serverPityCount }).eq('id', acc.id)
     );
@@ -2150,10 +2164,16 @@ app.post("/admin/clear-all-game-accounts", async (req, res) => {
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   
-  const { ids, rates, pity_targets, old_image_urls, statuses, show_pity, pity_mode } = req.body;
+  const { ids, rates, pity_targets, old_image_urls, statuses, show_pity, pity_mode, reset_server_pity } = req.body;
 
   const showPityBool = show_pity === 'true' || show_pity === 'on';
   const pityModeVal = pity_mode || 'user';
+  const shouldResetServerPity = reset_server_pity === 'true' || reset_server_pity === 'on';
+
+  let globalPityResetVal = undefined;
+  if (shouldResetServerPity) {
+      globalPityResetVal = 0;
+  }
 
   if (ids) {
       const idArray = Array.isArray(ids) ? ids : [ids];
@@ -2175,20 +2195,28 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
               if (newUploadedUrl) finalImageUrl = newUploadedUrl;
           }
 
-          return supabase.from('game_accounts').update({
+          let updatePayload = {
               rate: newRate,
               pity_target: newPity,
               image_url: finalImageUrl,
               status: newStatus,
               show_pity: showPityBool,
               pity_mode: pityModeVal
-          }).eq('id', accId);
+          };
+          if (globalPityResetVal !== undefined) {
+              updatePayload.global_pity_count = globalPityResetVal;
+          }
+
+          return supabase.from('game_accounts').update(updatePayload).eq('id', accId);
       });
 
       await Promise.all(processPromises);
   } else {
-      // กรณีไม่มีแถวในคลัง ให้บันทึกการตั้งค่าลงเกมอคาทาวน์จำลอง หรืออัปเดตทุกแถวที่มี
-      await supabase.from('game_accounts').update({ show_pity: showPityBool, pity_mode: pityModeVal }).neq('id', 0);
+      let updatePayload = { show_pity: showPityBool, pity_mode: pityModeVal };
+      if (globalPityResetVal !== undefined) {
+          updatePayload.global_pity_count = globalPityResetVal;
+      }
+      await supabase.from('game_accounts').update(updatePayload).neq('id', 0);
   }
 
   res.send(`<script>alert("บันทึกการตั้งค่าเรตและการันตีสำเร็จ!"); window.location.href="/admin";</script>`);
@@ -2209,19 +2237,20 @@ app.post("/admin/add-caption", async (req, res) => {
 app.post("/admin/delete-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   await supabase.from('captions').delete().eq('id', req.body.caption_id);
-  // ลบซับแคปชั่นที่ผูกกันไว้ด้วย
   await supabase.from('sub_captions').delete().eq('caption_id', req.body.caption_id);
   res.send(`<script>alert("ลบแคปชั่นออกจากร้านค้าสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// เพิ่ม Caption รอง
+// เพิ่ม Caption รอง (แก้ไขให้ redirect กลับมาหน้า admin อย่างถูกต้อง)
 app.post("/admin/add-sub-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { caption_id, content } = req.body;
-  await supabase.from('sub_captions').insert([{
-      caption_id: parseInt(caption_id),
-      content
-  }]);
+  if (caption_id && content) {
+      await supabase.from('sub_captions').insert([{
+          caption_id: parseInt(caption_id),
+          content: content.trim()
+      }]);
+  }
   res.send(`<script>alert("เพิ่ม Caption รองสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
@@ -2229,7 +2258,9 @@ app.post("/admin/add-sub-caption", async (req, res) => {
 app.post("/admin/delete-sub-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { sub_id } = req.body;
-  await supabase.from('sub_captions').delete().eq('id', sub_id);
+  if (sub_id) {
+      await supabase.from('sub_captions').delete().eq('id', sub_id);
+  }
   res.send(`<script>alert("ลบ Caption รองสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
@@ -2560,10 +2591,10 @@ async function renderAdminDashboard(req, res) {
       <h2>🛠️ ระบบจัดการหลังบ้านแอดมิน (Line Rangers Box)</h2>
       <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
 
-      <!-- ฟอร์มตั้งค่าระบบการันตี (ผูกเข้ากับตาราง game_accounts ตรงกับรูปภาพ Supabase) -->
+      <!-- ฟอร์มตั้งค่าระบบการันตี (เพิ่มปุ่มเลือกรีเซ็ตแต้มการันตี Server) -->
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#ffd700; margin-top:0;">⚙️ ตั้งค่าระบบการันตี (ควบคุมการแสดงผลและโหมด)</h3>
-          <form action="/admin/update-all-game-accounts" method="POST" style="display:flex; gap:15px; align-items:center;">
+          <form action="/admin/update-all-game-accounts" method="POST" style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
               <div>
                   <label style="font-size:12px; color:#fff; display:block; margin-bottom:4px;">การแสดงผลการันตีให้ผู้เล่นเห็น:</label>
                   <select name="show_pity" style="padding:8px; font-size:12px; background:#1e1e2f; color:#fff; border:1px solid #555; border-radius:4px;">
@@ -2578,7 +2609,13 @@ async function renderAdminDashboard(req, res) {
                       <option value="server" ${currentPityMode === 'server' ? 'selected' : ''}>🌐 แบบรวม Server (ทุกคนนับรวมกัน)</option>
                   </select>
               </div>
-              <button type="submit" style="background:#ffd700; color:#000; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:20px;">💾 บันทึกตั้งค่าการันตี</button>
+              <div>
+                  <label style="font-size:12px; color:#ff6b81; display:block; margin-bottom:4px;">รีเซ็ตแต้มการันตีเซิร์ฟเวอร์:</label>
+                  <label style="font-size:12px; display:flex; align-items:center; gap:5px; margin-top:6px; cursor:pointer;">
+                      <input type="checkbox" name="reset_server_pity" value="true"> ล้างแต้มเก่าให้เริ่มนับใหม่ที่ 0
+                  </label>
+              </div>
+              <button type="submit" style="background:#ffd700; color:#000; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:18px;">💾 บันทึกตั้งค่าการันตี</button>
           </form>
       </div>
 
