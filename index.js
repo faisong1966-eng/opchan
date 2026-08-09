@@ -94,7 +94,6 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- EXACT MATCH SCI-FI THEME WITH EMBEDDED CHARACTERS -------------------
 const exactSciFiCSS = `
     * { box-sizing: border-box; }
     body { 
@@ -315,8 +314,6 @@ const exactSciFiCSS = `
     }
 `;
 
-// ------------------- TICKER API ENDPOINT -------------------
-
 app.get("/api/ticker", async (req, res) => {
   try {
       const { data: recentWins } = await supabase
@@ -336,8 +333,6 @@ app.get("/api/ticker", async (req, res) => {
       res.json({ success: false });
   }
 });
-
-// ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -642,7 +637,7 @@ app.get("/api/user-status", async (req, res) => {
       supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('history').select('*').eq('username', username).eq('is_with_drawn', false), // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
       supabase.from('game_accounts').select('*').order('id', { ascending: true })
     ]);
 
@@ -705,8 +700,6 @@ app.get("/api/user-status", async (req, res) => {
     res.json({ success: false });
   }
 });
-
-// ------------------- 1. CAPSULE STORE ROUTE -------------------
 
 app.get("/store", async (req, res) => {
   const username = req.query.username;
@@ -1004,8 +997,6 @@ app.post("/buy-caption", async (req, res) => {
   }
 });
 
-// ------------------- MAIN LOOTBOX PAGE -------------------
-
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
   const countParam = parseInt(req.query.count) || 1;
@@ -1022,7 +1013,7 @@ app.get("/lootbox", async (req, res) => {
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('history').select('*').eq('username', username).eq('is_with_drawn', false), // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
       supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5)
     ]);
 
@@ -1476,7 +1467,6 @@ app.get("/lootbox", async (req, res) => {
 
                   }).catch(e => {});
 
-                  // Ticker fetch live update
                   fetch('/api/ticker').then(r => r.json()).then(d => {
                       if (d.success && d.tickerHtml) {
                           const el = document.getElementById('ticker-content');
@@ -1640,7 +1630,7 @@ app.get("/my-history", async (req, res) => {
     .from('history')
     .select('*')
     .eq('username', username)
-    .eq('is_withdrawn', false)
+    .eq('is_with_drawn', false) // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
     .order('id', { ascending: false });
 
   let historyList = "";
@@ -1690,7 +1680,7 @@ app.post("/request-withdraw", async (req, res) => {
 
   const [existingPendingRes, userHistoryRes, userDataRes] = await Promise.all([
     supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-    supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+    supabase.from('history').select('*').eq('username', username).eq('is_with_drawn', false), // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
     supabase.from('users').select('facebook_url').eq('username', username).single()
   ]);
 
@@ -1731,7 +1721,7 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending',
       history_snapshot: JSON.stringify(fullDetailedList)
     }]),
-    supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate)
+    supabase.from('history').update({ is_with_drawn: true }).in('id', idsToUpdate) // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
   ]);
 
   res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! รายการถูกส่งไปหาแอดมินเรียบร้อย ระหว่างนี้คุณยังสามารถสุ่มสะสมรางวัลอื่นเพิ่มได้เรื่อยๆ"); window.location.href="/lootbox?username=${username}";</script>`);
@@ -1840,8 +1830,6 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์"); window.location.href="/store?username=${username}";</script>`);
   }
 });
-
-// ------------------- 2. UPDATED BULK OPEN LOOTBOX ALGORITHM (DUAL PITY) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -2090,7 +2078,7 @@ app.post("/open-lootbox", async (req, res) => {
             facebook_url: safeFacebookUrl,
             reward: reward,
             reward_num: 0,
-            is_withdrawn: false
+            is_with_drawn: false // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
         });
     }
 
@@ -2108,7 +2096,7 @@ app.post("/open-lootbox", async (req, res) => {
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
             step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve(),
@@ -2127,8 +2115,6 @@ app.post("/open-lootbox", async (req, res) => {
     return res.json({ success: false, message: "เกิดข้อผิดพลาดในการประมวลผลคำขอสุ่ม" });
   }
 });
-
-// ------------------- ADMIN DASHBOARD -------------------
 
 app.get("/admin", async (req, res) => {
   if (req.session.isAdmin) return renderAdminDashboard(req, res);
@@ -2185,7 +2171,7 @@ app.post("/admin/approve-withdraw", async (req, res) => {
 
   await Promise.all([
     supabase.from('pending_withdraw').update({ status: 'completed' }).eq('id', withdraw_id),
-    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true)
+    supabase.from('history').delete().eq('username', username).eq('is_with_drawn', true) // ปรับให้ตรงกับคอลัมน์ใน Supabase ของคุณ
   ]);
 
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ปุ่มขอรับของผู้เล่นจะเด้งกลับมาใช้งานได้ทันที"); window.location.href="/admin";</script>`);
