@@ -54,35 +54,8 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'linerangers_lootbox_secret_2026',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 600000 }
+    cookie: { maxAge: 86400000 }
 }));
-
-async function checkUserExpiration(username) {
-    try {
-        const { data: user } = await supabase
-            .from('users')
-            .select('created_at, username')
-            .eq('username', username)
-            .single();
-
-        if (user && user.created_at) {
-            const createdTime = new Date(user.created_at).getTime();
-            const now = new Date().getTime();
-            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-
-            if (now - createdTime > thirtyDaysMs) {
-                await Promise.all([
-                    supabase.from('users').delete().eq('username', username),
-                    supabase.from('history').delete().eq('username', username),
-                    supabase.from('pending_topup').delete().eq('username', username),
-                    supabase.from('pending_withdraw').delete().eq('username', username)
-                ]);
-                return true; 
-            }
-        }
-    } catch (e) {}
-    return false; 
-}
 
 function parsePityCounters(val) {
     if (!val) return {};
@@ -94,7 +67,6 @@ function parsePityCounters(val) {
     }
 }
 
-// ------------------- EXACT MATCH SCI-FI THEME WITH EMBEDDED CHARACTERS & TICKER -------------------
 const exactSciFiCSS = `
     * { box-sizing: border-box; }
     body { 
@@ -285,22 +257,7 @@ const exactSciFiCSS = `
         position: relative;
         letter-spacing: 0.5px;
     }
-    .live-ticker {
-        background: rgba(0, 210, 211, 0.1);
-        border: 1px solid #00d2d3;
-        border-radius: 8px;
-        padding: 8px;
-        margin-bottom: 12px;
-        font-size: 11px;
-        color: #00ff87;
-        text-align: left;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
 `;
-
-// ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -425,7 +382,6 @@ app.get("/register", (req, res) => {
         
         <div class="container">
             <h2>📝 สมัครสมาชิก</h2>
-            <p style="font-size:11px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
             <form action="/register" method="POST">
                 <label>Username (สำหรับเข้าเว็บ):</label>
                 <input type="text" name="username" placeholder="ตั้งชื่อผู้ใช้งาน" required>
@@ -469,7 +425,7 @@ app.post("/register", async (req, res) => {
       console.error("Register Error:", error);
       return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว หรือเกิดข้อผิดพลาด!"); window.location.href="/register";</script>`);
     }
-    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! บัญชีใช้งานได้ 30 วัน กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
+    res.send(`<script>alert("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ"); window.location.href="/login";</script>`);
   } catch (err) {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล"); window.location.href="/register";</script>`);
   }
@@ -516,11 +472,6 @@ app.get("/login", (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  
-  const isExpired = await checkUserExpiration(username);
-  if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
-  }
 
   try {
     const { data: row } = await supabase
@@ -545,13 +496,12 @@ app.get("/api/user-status", async (req, res) => {
   if (!username) return res.json({ success: false });
 
   try {
-    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes, recentWinnersRes] = await Promise.all([
+    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes] = await Promise.all([
       supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('game_accounts').select('*').order('id', { ascending: true }),
-      supabase.from('history').select('username, reward, time').order('id', { ascending: false }).limit(5)
+      supabase.from('game_accounts').select('*').order('id', { ascending: true })
     ]);
 
     const user = userRes.data;
@@ -559,7 +509,6 @@ app.get("/api/user-status", async (req, res) => {
     const pendingWithdrawRows = pendingWithdrawRes.data;
     const unwithdrawnHistory = historyRes.data;
     const gameAccounts = gameAccRes.data;
-    const recentWinners = recentWinnersRes.data || [];
 
     const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
 
@@ -601,50 +550,34 @@ app.get("/api/user-status", async (req, res) => {
       hasPendingWithdraw: hasPendingWithdraw,
       hasClaimable: hasClaimable,
       gameAccounts: gameAccounts || [],
-      hasAvailableStock: availableCount > 0,
-      recentWinners: recentWinners
+      hasAvailableStock: availableCount > 0
     });
   } catch (e) {
     res.json({ success: false });
   }
 });
 
-// ------------------- 1. CAPSULE STORE ROUTE (MARKETING LAW COMPLIANT) -------------------
+// ------------------- 1. CAPSULE STORE WITH NESTED SUB-CAPTIONS & LOOPING -------------------
 
 app.get("/store", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
 
-  const isExpired = await checkUserExpiration(username);
-  if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
-  }
-
   try {
-    const [userRes, captionsRes, purchasedRes, pendingRes] = await Promise.all([
+    const [userRes, captionsRes, subCaptionsRes, purchasedRes, pendingRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('captions').select('*').order('price', { ascending: true }),
-      supabase.from('purchased_captions').select('caption_id').eq('username', username),
+      supabase.from('caption_items').select('*'),
+      supabase.from('purchased_captions').select('*').eq('username', username),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending')
     ]);
 
     const user = userRes.data;
     if (!user) return res.redirect("/login");
 
-    const allCaptions = captionsRes.data || [];
-    const purchasedCaptions = purchasedRes.data || [];
-    const purchasedIds = purchasedCaptions.map(p => p.caption_id);
-
-    // กรองแคปชั่นที่เคยซื้อไปแล้วออก
-    let availableCaptions = allCaptions.filter(c => !purchasedIds.includes(c.id));
-
-    // ระบบวนลูปอัตโนมัติ: ถ้าซื้อครบทุกอันแล้ว ให้วนกลับมาแสดงทั้งหมดใหม่อีกรอบ
-    let isLooped = false;
-    if (availableCaptions.length === 0 && allCaptions.length > 0) {
-        availableCaptions = allCaptions;
-        isLooped = true;
-    }
-
+    const captions = captionsRes.data || [];
+    const subCaptions = subCaptionsRes.data || [];
+    const purchasedList = purchasedRes.data || [];
     const pendingRows = pendingRes.data || [];
 
     let pendingHtml = "";
@@ -658,23 +591,23 @@ app.get("/store", async (req, res) => {
     }
 
     let captionsCardsHtml = "";
-    if (availableCaptions.length > 0) {
-      availableCaptions.forEach(cap => {
+    if (captions.length > 0) {
+      captions.forEach(cap => {
         captionsCardsHtml += `
           <div style="background:#13151f; border:1px solid #00d2d3; border-radius:12px; padding:15px; text-align:left; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 0 15px rgba(0,210,211,0.15);">
               <div>
                   <div style="color:#ffd700; font-weight:bold; font-size:15px; margin-bottom:4px;">💬 ${cap.title}</div>
-                  <div style="font-size:12px; color:#a4b0be; margin-bottom:10px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; min-height:45px;">"${cap.content}"</div>
+                  <div style="font-size:12px; color:#a4b0be; margin-bottom:10px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; min-height:45px;">แพ็กเกจแคปชั่นหลัก พร้อมระบบวนลูปแคปชั่นย่อยซ้อนในแพ็กเกจ</div>
               </div>
               <div>
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13px;">
                       <span style="color:#2ed573; font-weight:bold;">💵 ราคา: ${cap.price} แต้ม</span>
                       <span style="color:#00ff87; font-weight:bold; background:rgba(0,255,135,0.1); padding:2px 8px; border-radius:6px;">🎁 แถมสิทธิ์สุ่ม ${cap.tickets_bonus} ครั้ง</span>
                   </div>
-                  <form action="/buy-caption" method="POST" onsubmit="return confirm('ยืนยันการซื้อแคปชั่นนี้ (${cap.price} แต้ม)? คุณจะได้รับแคปชั่นสำหรับคัดลอกทันที พร้อมรับสิทธิ์สุ่ม ${cap.tickets_bonus} ครั้ง');">
+                  <form action="/buy-caption" method="POST" onsubmit="return confirm('ยืนยันการซื้อแคปชั่นนี้ (${cap.price} แต้ม)? ระบบจะวนลูปหยิบแคปชั่นย่อยในแพ็กเกจนี้ให้คุณทันที พร้อมรับสิทธิ์สุ่ม ${cap.tickets_bonus} ครั้ง');">
                       <input type="hidden" name="username" value="${username}">
                       <input type="hidden" name="caption_id" value="${cap.id}">
-                      <button type="submit" style="width:100%; background:linear-gradient(135deg, #2ed573, #17b978); color:#000; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit'; font-size:13px;">🛒 ซื้อแคปชั่น & รับสิทธิ์สุ่ม</button>
+                      <button type="submit" style="width:100%; background:linear-gradient(135deg, #2ed573, #17b978); color:#000; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit'; font-size:13px;">🛒 ซื้อแพ็กเกจแคปชั่น & รับสิทธิ์สุ่ม</button>
                   </form>
               </div>
           </div>
@@ -683,7 +616,7 @@ app.get("/store", async (req, res) => {
     } else {
       captionsCardsHtml = `
         <div style="grid-column: span 2; background:#13151f; border:1px dashed #00d2d3; padding:20px; border-radius:12px; color:#a4b0be;">
-            ยังไม่มีรายการแคปชั่นในระบบร้านค้า (แอดมินสามารถเพิ่มแพ็กเกจแคปชั่นได้ที่หลังบ้าน)
+            ยังไม่มีรายการแคปชั่นในระบบร้านค้า (แอดมินสามารถเพิ่มแพ็กเกจและแคปชั่นย่อยได้ที่หลังบ้าน)
         </div>
       `;
     }
@@ -738,7 +671,6 @@ app.get("/store", async (req, res) => {
                   <div>🎟️ สิทธิ์สุ่ม (Tickets): <span id="tickets" style="color:#00ff87;">${user.tickets || 0}</span> ครั้ง</div>
               </div>
 
-              ${isLooped ? '<div style="font-size:11px; color:#ffd700; margin-bottom:8px;">🔄 ระบบได้วนลูปแสดงรายการแคปชั่นรอบใหม่ให้คุณซื้อซ้ำได้แล้ว!</div>' : ''}
               <div style="font-size:13px; color:#ffd700; text-align:left; margin-bottom:10px; font-weight:bold;">🛒 เลือกซื้อแพ็กเกจแคปชั่นคำคมดิจิทัล:</div>
               <div class="store-grid">
                   ${captionsCardsHtml}
@@ -792,13 +724,17 @@ app.post("/buy-caption", async (req, res) => {
   }
 
   try {
-      const [userRes, captionRes] = await Promise.all([
+      const [userRes, captionRes, subCaptionsRes, userPurchasedRes] = await Promise.all([
           supabase.from('users').select('*').eq('username', username).single(),
-          supabase.from('captions').select('*').eq('id', caption_id).single()
+          supabase.from('captions').select('*').eq('id', caption_id).single(),
+          supabase.from('caption_items').select('*').eq('caption_id', caption_id).order('id', { ascending: true }),
+          supabase.from('purchased_captions').select('*').eq('username', username).eq('caption_id', caption_id)
       ]);
 
       const user = userRes.data;
       const caption = captionRes.data;
+      const subItems = subCaptionsRes.data || [];
+      const purchasedCount = userPurchasedRes.data ? userPurchasedRes.data.length : 0;
 
       if (!user || !caption) {
           return res.send(`<script>alert("ไม่พบข้อมูลผู้ใช้หรือแพ็กเกจแคปชั่นนี้"); window.location.href="/store?username=${username}";</script>`);
@@ -809,6 +745,12 @@ app.post("/buy-caption", async (req, res) => {
 
       if (user.points < price) {
           return res.send(`<script>alert("แต้มในกระเป๋าของคุณไม่พอสำหรับซื้อแคปชั่นนี้! กรุณาเติมเงินก่อน"); window.location.href="/store?username=${username}";</script>`);
+      }
+
+      let selectedSubContent = caption.content || "";
+      if (subItems.length > 0) {
+          const loopIndex = purchasedCount % subItems.length;
+          selectedSubContent = subItems[loopIndex].content;
       }
 
       const newPoints = user.points - price;
@@ -823,7 +765,8 @@ app.post("/buy-caption", async (req, res) => {
           }).eq('username', username),
           supabase.from('purchased_captions').insert([{
               username: username,
-              caption_id: parseInt(caption_id)
+              caption_id: parseInt(caption_id),
+              content_snapshot: selectedSubContent
           }])
       ]);
 
@@ -845,12 +788,12 @@ app.post("/buy-caption", async (req, res) => {
             
             <div class="box">
                 <h2 style="color:#2ed573; text-align:center; margin-top:0;">🎉 ซื้อแคปชั่นสำเร็จเรียบร้อย!</h2>
-                <p style="font-size:13px; color:#a4b0be; text-align:center;">คุณได้รับสิทธิ์สุ่มกล่องแถมฟรี <b style="color:#ffd700; font-size:16px;">+${bonusTickets} ครั้ง</b> เข้าบัญชีแล้ว!</p>
+                <p style="font-size:13px; color:#a4b0be; text-align:center;">ระบบวนลูปหยิบแคปชั่นย่อยให้คุณแล้ว และได้รับสิทธิ์สุ่มแถมฟรี <b style="color:#ffd700; font-size:16px;">+${bonusTickets} ครั้ง</b> เข้าบัญชีแล้ว!</p>
                 
                 <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
                 
-                <label style="font-size:12px; color:#ffd700; font-weight:bold; display:block; margin-bottom:5px;">📋 ข้อความแคปชั่นของคุณ (กดคัดลอกไปใช้งานได้เลย):</label>
-                <textarea id="captionText" readonly style="width:100%; height:90px; background:#0b0f19; color:#fff; border:1px solid #00d2d3; border-radius:6px; padding:10px; font-family:'Kanit'; font-size:13px; box-sizing:border-box;">${caption.content}</textarea>
+                <label style="font-size:12px; color:#ffd700; font-weight:bold; display:block; margin-bottom:5px;">📋 ข้อความแคปชั่นย่อยของคุณ (กดคัดลอกไปใช้งานได้เลย):</label>
+                <textarea id="captionText" readonly style="width:100%; height:90px; background:#0b0f19; color:#fff; border:1px solid #00d2d3; border-radius:6px; padding:10px; font-family:'Kanit'; font-size:13px; box-sizing:border-box;">${selectedSubContent}</textarea>
                 
                 <button onclick="copyCaption()" style="width:100%; background:#00d2d3; color:#000; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-top:10px; font-family:'Kanit';">📋 คัดลอกข้อความแคปชั่น</button>
 
@@ -881,19 +824,13 @@ app.get("/lootbox", async (req, res) => {
   const countParam = parseInt(req.query.count) || 1;
   if (!username) return res.redirect("/login");
 
-  const isExpired = await checkUserExpiration(username);
-  if (isExpired) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
-  }
-
   try {
-    const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes, recentWinnersRes] = await Promise.all([
+    const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('history').select('username, reward, time').order('id', { ascending: false }).limit(5)
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false)
     ]);
 
     const row = userRes.data;
@@ -901,11 +838,7 @@ app.get("/lootbox", async (req, res) => {
 
     const currentPoints = row.points || 0;
     const currentTickets = row.tickets || 0;
-    const totalSpent = row.total_spent || 0;
-    const createdAt = row.created_at;
-
     const gameAccounts = gameAccRes.data;
-    const recentWinners = recentWinnersRes.data || [];
 
     let rawCounters = parsePityCounters(row.pity_counters);
     let pityCounters = {};
@@ -947,8 +880,8 @@ app.get("/lootbox", async (req, res) => {
     if (hasPendingWithdraw) {
       claimButtonHtml = `
         <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล</div>
-            <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">แอดมินจะติดต่อกลับและจัดส่งรางวัลให้ภายใน 24 ชั่วโมงผ่านทาง Facebook</div>
+            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตรวจสอบและจัดส่งรางวัล (สถานะเรียลไทม์)</div>
+            <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">เมื่อแอดมินกดอนุมัติ ระบบจะรีเฟรชหน้าจอให้อัตโนมัติทันที</div>
         </div>
       `;
     } else if (hasClaimable) {
@@ -956,16 +889,10 @@ app.get("/lootbox", async (req, res) => {
         <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
             <input type="hidden" name="username" value="${username}">
             <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
-                🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
+                🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (เปลี่ยนสถานะทันที)
             </button>
         </form>
       `;
-    }
-
-    let tickerHtml = "";
-    if (recentWinners.length > 0) {
-        let winnerText = recentWinners.map(w => `🌟 <b>${w.username}</b> สุ่มได้: <span style="color:#ffd700;">${w.reward}</span>`).join(' &nbsp;|&nbsp; ');
-        tickerHtml = `<div class="live-ticker">📢 <b>ผู้โชคดีล่าสุด:</b> <marquee scrollamount="4">${winnerText}</marquee></div>`;
     }
 
     let showcaseCardsHtml = "";
@@ -1040,7 +967,7 @@ app.get("/lootbox", async (req, res) => {
 
               .wallet-box { background: #1b1e2e; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 13.5px; margin-bottom: 10px; font-weight: bold; color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.2); }
               
-              #countdown-box { background: rgba(255,215,0,0.1); border: 1px dashed #ffd700; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #ffd700; font-weight: bold; }
+              #countdown-box { background: rgba(0,255,135,0.1); border: 1px dashed #00ff87; padding: 6px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #00ff87; font-weight: bold; }
 
               .showcase-container { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-bottom: 15px; }
               .showcase-title { font-size: 12px; color: #a4b0be; text-align: left; margin-bottom: 8px; font-weight: bold; }
@@ -1061,16 +988,6 @@ app.get("/lootbox", async (req, res) => {
               .modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
               .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #00d2d3; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,210,211,0.5); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-              @keyframes shake {
-                  0% { transform: translate(1px, 1px) rotate(0deg); }
-                  20% { transform: translate(-3px, 0px) rotate(-1deg); }
-                  40% { transform: translate(1px, -1px) rotate(1deg); }
-                  60% { transform: translate(-3px, 1px) rotate(0deg); }
-                  80% { transform: translate(1px, -1px) rotate(1deg); }
-                  100% { transform: translate(0px, 0px) rotate(0deg); }
-              }
-              .screen-shake { animation: shake 0.5s; }
           </style>
       </head>
       <body>
@@ -1093,8 +1010,6 @@ app.get("/lootbox", async (req, res) => {
               <div style="font-size: 16px; color: #00ff87; font-weight: 800; margin-bottom: 5px;">🛡️ LINE RANGERS BOX</div>
               <div style="font-size: 11px; color: #00d2d3; margin-bottom: 15px;">✨ สุ่มไอเทมมูลค่าแพง ลุ้นรางวัลใหญ่! ✨</div>
 
-              <div id="ticker-container">${tickerHtml}</div>
-
               <div class="user-bar">
                   <div style="text-align: left; font-size: 12px;">
                       <span style="color: #a4b0be; display: block; font-size: 10px;">ผู้ใช้งาน</span>
@@ -1106,7 +1021,7 @@ app.get("/lootbox", async (req, res) => {
                   </div>
               </div>
 
-              <div id="countdown-box">⏳ ID นี้ใช้งานได้อีก: กำลังคำนวณเวลา...</div>
+              <div id="countdown-box">🛡️ สถานะบัญชี: ใช้งานได้ไม่จำกัดเวลา (ถาวร)</div>
               
               <div class="wallet-box">
                   <div>🎟️ สิทธิ์สุ่ม: <span id="tickets" style="color:#00ff87;">${currentTickets}</span> ครั้ง</div>
@@ -1122,7 +1037,7 @@ app.get("/lootbox", async (req, res) => {
                   </div>
               </div>
 
-              <div style="font-size:12px; color:#ffd700; text-align:left; margin-bottom:6px; font-weight:bold;">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง (ใช้สิทธิ์สุ่ม Tickets):</div>
+              <div style="font-size:12px; color:#ffd700; text-align:left; margin-bottom:6px; font-weight:bold;">⚙️ เลือกจำนวนครั้งในการเปิดกล่อง (Fast Lootbox):</div>
               <div class="select-group">
                   <button type="button" class="${countParam === 1 ? 'active' : ''}" onclick="setCount(1, this)">1 ครั้ง</button>
                   <button type="button" class="${countParam === 10 ? 'active' : ''}" onclick="setCount(10, this)">10 ครั้ง</button>
@@ -1133,33 +1048,13 @@ app.get("/lootbox", async (req, res) => {
               </div>
 
               <button class="box-btn" id="open-box-btn" ${isAllOut ? 'disabled' : ''} onclick="openBox()">
-                 ${isAllOut ? '❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)' : `📦 เปิดกล่องลุ้นโชค (${countParam} ครั้ง / ใช้ ${countParam} สิทธิ์)`}
+                 ${isAllOut ? '❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)' : `📦 เปิดกล่องลุ้นโชคแบบรวดเร็ว (${countParam} ครั้ง / ใช้ ${countParam} สิทธิ์)`}
               </button>
               
-              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
+              <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัลทันที!</div>
 
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
-
-          <div class="feature-row">
-              <div class="feature-item">
-                  <div class="feature-icon">🛡️</div>
-                  <div class="feature-title">ปลอดภัย 100%</div>
-                  <div class="feature-desc">มั่นใจในความปลอดภัย<br>ข้อมูลถูกเข้ารหัส</div>
-              </div>
-              <div class="feature-item">
-                  <div class="feature-icon">⚡</div>
-                  <div class="feature-title">รวดเร็วทันใจ</div>
-                  <div class="feature-desc">เข้าสู่ระบบง่าย<br>เพียงไม่กี่วินาที</div>
-              </div>
-              <div class="feature-item">
-                  <div class="feature-icon">⭐</div>
-                  <div class="feature-title">สิทธิพิเศษมากมาย</div>
-                  <div class="feature-desc">รับของรางวัลพิเศษ<br>สำหรับสมาชิก</div>
-              </div>
-          </div>
-
-          <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
 
           <!-- Popup Result Modal -->
           <div id="resultModal" class="modal">
@@ -1183,8 +1078,7 @@ app.get("/lootbox", async (req, res) => {
               let userTickets = ${currentTickets};
               let selectedCount = ${countParam};
               let hasAvailableStock = ${!isAllOut};
-              const createdAtTime = new Date("${createdAt}").getTime();
-              const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+              let lastPendingWithdrawState = ${hasPendingWithdraw};
 
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -1200,47 +1094,16 @@ app.get("/lootbox", async (req, res) => {
                   try {
                       if (!audioCtx) return;
                       const now = audioCtx.currentTime;
-
-                      if (highestRarity === 'เทพมังกร' || highestRarity === 'FreeTicket') {
-                          for (let i = 0; i < 7; i++) {
-                              const osc = audioCtx.createOscillator();
-                              const gain = audioCtx.createGain();
-                              osc.type = 'sawtooth';
-                              osc.frequency.setValueAtTime(250 + (i * 120), now + (i * 0.08));
-                              gain.gain.setValueAtTime(0.4, now + (i * 0.08));
-                              gain.gain.exponentialRampToValueAtTime(0.01, now + (i * 0.08) + 0.35);
-                              osc.connect(gain);
-                              gain.connect(audioCtx.destination);
-                              osc.start(now + (i * 0.08));
-                              osc.stop(now + (i * 0.08) + 0.35);
-                          }
-                      } else if (highestRarity === 'SSR') {
-                          [440, 554.37, 659.25, 880].forEach((freq, idx) => {
-                              const osc = audioCtx.createOscillator();
-                              const gain = audioCtx.createGain();
-                              osc.type = 'triangle';
-                              osc.frequency.setValueAtTime(freq, now + (idx * 0.1));
-                              gain.gain.setValueAtTime(0.35, now + (idx * 0.1));
-                              gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.1) + 0.4);
-                              osc.connect(gain);
-                              gain.connect(audioCtx.destination);
-                              osc.start(now + (idx * 0.1));
-                              osc.stop(now + (idx * 0.1) + 0.4);
-                          });
-                      } else {
-                          [330, 440].forEach((freq, idx) => {
-                              const osc = audioCtx.createOscillator();
-                              const gain = audioCtx.createGain();
-                              osc.type = 'sine';
-                              osc.frequency.setValueAtTime(freq, now + (idx * 0.08));
-                              gain.gain.setValueAtTime(0.2, now + (idx * 0.08));
-                              gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.08) + 0.2);
-                              osc.connect(gain);
-                              gain.connect(audioCtx.destination);
-                              osc.start(now + (idx * 0.08));
-                              osc.stop(now + (idx * 0.08) + 0.2);
-                          });
-                      }
+                      const osc = audioCtx.createOscillator();
+                      const gain = audioCtx.createGain();
+                      osc.type = 'sine';
+                      osc.frequency.setValueAtTime(440, now);
+                      gain.gain.setValueAtTime(0.2, now);
+                      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                      osc.connect(gain);
+                      gain.connect(audioCtx.destination);
+                      osc.start(now);
+                      osc.stop(now + 0.2);
                   } catch(e){}
               }
 
@@ -1262,6 +1125,7 @@ app.get("/lootbox", async (req, res) => {
                   document.getElementById("imageModal").style.display = "none";
               }
 
+              // Realtime Polling เพื่ออัปเดตสถานะหน้าจอผู้เล่นทันทีโดยไม่ต้องรีเฟรช
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
@@ -1273,26 +1137,18 @@ app.get("/lootbox", async (req, res) => {
                           document.getElementById("tickets").innerText = userTickets;
                       }
 
-                      if (data.recentWinners && data.recentWinners.length > 0) {
-                          let winnerText = data.recentWinners.map(w => \`🌟 <b>\${w.username}</b> สุ่มได้: <span style="color:#ffd700;">\${w.reward}</span>\`).join(' &nbsp;|&nbsp; ');
-                          document.getElementById("ticker-container").innerHTML = \`<div class="live-ticker">📢 <b>ผู้โชคดีล่าสุด:</b> <marquee scrollamount="4">\${winnerText}</marquee></div>\`;
+                      // ถ้าสถานะการขอรับรางวัลเปลี่ยนไป (เช่น แอดมินกดอนุมัติแล้ว) รีเฟรชหน้าจอทันทีแบบเรียลไทม์
+                      if (lastPendingWithdrawState && !data.hasPendingWithdraw) {
+                          window.location.reload();
+                          return;
                       }
-
-                      let pendingHtml = "";
-                      if (data.pendingRows && data.pendingRows.length > 0) {
-                          data.pendingRows.forEach(p => {
-                              const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
-                              pendingHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)</li>\`;
-                          });
-                      } else {
-                          pendingHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
-                      }
+                      lastPendingWithdrawState = data.hasPendingWithdraw;
 
                       if (data.hasPendingWithdraw) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ อยู่ระหว่างรอแอดมินตรวจสอบและจัดส่งรางวัล</div>
-                                <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">แอดมินจะติดต่อกลับและจัดส่งรางวัลให้ภายใน 24 ชั่วโมงผ่านทาง Facebook</div>
+                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตรวจสอบและจัดส่งรางวัล (สถานะเรียลไทม์)</div>
+                                <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">เมื่อแอดมินกดอนุมัติ ระบบจะรีเฟรชหน้าจอให้อัตโนมัติทันที</div>
                             </div>
                           \`;
                       } else if (data.hasClaimable) {
@@ -1300,7 +1156,7 @@ app.get("/lootbox", async (req, res) => {
                             <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
                                 <input type="hidden" name="username" value="${username}">
                                 <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
-                                    🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้!
+                                    🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (เปลี่ยนสถานะทันที)
                                 </button>
                             </form>
                           \`;
@@ -1315,7 +1171,7 @@ app.get("/lootbox", async (req, res) => {
                           openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
                       } else if (!openBtn.innerText.includes("กำลังเปิด")) {
                           openBtn.disabled = false;
-                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${selectedCount} ครั้ง / ใช้ \${selectedCount} สิทธิ์)\`;
+                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชคแบบรวดเร็ว (\${selectedCount} ครั้ง / ใช้ \${selectedCount} สิทธิ์)\`;
                       }
 
                       if (data.gameAccounts) {
@@ -1363,7 +1219,7 @@ app.get("/lootbox", async (req, res) => {
                       }
 
                   }).catch(e => {});
-              }, 2000);
+              }, 1500);
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -1371,25 +1227,9 @@ app.get("/lootbox", async (req, res) => {
                   btn.classList.add('active');
                   const openBtn = document.getElementById('open-box-btn');
                   if (hasAvailableStock) {
-                      openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${count} ครั้ง / ใช้ \${count} สิทธิ์)\`;
+                      openBtn.innerText = \`📦 เปิดกล่องลุ้นโชคแบบรวดเร็ว (\${count} ครั้ง / ใช้ \${count} สิทธิ์)\`;
                   }
               }
-
-              function updateCountdown() {
-                  const now = new Date().getTime();
-                  const timeLeft = (createdAtTime + thirtyDaysMs) - now;
-                  const box = document.getElementById("countdown-box");
-                  if (timeLeft <= 0) {
-                      box.innerHTML = "❌ บัญชีของคุณหมดอายุการใช้งานแล้ว!";
-                      return;
-                  }
-                  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-                  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                  box.innerHTML = \`⏳ ID นี้ใช้งานได้อีก: \${days} วัน \${hours} ชม. \${minutes} นาที\`;
-              }
-              setInterval(updateCountdown, 1000);
-              updateCountdown();
 
               function openBox() {
                   if (!hasAvailableStock) {
@@ -1407,7 +1247,7 @@ app.get("/lootbox", async (req, res) => {
                   openBtn.disabled = true;
 
                   const resBox = document.getElementById("result-box");
-                  resBox.innerText = \`🌀 กำลังเปิดกล่องทันที \${selectedCount} ครั้ง...\`;
+                  resBox.innerText = \`⚡ กำลังประมวลผลเปิดกล่องทันที \${selectedCount} ครั้ง...\`;
 
                   fetch('/open-lootbox', {
                       method: 'POST',
@@ -1421,7 +1261,7 @@ app.get("/lootbox", async (req, res) => {
                           openBtn.innerText = "❌ ไอดีในคลังหมดแล้ว (รอแอดมินเติมของ)";
                       } else {
                           openBtn.disabled = false;
-                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชค (\${selectedCount} ครั้ง / ใช้ \${selectedCount} สิทธิ์)\`;
+                          openBtn.innerText = \`📦 เปิดกล่องลุ้นโชคแบบรวดเร็ว (\${selectedCount} ครั้ง / ใช้ \${selectedCount} สิทธิ์)\`;
                       }
 
                       if (!data.success) {
@@ -1447,40 +1287,26 @@ app.get("/lootbox", async (req, res) => {
                           if (!rew.includes("เกลือ")) {
                               hasWin = true;
                               winDetails += \`<b>\${rew}</b> (\${count} ชิ้น)<br>\`;
-                              
-                              if (rew.includes("สิทธิ์สุ่มฟรี")) highestRarityFound = 'FreeTicket';
-                              else if (rew.includes("เทพมังกร")) highestRarityFound = 'เทพมังกร';
-                              else if (rew.includes("SSR") && highestRarityFound !== 'เทพมังกร') highestRarityFound = 'SSR';
-                              else if (rew.includes("SS+") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR') highestRarityFound = 'SS+';
-                              else if (rew.includes("S") && highestRarityFound !== 'เทพมังกร' && highestRarityFound !== 'SSR' && highestRarityFound !== 'SS+') highestRarityFound = 'S';
-                              else if (highestRarityFound === 'Salt') highestRarityFound = 'Normal';
                           }
                       }
 
-                      let clashNoticeHtml = "";
-                      if (data.clashDetected) {
-                          clashNoticeHtml = \`<div style="color:#ff4757; font-size:12px; margin-bottom:8px; background:rgba(255,71,87,0.1); padding:6px; border-radius:4px; font-weight:bold;">😢 เสียใจด้วย รางวัลนี้มีคนอื่นได้ไปแล้ว! (ระบบได้ทำการคืนสิทธิ์สุ่มส่วนต่างให้คุณแล้ว)</div>\`;
-                      }
-
-                      resBox.innerHTML = clashNoticeHtml + \`🎉 <b>สรุปผลสุ่ม \${selectedCount} ครั้ง:</b><br>
+                      resBox.innerHTML = \`🎉 <b>สรุปผลสุ่มแบบรวดเร็ว \${selectedCount} ครั้ง:</b><br>
                           <div style="font-size:12px; margin-top:5px; background:rgba(0,0,0,0.3); padding:8px; border-radius:5px;">\${summaryListHtml}</div>\`;
 
                       const modalCard = document.getElementById("modalCard");
                       const modalTitle = document.getElementById("modalTitle");
                       const modalBody = document.getElementById("modalBody");
 
-                      playTierSound(hasWin ? highestRarityFound : 'Salt');
+                      playTierSound(hasWin ? 'SSR' : 'Salt');
 
                       if (hasWin) {
                           confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
                           modalCard.style.borderColor = "#00d2d3";
-                          modalCard.style.boxShadow = "0 0 40px rgba(0,210,211,0.8)";
                           modalTitle.style.color = "#00d2d3";
                           modalTitle.innerText = "🎉 ยินดีด้วย! คุณได้รับรางวัลพิเศษ! 🎉";
-                          modalBody.innerHTML = \`คุณเปิดกล่องสุ่มได้รับ:<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">หากเป็นสิทธิ์สุ่มฟรี ระบบได้เพิ่มจำนวนสิทธิ์ให้ท่านแล้ว!</span>\`;
+                          modalBody.innerHTML = \`คุณเปิดกล่องสุ่มได้รับ:<br><br>\${winDetails}<br><span style="font-size:11px; color:#a4b0be;">ระบบประมวลผลรวดเร็วทันใจ!</span>\`;
                       } else {
                           modalCard.style.borderColor = "#ff4757";
-                          modalCard.style.boxShadow = "0 0 20px rgba(255,71,87,0.4)";
                           modalTitle.style.color = "#ff4757";
                           modalTitle.innerText = "😢 เสียใจด้วย...";
                           modalBody.innerHTML = \`<span style="color:#ff4757; font-size:15px;">ท่านได้เกลือ พยายามอีกนิดนะ!</span><br><br>ซื้อแคปชั่นที่ร้านค้าเพื่อรับสิทธิ์สุ่มเพิ่มได้เลย!\`;
@@ -1608,7 +1434,7 @@ app.post("/request-withdraw", async (req, res) => {
     supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate)
   ]);
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ระบบกำลังรอดำเนินการ แอดมินจะจัดส่งรางวัลให้ภายใน 24 ชม."); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ระบบกำลังรอดำเนินการ สถานะหน้าจอจะอัปเดตเรียลไทม์"); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1653,7 +1479,7 @@ app.post("/create-topup", (req, res) => {
             
             <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
 
-            <form action="/upload-slip" method="POST" enctype="multipart/form-data" onsubmit="return handleUpload(this)">
+            <form action="/upload-slip" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="username" value="${username}">
                 <input type="hidden" name="exact_amount" value="${exactAmount}">
                 <input type="hidden" name="topup_type" value="${topup_type || 'promptpay'}">
@@ -1661,31 +1487,12 @@ app.post("/create-topup", (req, res) => {
                 <label style="font-size:13px; display:block; margin-bottom:5px;">📤 อัปโหลดสลิปโอนเงิน:</label>
                 <input type="file" name="slip_img" accept="image/*" required style="background:#fff; color:#000; padding:5px; width:100%; box-sizing:border-box; border-radius:4px;">
                 
-                <button type="submit" id="submit-slip-btn" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
+                <button type="submit" style="width:100%; background:${topup_type === 'truemoney' ? '#ff4757' : '#2ed573'}; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-top:15px; font-size:14px;">🚀 ส่งสลิปให้แอดมินตรวจสอบ</button>
             </form>
-
-            <div id="loading-box" style="display:none; text-align:center; margin-top:12px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; color:#ffd700; font-size:12px; font-weight:bold;">
-                ⏳ กำลังส่งสลิป กรุณารอสักครู่...
-            </div>
 
             <a href="/store?username=${username}" style="display:block; text-align:center; margin-top:15px; color:#70a1ff; text-decoration:none; font-size:13px;">กลับหน้าร้านค้า</a>
         </div>
         <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
-    <script>
-        let isUploading = false;
-        function handleUpload(form) {
-            if (isUploading) return false;
-            isUploading = true;
-            
-            const btn = document.getElementById('submit-slip-btn');
-            const loading = document.getElementById('loading-box');
-            btn.disabled = true;
-            btn.style.background = '#555';
-            btn.innerText = '⏳ กำลังอัปโหลดด่วน...';
-            loading.style.display = 'block';
-            return true;
-        }
-    </script>
     </body></html>
   `);
 });
@@ -1696,7 +1503,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   try {
     const slipImg = await uploadToSupabaseStorage(req.file);
 
-    const { error } = await supabase
+    await supabase
       .from('pending_topup')
       .insert([{ 
           username, 
@@ -1706,16 +1513,13 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
           topup_type: topup_type || 'promptpay' 
       }]);
 
-    if (error) {
-      return res.send(`<script>alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่"); window.location.href="/store?username=${username}";</script>`);
-    }
-    res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบและเติมแต้มให้ภายในไม่กี่นาที"); window.location.href="/store?username=${username}";</script>`);
+    res.send(`<script>alert("ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบ"); window.location.href="/store?username=${username}";</script>`);
   } catch (err) {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์"); window.location.href="/store?username=${username}";</script>`);
   }
 });
 
-// ------------------- 2. UPDATED BULK OPEN LOOTBOX ALGORITHM -------------------
+// ------------------- 2. FAST LOOTBOX OPENING ALGORITHM -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1770,15 +1574,12 @@ app.post("/open-lootbox", async (req, res) => {
     });
     pityCounters = activePityCounters;
 
-    let clashDetected = false;
     let actualConsumedTickets = 0;
     let successfulWonAccIds = [];
     let freeTicketsWon = 0;
 
     for (let i = 0; i < selectedCount; i++) {
-        if (availableAccounts.length === 0) {
-            break;
-        }
+        if (availableAccounts.length === 0) break;
 
         actualConsumedTickets += 1;
         let reward = "";
@@ -1807,10 +1608,6 @@ app.post("/open-lootbox", async (req, res) => {
                     } else {
                         let exactRarity = wonAcc.rarity || 'Normal';
                         let iconSymbol = "🛡️";
-                        if (exactRarity === "เทพมังกร") iconSymbol = "🐲";
-                        else if (exactRarity === "SSR") iconSymbol = "👑";
-                        else if (exactRarity === "SS+") iconSymbol = "⚔️";
-                        else if (exactRarity === "S") iconSymbol = "🔮";
                         reward = `${iconSymbol} [${exactRarity}] ${cleanRewardName}`;
                     }
 
@@ -1818,7 +1615,6 @@ app.post("/open-lootbox", async (req, res) => {
                     isGuaranteeHit = true;
                 } else {
                     reward = "🧂 เกลือ";
-                    if (steps[s].reward !== 'normal') clashDetected = true;
                 }
 
                 steps[s].reward = 'normal'; 
@@ -1837,13 +1633,7 @@ app.post("/open-lootbox", async (req, res) => {
 
             if (pityTargetIndex !== -1) {
                 wonAcc = availableAccounts.splice(pityTargetIndex, 1)[0];
-                let badgeColorIcon = "🛡️";
-                if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
-                else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
-
-                reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
+                reward = `🛡️ [${wonAcc.rarity}] ${wonAcc.title}`;
                 successfulWonAccIds.push(wonAcc.id);
                 isGuaranteeHit = true;
                 handled = true;
@@ -1875,50 +1665,14 @@ app.post("/open-lootbox", async (req, res) => {
                         freeTicketsWon += tCount;
                         reward = `🎟️ [สิทธิ์สุ่มฟรี] ${wonAcc.title}`;
                     } else {
-                        let badgeColorIcon = "🛡️";
-                        if (wonAcc.rarity === "เทพมังกร") badgeColorIcon = "🐲";
-                        else if (wonAcc.rarity === "SSR") badgeColorIcon = "👑";
-                        else if (wonAcc.rarity === "SS+") badgeColorIcon = "⚔️";
-                        else if (wonAcc.rarity === "S") badgeColorIcon = "🔮";
-
-                        reward = `${badgeColorIcon} [${wonAcc.rarity}] ${wonAcc.title}`;
+                        reward = `🛡️ [${wonAcc.rarity}] ${wonAcc.title}`;
                     }
 
                     successfulWonAccIds.push(wonAcc.id);
-                    
-                    const matchedTargetConfig = targetAccList.find(t => t.id === wonAcc.id);
-                    if (matchedTargetConfig && parseInt(matchedTargetConfig.pity_target) > 0 && !isFreeTicket) {
-                        const currentC = pityCounters[wonAcc.id] || 0;
-                        if (currentC >= parseInt(matchedTargetConfig.pity_target)) {
-                            isGuaranteeHit = true;
-                        }
-                    }
                 } else {
                     reward = "🧂 เกลือ";
                 }
             }
-        }
-
-        if (isGuaranteeHit) {
-            targetAccList.forEach(acc => {
-                const target = parseInt(acc.pity_target) || 0;
-                const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-                if (target > 0 && !isFreeTicket) {
-                    pityCounters[acc.id] = 0; 
-                }
-            });
-        } else {
-            targetAccList.forEach(acc => {
-                const target = parseInt(acc.pity_target) || 0;
-                const isFreeTicket = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-                if (target > 0 && !isFreeTicket) {
-                    if (wonAcc && wonAcc.id === acc.id) {
-                        pityCounters[acc.id] = 0;
-                    } else {
-                        pityCounters[acc.id] = (pityCounters[acc.id] || 0) + 1; 
-                    }
-                }
-            });
         }
 
         summaryRewards[reward] = (summaryRewards[reward] || 0) + 1;
@@ -1938,12 +1692,7 @@ app.post("/open-lootbox", async (req, res) => {
         successfulWonAccIds.length > 0 ? supabase.from('game_accounts').update({ status: 'out_of_stock' }).in('id', successfulWonAccIds) : Promise.resolve(),
         supabase.from('users').update({ 
             tickets: parseInt(newTickets) || 0, 
-            pity_counters: JSON.stringify(pityCounters),
-            step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
-            step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
-            step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
+            pity_counters: JSON.stringify(pityCounters)
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve()
     ]);
@@ -1951,14 +1700,29 @@ app.post("/open-lootbox", async (req, res) => {
     return res.json({
         success: true,
         newTickets: newTickets,
-        summaryRewards: summaryRewards,
-        clashDetected: clashDetected
+        summaryRewards: summaryRewards
     });
 
   } catch (err) {
     console.error("Open Lootbox Crash Error:", err);
     return res.json({ success: false, message: "เกิดข้อผิดพลาดในการประมวลผลคำขอสุ่ม" });
   }
+});
+
+// ------------------- 3. & 4. REALTIME WITHDRAWAL & HISTORY RESET ON CLAIM -------------------
+
+app.post("/admin/approve-withdraw", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { withdraw_id, username } = req.body;
+
+  // 4. ล้างประวัติเก่าทิ้งโดยสมบูรณ์เมื่อแอดมินกดอนุมัติ
+  await Promise.all([
+    supabase.from('pending_withdraw').delete().eq('id', withdraw_id),
+    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true),
+    supabase.from('history').delete().eq('username', username) // ล้างประวัติทั้งหมดที่ค้างเพื่อเริ่มรอบใหม่
+  ]);
+
+  res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติเก่าถูกเคลียร์ทิ้งโดยสมบูรณ์เพื่อเริ่มต้นรอบใหม่"); window.location.href="/admin";</script>`);
 });
 
 // ------------------- ADMIN DASHBOARD -------------------
@@ -2012,18 +1776,6 @@ app.post("/admin/delete-topup", async (req, res) => {
   res.send(`<script>alert("ลบสลิปรายการนี้เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/approve-withdraw", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id, username } = req.body;
-
-  await Promise.all([
-    supabase.from('pending_withdraw').delete().eq('id', withdraw_id),
-    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true)
-  ]);
-
-  res.send(`<script>alert("อนุมัติส่งมอบรางวัลให้ ${username} เรียบร้อย! ประวัติสำรองถูกลบออกแล้ว"); window.location.href="/admin";</script>`);
-});
-
 app.post("/admin/add-game-account-json", upload.single('image_file'), async (req, res) => {
   if (!req.session.isAdmin) return res.status(403).json({ success: false, message: "Unauthorized" });
   const { title, rarity, rate, pity_target } = req.body;
@@ -2048,16 +1800,14 @@ app.post("/admin/add-game-account-json", upload.single('image_file'), async (req
 
 app.post("/admin/delete-game-account", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { acc_id } = req.body;
-  
-  await supabase.from('game_accounts').delete().eq('id', acc_id);
+  await supabase.from('game_accounts').delete().eq('id', req.body.acc_id);
   res.send(`<script>alert("ลบรางวัลออกจากคลังเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/clear-all-game-accounts", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   await supabase.from('game_accounts').delete().neq('id', 0);
-  res.send(`<script>alert("ลบและเคลียร์คลังรางวัลทั้งหมดเกลี้ยงจนเหลือ 0 รายการเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ลบและเคลียร์คลังรางวัลทั้งหมดเรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
@@ -2099,26 +1849,39 @@ app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
   res.send(`<script>alert("บันทึกข้อมูลและอัปเดตคลังรางวัลสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/add-caption-json", async (req, res) => {
-  if (!req.session.isAdmin) return res.status(403).json({ success: false, message: "Unauthorized" });
-  const { title, content, price, tickets_bonus } = req.body;
-  const { data, error } = await supabase.from('captions').insert([{
+// จัดการเพิ่มแพ็กเกจหลัก และแคปชั่นย่อย (Nested Sub-captions)
+app.post("/admin/add-caption", async (req, res) => {
+  if (!req.session.isAdmin) return res.redirect("/admin");
+  const { title, price, tickets_bonus, sub_contents } = req.body;
+  
+  const { data: capData, error } = await supabase.from('captions').insert([{
       title,
-      content,
+      content: "แพ็กเกจแคปชั่นย่อยวนลูป",
       price: parseFloat(price) || 0,
       tickets_bonus: parseInt(tickets_bonus) || 0
-  }]).select();
+  }]).select().single();
 
-  if (error) {
-      return res.json({ success: false, message: error.message });
+  if (capData && sub_contents) {
+      let lines = sub_contents.split('\n').map(l => l.trim()).filter(l => l !== '');
+      for (let line of lines) {
+          await supabase.from('caption_items').insert([{
+              caption_id: capData.id,
+              content: line
+          }]);
+      }
   }
-  res.json({ success: true, newCaption: data[0] });
+
+  res.send(`<script>alert("เพิ่มแพ็กเกจแคปชั่นและแคปชั่นย่อยสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  await supabase.from('captions').delete().eq('id', req.body.caption_id);
-  res.send(`<script>alert("ลบแคปชั่นออกจากร้านค้าสำเร็จ!"); window.location.href="/admin";</script>`);
+  const capId = req.body.caption_id;
+  await Promise.all([
+      supabase.from('captions').delete().eq('id', capId),
+      supabase.from('caption_items').delete().eq('caption_id', capId)
+  ]);
+  res.send(`<script>alert("ลบแพ็กเกจแคปชั่นสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/adjust-user-points", async (req, res) => {
@@ -2126,22 +1889,14 @@ app.post("/admin/adjust-user-points", async (req, res) => {
   const { username, action_type, point_amount } = req.body;
   const val = parseInt(point_amount) || 0;
 
-  if (val <= 0) {
-      return res.send(`<script>alert("กรุณากรอกจำนวนแต้มให้ถูกต้อง!"); window.location.href="/admin";</script>`);
-  }
-
   const { data: user } = await supabase.from('users').select('points').eq('username', username).single();
   if (user) {
       let newPoints = user.points || 0;
-      if (action_type === 'add') {
-          newPoints += val;
-      } else if (action_type === 'subtract') {
-          newPoints = Math.max(0, newPoints - val);
-      }
+      if (action_type === 'add') newPoints += val;
+      else if (action_type === 'subtract') newPoints = Math.max(0, newPoints - val);
       await supabase.from('users').update({ points: newPoints }).eq('username', username);
   }
-
-  res.send(`<script>alert("ปรับแต้มสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ปรับแต้มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/adjust-user-tickets", async (req, res) => {
@@ -2152,37 +1907,11 @@ app.post("/admin/adjust-user-tickets", async (req, res) => {
   const { data: user } = await supabase.from('users').select('tickets').eq('username', username).single();
   if (user) {
       let newTickets = user.tickets || 0;
-      if (action_type === 'add') {
-          newTickets += val;
-      } else if (action_type === 'subtract') {
-          newTickets = Math.max(0, newTickets - val);
-      }
+      if (action_type === 'add') newTickets += val;
+      else if (action_type === 'subtract') newTickets = Math.max(0, newTickets - val);
       await supabase.from('users').update({ tickets: newTickets }).eq('username', username);
   }
-
-  res.send(`<script>alert("ปรับสิทธิ์สุ่ม Tickets ของสมาชิก ${username} เรียบร้อยแล้ว!"); window.location.href="/admin";</script>`);
-});
-
-app.post("/admin/update-user-luck", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const { 
-      username, 
-      step1_salt, step1_reward,
-      step2_salt, step2_reward,
-      step3_salt, step3_reward,
-      step4_salt, step4_reward,
-      step5_salt, step5_reward
-  } = req.body;
-
-  await supabase.from('users').update({ 
-      step1_salt: parseInt(step1_salt) || 0, step1_reward: step1_reward || 'normal',
-      step2_salt: parseInt(step2_salt) || 0, step2_reward: step2_reward || 'normal',
-      step3_salt: parseInt(step3_salt) || 0, step3_reward: step3_reward || 'normal',
-      step4_salt: parseInt(step4_salt) || 0, step4_reward: step4_reward || 'normal',
-      step5_salt: parseInt(step5_salt) || 0, step5_reward: step5_reward || 'normal',
-  }).eq('username', username);
-
-  res.send(`<script>alert("บันทึกเรต 5 สเต็ปของ ${username} สำเร็จ!"); window.location.href="/admin";</script>`);
+  res.send(`<script>alert("ปรับสิทธิ์สุ่มสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-user", async (req, res) => {
@@ -2217,14 +1946,9 @@ async function renderAdminDashboard(req, res) {
   let pendingSlipHtml = "";
   if (pendingRows && pendingRows.length > 0) {
     pendingRows.forEach((p, index) => {
-      let topupBadge = p.topup_type === 'truemoney' 
-          ? `<span style="background:#ff4757; color:#fff; padding:3px 6px; border-radius:4px; font-size:11px; font-weight:bold;">🧡 True Wallet</span>` 
-          : `<span style="background:#2ed573; color:#fff; padding:3px 6px; border-radius:4px; font-size:11px; font-weight:bold;">📱 PromptPay</span>`;
-
       pendingSlipHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${p.username}</b></td>
-        <td>${topupBadge}</td>
         <td style="color:#ffd700;"><b>${p.exact_amount} บาท</b></td>
         <td><a href="${p.slip_img}" target="_blank"><img src="${p.slip_img}" style="width:50px; height:70px; object-fit:cover;"></a></td>
         <td>
@@ -2232,129 +1956,73 @@ async function renderAdminDashboard(req, res) {
             <input type="hidden" name="topup_id" value="${p.id}"><input type="hidden" name="username" value="${p.username}"><input type="hidden" name="exact_amount" value="${p.exact_amount}">
             <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติ</button>
           </form>
-          <form action="/admin/delete-topup" method="POST" style="display:inline;">
-            <input type="hidden" name="topup_id" value="${p.id}">
-            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:5px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">🗑️ ลบสลิป</button>
-          </form>
         </td>
       </tr>`;
     });
   } else {
-    pendingSlipHtml = `<tr><td colspan="6" style="color:#aaa; padding:12px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
+    pendingSlipHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีสลิปรอตรวจสอบ</td></tr>`;
   }
 
   let withdrawHtml = "";
   if (pendingWithdrawRows && pendingWithdrawRows.length > 0) {
     pendingWithdrawRows.forEach((w, index) => {
-      let rewardsList = "";
-      let detailedItemsHtml = "";
-      try {
-        const parsed = JSON.parse(w.history_snapshot);
-        rewardsList = parsed.slice(0, 3).join(", ") + (parsed.length > 3 ? ` และอื่นๆ (${parsed.length} รายการ)` : '');
-        parsed.forEach((item, idx) => {
-            detailedItemsHtml += `<li>${idx + 1}. ${item}</li>`;
-        });
-      } catch(e) { 
-          rewardsList = "ไอดี Line Rangers"; 
-          detailedItemsHtml = "ไม่สามารถแสดงรายละเอียดได้";
-      }
-
       withdrawHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${w.username}</b></td>
-        <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold;">👤 กดดูโปรไฟล์ Facebook</a></td>
-        <td style="color:#ffd700; font-size:12px; text-align:left;">
-           <b>รายการหลัก:</b> ${rewardsList} <br>
-           <details style="margin-top:6px; background:rgba(0,0,0,0.2); padding:4px 8px; border-radius:4px; border:1px solid #444;">
-               <summary style="color:#00d2d3; font-weight:bold; font-size:12px; cursor:pointer;">🔍 [ปุ่มกดดูประวัติ] แสดงประวัติการกดขอรับรางวัลทั้งหมด (${w.total_opens} ครั้ง)</summary>
-               <ul style="padding-left:18px; margin:6px 0; font-size:11px; color:#a4b0be; max-height:120px; overflow-y:auto;">
-                   ${detailedItemsHtml}
-               </ul>
-           </details>
-        </td>
+        <td><a href="${w.facebook_url || '#'}" target="_blank" style="background:#70a1ff; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none;">👤 Facebook</a></td>
         <td>
           <form action="/admin/approve-withdraw" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันอนุมัติและเคลียร์ประวัติของ ${w.username}?');">
             <input type="hidden" name="withdraw_id" value="${w.id}">
             <input type="hidden" name="username" value="${w.username}">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบ</button>
+            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">✅ อนุมัติส่งมอบ (ล้างประวัติเก่าทิ้ง)</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    withdrawHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
+    withdrawHtml = `<tr><td colspan="4" style="color:#aaa; padding:12px;">ไม่มีคำขอรับรางวัลที่ค้างอยู่</td></tr>`;
   }
 
   let captionsTableHtml = "";
   if (captionsRows.length > 0) {
       captionsRows.forEach((c, idx) => {
-          captionsTableHtml += `<tr id="row-caption-${c.id}">
+          captionsTableHtml += `<tr>
               <td>${idx + 1}</td>
               <td><b>${c.title}</b></td>
-              <td style="color:#a4b0be; font-size:11px;">${c.content}</td>
               <td style="color:#2ed573;"><b>${c.price} แต้ม</b></td>
               <td style="color:#ffd700;"><b>+${c.tickets_bonus} ครั้ง</b></td>
               <td>
-                  <form action="/admin/delete-caption" method="POST" onsubmit="return confirm('ยืนยันลบแคปชั่นนี้?');">
+                  <form action="/admin/delete-caption" method="POST" onsubmit="return confirm('ยืนยันลบแพ็กเกจนี้?');">
                       <input type="hidden" name="caption_id" value="${c.id}">
-                      <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">🗑️ ลบ</button>
+                      <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold;">🗑️ ลบ</button>
                   </form>
               </td>
           </tr>`;
       });
   } else {
-      captionsTableHtml = `<tr id="no-captions-row"><td colspan="6" style="color:#aaa; padding:12px;">ยังไม่มีแคปชั่นในระบบร้านค้า</td></tr>`;
+      captionsTableHtml = `<tr><td colspan="5" style="color:#aaa; padding:12px;">ยังไม่มีแพ็กเกจแคปชั่น</td></tr>`;
   }
 
   let gameAccHtml = "";
   if (gameAccounts && gameAccounts.length > 0) {
     gameAccounts.forEach((acc, i) => {
       const isOut = acc.status === 'out_of_stock';
-      let thumbImg = acc.image_url ? `<a href="${acc.image_url}" target="_blank"><img src="${acc.image_url}" style="width:30px; height:30px; object-fit:cover; border-radius:4px; vertical-align:middle;"></a>` : '<span style="font-size:10px; color:#aaa;">ไม่มีรูป</span>';
-
-      gameAccHtml += `<tr id="row-acc-${acc.id}">
+      gameAccHtml += `<tr>
         <td>${i+1}</td>
         <td><b>${acc.title}</b></td>
-        <td style="color:#ffd700;">${acc.rarity || 'Normal'}</td>
+        <td><input type="hidden" name="ids" value="${acc.id}"><input type="number" step="0.0001" name="rates" value="${acc.rate || 0}" style="width:50px;"> %</td>
+        <td><input type="number" name="pity_targets" value="${acc.pity_target || 0}" style="width:45px;"></td>
+        <td><select name="statuses"><option value="available" ${!isOut?'selected':''}>🟢 มีของ</option><option value="out_of_stock" ${isOut?'selected':''}>❌ หมด</option></select></td>
         <td>
-           <input type="hidden" name="ids" value="${acc.id}">
-           <input type="number" step="0.0001" name="rates" value="${acc.rate || 0}" style="width:50px; padding:3px; text-align:center;"> %
-        </td>
-        <td>
-           <input type="number" name="pity_targets" value="${acc.pity_target || 0}" placeholder="0 = ปิด" style="width:45px; padding:3px; text-align:center; color:#ff6b81; font-weight:bold;"> ครั้ง
-        </td>
-        <td>
-           <input type="hidden" name="old_image_urls" value="${acc.image_url || ''}">
-           ${thumbImg} <input type="file" name="image_file_${acc.id}" accept="image/*" style="font-size:10px; width:120px; color:#fff;">
-        </td>
-        <td>
-           <select name="statuses" style="padding:3px; font-size:11px;">
-              <option value="available" ${!isOut ? 'selected' : ''}>🟢 มีของ</option>
-              <option value="out_of_stock" ${isOut ? 'selected' : ''}>❌ หมด</option>
-           </select>
-        </td>
-        <td>
-          <form action="/admin/delete-game-account" method="POST" style="margin:0;" onsubmit="return confirm('ยืนยันลบรางวัล ${acc.title}?');">
+          <form action="/admin/delete-game-account" method="POST" style="margin:0;">
             <input type="hidden" name="acc_id" value="${acc.id}">
-            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-weight:bold;">🗑️ ลบ</button>
+            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; cursor:pointer;">🗑️ ลบ</button>
           </form>
         </td>
       </tr>`;
     });
   } else {
-    gameAccHtml = `<tr><td colspan="8" style="color:#aaa; padding:15px;" id="no-game-acc-row">คลังรางวัลว่างเปล่า (0 รายการ) - สามารถกดเพิ่มรางวัลใหม่ด้านบนได้ทันที</td></tr>`;
-  }
-
-  function renderRewardOptions(currentVal) {
-      let opts = `<option value="normal" ${currentVal==='normal'?'selected':''}>--- สุ่มตามเรตปกติ ---</option>`;
-      opts += `<option value="always_salt" ${currentVal==='always_salt'?'selected':''}>🔒 บังคับเกลือ</option>`;
-      if (gameAccounts) {
-          gameAccounts.forEach(acc => {
-              const val = `[${acc.rarity || 'Normal'}] ${acc.title}`;
-              opts += `<option value="${val}" ${currentVal===val?'selected':''}>🛡️ ออกรางวัล: ${acc.title}</option>`;
-          });
-      }
-      return opts;
+    gameAccHtml = `<tr><td colspan="6" style="color:#aaa; padding:15px;">คลังรางวัลว่างเปล่า</td></tr>`;
   }
 
   let userHtml = "";
@@ -2363,189 +2031,71 @@ async function renderAdminDashboard(req, res) {
       userHtml += `<tr>
         <td>${index + 1}</td>
         <td><b>${u.username}</b></td>
-        <td><a href="${u.facebook_url || '#'}" target="_blank" style="color:#70a1ff;">🔗 เฟซบุ๊กผู้เล่น</a></td>
-        <td><b style="color:#ffd700;">${u.points || 0}</b> แต้ม<br><b style="color:#00ff87;">${u.tickets || 0}</b> สิทธิ์สุ่ม</td>
+        <td><b style="color:#ffd700;">${u.points || 0}</b> แต้ม / <b style="color:#00ff87;">${u.tickets || 0}</b> สิทธิ์</td>
         <td>
-          <form action="/admin/adjust-user-points" method="POST" style="background:rgba(0,0,0,0.2); padding:6px; border-radius:6px; margin-bottom:6px; display:flex; gap:5px; align-items:center;">
+          <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ลบยูสนี้?');" style="margin:0;">
             <input type="hidden" name="username" value="${u.username}">
-            <select name="action_type" style="padding:3px; font-size:11px;">
-               <option value="add">➕ เพิ่มแต้ม</option>
-               <option value="subtract">➖ ลดแต้ม</option>
-            </select>
-            <input type="number" name="point_amount" placeholder="แต้ม" min="1" required style="width:60px; padding:3px; margin:0; font-size:11px;">
-            <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:11px;">ยืนยันแต้ม</button>
-          </form>
-
-          <form action="/admin/adjust-user-tickets" method="POST" style="background:rgba(0,0,0,0.2); padding:6px; border-radius:6px; margin-bottom:8px; display:flex; gap:5px; align-items:center;">
-            <input type="hidden" name="username" value="${u.username}">
-            <select name="action_type" style="padding:3px; font-size:11px;">
-               <option value="add">➕ เพิ่มสิทธิ์</option>
-               <option value="subtract">➖ ลดสิทธิ์</option>
-            </select>
-            <input type="number" name="ticket_amount" placeholder="สิทธิ์" min="1" required style="width:60px; padding:3px; margin:0; font-size:11px;">
-            <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:11px;">ยืนยันสิทธิ์</button>
-          </form>
-
-          <form action="/admin/update-user-luck" method="POST" style="background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; text-align:left;">
-            <input type="hidden" name="username" value="${u.username}">
-            <div style="font-size:11px; color:#ffd700; margin-bottom:3px;">⚙️ ตั้งค่าเรต 5 สเต็ปยูสนี้:</div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 1: เกลือ <input type="number" name="step1_salt" value="${u.step1_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step1_reward">${renderRewardOptions(u.step1_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 2: เกลือ <input type="number" name="step2_salt" value="${u.step2_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step2_reward">${renderRewardOptions(u.step2_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 3: เกลือ <input type="number" name="step3_salt" value="${u.step3_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step3_reward">${renderRewardOptions(u.step3_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:2px;">สเต็ป 4: เกลือ <input type="number" name="step4_salt" value="${u.step4_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step4_reward">${renderRewardOptions(u.step4_reward)}</select></div>
-            <div style="font-size:10px; margin-bottom:4px;">สเต็ป 5: เกลือ <input type="number" name="step5_salt" value="${u.step5_salt||0}" style="width:35px;"> ครั้ง -> จากนั้นออกรางวัล <select name="step5_reward">${renderRewardOptions(u.step5_reward)}</select></div>
-            <button type="submit" style="background:#70a1ff; color:#000; border:none; padding:3px; border-radius:4px; font-weight:bold; width:100%; font-size:10px;">💾 บันทึก 5 สเต็ป</button>
-          </form>
-          <form action="/admin/delete-user" method="POST" onsubmit="return confirm('ต้องการลบสมาชิก ${u.username} ใช่หรือไม่?');" style="margin-top:4px;">
-            <input type="hidden" name="username" value="${u.username}">
-            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:3px 6px; border-radius:3px; font-weight:bold; cursor:pointer; font-size:10px; width:100%;">🗑️ ลบยูส</button>
+            <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; cursor:pointer;">🗑️ ลบยูส</button>
           </form>
         </td>
       </tr>`;
     });
   }
 
-  let clearAllButtonHtml = "";
-  if (gameAccounts && gameAccounts.length > 0) {
-      clearAllButtonHtml = `
-        <form action="/admin/clear-all-game-accounts" method="POST" onsubmit="return confirm('⚠️ คำเตือน: คุณต้องการลบรางวัลทั้งหมดในคลังทิ้งจนเกลี้ยง (เหลือ 0) จริงๆ หรือไม่?');" style="display:inline-block; margin-left: 10px;">
-            <button type="submit" style="background:#ff4757; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:9px 15px; font-size:13px; box-shadow:0 0 10px rgba(255,71,87,0.4);">🗑️ ลบเกลี้ยงทั้งหมด (Clear All)</button>
-        </form>
-      `;
-  }
-
   res.send(`
     <body style="background:#1e1e2f; color:#fff; text-align:center; padding:20px; font-family:sans-serif;">
       <h2>🛠️ ระบบจัดการหลังบ้านแอดมิน (Line Rangers Box)</h2>
-      <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
+      <a href="/admin/logout" style="color:#ff4757; font-weight:bold;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff;">🏠 กลับหน้าแรก</a>
 
-      <h3 style="color:#ffd700; margin-top:25px;">🎁 รายการคำขอรับรางวัลไอดี Line Rangers จากผู้เล่น</h3>
-      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook ผู้เล่น</th><th>ประวัติการขอรับรางวัล (กดปุ่มดูเพื่อขยาย)</th><th>จัดการ</th></tr>
+      <h3 style="color:#ffd700; margin-top:25px;">🎁 คำขอรับรางวัล (Realtime Withdrawal & History Reset)</h3>
+      <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 800px; background:#2b2b40;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook</th><th>จัดการ (อนุมัติแล้วล้างประวัติเก่าทิ้ง)</th></tr>
         ${withdrawHtml}
       </table>
 
-      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
-          <h3 style="color:#00d2d3; margin-top:0;">🛒 จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store) - เพิ่มได้รัวๆ ไม่รีหน้า</h3>
-          <form id="add-caption-form" onsubmit="addCaptionDynamic(event)" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
-              <input type="text" id="cap-title" placeholder="ชื่อแพ็กเกจ เช่น แคปชั่นสายเปย์" required style="padding:8px; flex:1.5;">
-              <input type="text" id="cap-content" placeholder="ข้อความแคปชั่นดิจิทัล" required style="padding:8px; flex:2.5;">
-              <input type="number" id="cap-price" placeholder="ราคา (แต้ม)" required style="padding:8px; width:90px;">
-              <input type="number" id="cap-bonus" placeholder="แถมสิทธิ์สุ่ม" required style="padding:8px; width:90px;">
-              <button type="submit" id="cap-submit-btn" style="background:#00d2d3; color:#000; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 15px;">เพิ่มแพ็กเกจ</button>
+      <div style="background:#2b2b40; padding:20px; border-radius:10px; width:900px; margin:20px auto; text-align:left;">
+          <h3 style="color:#00d2d3; margin-top:0;">🛒 เพิ่มแพ็กเกจแคปชั่นหลัก และแคปชั่นย่อยซ้อนในแพ็กเกจ (Nested Sub-captions)</h3>
+          <form action="/admin/add-caption" method="POST">
+              <input type="text" name="title" placeholder="ชื่อแพ็กเกจหลัก เช่น แพ็กเกจที่ 1" required style="padding:8px; width:100%; margin-bottom:8px;">
+              <textarea name="sub_contents" placeholder="ใส่แคปชั่นย่อย บรรทัดละ 1 อัน (เช่น ใส่ไป 5 อัน ระบบจะวนลูปหยิบตามลำดับ)" required style="padding:8px; width:100%; height:80px; margin-bottom:8px; font-family:'Kanit';"></textarea>
+              <div style="display:flex; gap:8px;">
+                  <input type="number" name="price" placeholder="ราคา (แต้ม)" required style="padding:8px; flex:1;">
+                  <input type="number" name="tickets_bonus" placeholder="แถมสิทธิ์สุ่ม" required style="padding:8px; flex:1;">
+                  <button type="submit" style="background:#00d2d3; color:#000; border:none; padding:8px 20px; font-weight:bold; cursor:pointer;">เพิ่มแพ็กเกจแคปชั่น</button>
+              </div>
           </form>
-          <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ข้อความแคปชั่น</th><th>ราคา</th><th>แถมสิทธิ์สุ่ม</th><th>จัดการ</th></tr>
-              <tbody id="captions-tbody">
-                  ${captionsTableHtml}
-              </tbody>
+          <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; margin-top:15px; text-align:center;">
+              <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อแพ็กเกจ</th><th>ราคา</th><th>แถมสิทธิ์</th><th>จัดการ</th></tr>
+              ${captionsTableHtml}
           </table>
       </div>
 
-      <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
-          <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มไอดีเกม หรือ รางวัล "สิทธิ์สุ่มฟรี" เข้าคลัง</h3>
-          <form id="add-game-form" onsubmit="addGameAccountDynamic(event)" style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
-              <input type="text" id="new-title" placeholder="ชื่อรางวัล เช่น [ฟรีสิทธิ์] สิทธิ์สุ่มฟรี 10 ครั้ง" required style="padding:8px; flex:2;">
-              <select id="new-rarity" style="padding:8px;">
-                  <option value="Normal">ระดับ Normal</option>
-                  <option value="S">ระดับ S</option>
-                  <option value="SS+">ระดับ SS+</option>
-                  <option value="SSR">ระดับ SSR</option>
-                  <option value="เทพมังกร">ระดับ เทพมังกร</option>
-              </select>
+      <div style="background:#2b2b40; padding:20px; border-radius:10px; width:900px; margin:20px auto; text-align:left;">
+          <h3 style="color:#2ed573; margin-top:0;">➕ เพิ่มรางวัลเข้าคลัง</h3>
+          <form id="add-game-form" onsubmit="addGameAccountDynamic(event)" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
+              <input type="text" id="new-title" placeholder="ชื่อรางวัล" required style="padding:8px; flex:2;">
+              <select id="new-rarity" style="padding:8px;"><option value="Normal">Normal</option><option value="SSR">SSR</option><option value="เทพมังกร">เทพมังกร</option></select>
               <input type="number" step="0.0001" id="new-rate" placeholder="อัตรา %" required style="padding:8px; width:70px;">
               <input type="number" id="new-pity" placeholder="การันตี" style="padding:8px; width:70px;">
-              <input type="file" id="new-image" accept="image/*" style="padding:5px; background:#fff; color:#000; border-radius:4px; width:140px;">
-              <button type="submit" id="add-btn-submit" style="background:#2ed573; color:#fff; border:none; border-radius:5px; font-weight:bold; cursor:pointer; padding:9px 12px;">เพิ่มรางวัล</button>
+              <input type="file" id="new-image" accept="image/*" style="padding:4px; background:#fff; color:#000;">
+              <button type="submit" id="add-btn-submit" style="background:#2ed573; color:#fff; border:none; padding:8px 12px; font-weight:bold; cursor:pointer;">เพิ่ม</button>
           </form>
-
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <h4 style="color:#ffd700; margin:0;">📦 คลังรางวัล และ การตั้งค่าการันตี / แก้ไข</h4>
-              <div>
-                  ${clearAllButtonHtml}
-              </div>
-          </div>
-
           <form action="/admin/update-all-game-accounts" method="POST" enctype="multipart/form-data">
-              <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; border-color:#444; font-size:12px; text-align:center;">
-                 <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>อัตราออก (%)</th><th>🎯 การันตี</th><th>🖼️ รูปภาพ (เปลี่ยนไฟล์)</th><th>สถานะ</th><th>จัดการ</th></tr>
-                 <tbody id="game-accounts-tbody">
-                     ${gameAccHtml}
-                 </tbody>
+              <table border="1" style="width:100%; border-collapse:collapse; background:#1e1e2f; text-align:center;">
+                 <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>ชื่อรางวัล</th><th>อัตรา (%)</th><th>การันตี</th><th>สถานะ</th><th>จัดการ</th></tr>
+                 ${gameAccHtml}
               </table>
-              <button type="submit" style="background:#2ed573; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; padding:12px 20px; margin-top:15px; width:100%; font-size:14px; box-shadow:0 0 10px rgba(46,213,115,0.4);">💾 บันทึกการตั้งค่าเรตทั้งหมด</button>
+              <button type="submit" style="background:#2ed573; color:#fff; border:none; padding:10px; margin-top:10px; width:100%; font-weight:bold; cursor:pointer;">💾 บันทึกคลังรางวัล</button>
           </form>
       </div>
 
-      <h3 style="color:#ffd700;">📥 รายการสลิปเติมเงินรอตรวจสอบ</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:800px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>ช่องทาง</th><th>ยอดเงิน</th><th>สลิป</th><th>จัดการ</th></tr>
-        ${pendingSlipHtml}
-      </table>
-
-      <h3 style="color:#ffd700;">👥 รายชื่อสมาชิกทั้งหมด และ จัดการแต้ม / สิทธิ์สุ่ม / เรตเกลือ</h3>
-      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:950px; background:#2b2b40; border-color:#444;">
-        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>Facebook Link</th><th>แต้ม / สิทธิ์สุ่ม</th><th>จัดการแต้ม / สิทธิ์สุ่ม / เรตเกลือ</th></tr>
+      <h3 style="color:#ffd700;">👥 รายชื่อสมาชิก (ไอดีอยู่ได้ถาวร ไม่จำกัด 30 วัน)</h3>
+      <table border="1" style="margin:0 auto 30px auto; border-collapse:collapse; width:800px; background:#2b2b40;">
+        <tr style="background:#3d3d5c;"><th>ลำดับ</th><th>Username</th><th>แต้ม / สิทธิ์สุ่ม</th><th>จัดการ</th></tr>
         ${userHtml}
       </table>
 
       <script>
-          async function addCaptionDynamic(event) {
-              event.preventDefault();
-              const title = document.getElementById('cap-title').value;
-              const content = document.getElementById('cap-content').value;
-              const price = document.getElementById('cap-price').value;
-              const tickets_bonus = document.getElementById('cap-bonus').value;
-
-              const btn = document.getElementById('cap-submit-btn');
-              btn.disabled = true;
-              btn.innerText = 'กำลังเพิ่ม...';
-
-              try {
-                  const res = await fetch('/admin/add-caption-json', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ title, content, price, tickets_bonus })
-                  });
-                  const result = await res.json();
-                  if (result.success) {
-                      const tbody = document.getElementById('captions-tbody');
-                      const noRow = document.getElementById('no-captions-row');
-                      if (noRow) noRow.remove();
-
-                      const newRow = document.createElement('tr');
-                      newRow.id = 'row-caption-' + result.newCaption.id;
-                      newRow.innerHTML = \`
-                          <td>-</td>
-                          <td><b>\${result.newCaption.title}</b></td>
-                          <td style="color:#a4b0be; font-size:11px;">\${result.newCaption.content}</td>
-                          <td style="color:#2ed573;"><b>\${result.newCaption.price} แต้ม</b></td>
-                          <td style="color:#ffd700;"><b>+\${result.newCaption.tickets_bonus} ครั้ง</b></td>
-                          <td>
-                              <form action="/admin/delete-caption" method="POST" onsubmit="return confirm('ยืนยันลบแคปชั่นนี้?');">
-                                  <input type="hidden" name="caption_id" value="\${result.newCaption.id}">
-                                  <button type="submit" style="background:#ff4757; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px;">🗑️ ลบ</button>
-                              </form>
-                          </td>
-                      \`;
-                      tbody.appendChild(newRow);
-
-                      // เคลียร์ฟอร์มให้กดเพิ่มรัวๆ ได้ทันที
-                      document.getElementById('cap-title').value = '';
-                      document.getElementById('cap-content').value = '';
-                      document.getElementById('cap-price').value = '';
-                      document.getElementById('cap-bonus').value = '';
-                  } else {
-                      alert("เกิดข้อผิดพลาด: " + result.message);
-                  }
-              } catch (e) {
-                  alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
-              } finally {
-                  btn.disabled = false;
-                  btn.innerText = 'เพิ่มแพ็กเกจ';
-              }
-          }
-
           async function addGameAccountDynamic(event) {
               event.preventDefault();
               const title = document.getElementById('new-title').value;
@@ -2559,32 +2109,12 @@ async function renderAdminDashboard(req, res) {
               formData.append('rarity', rarity);
               formData.append('rate', rate);
               formData.append('pity_target', pity);
-              if (imageFile) {
-                  formData.append('image_file', imageFile);
-              }
+              if (imageFile) formData.append('image_file', imageFile);
 
-              const btn = document.getElementById('add-btn-submit');
-              btn.disabled = true;
-              btn.innerText = 'กำลังเพิ่ม...';
-
-              try {
-                  const res = await fetch('/admin/add-game-account-json', {
-                      method: 'POST',
-                      body: formData
-                  });
-                  const result = await res.json();
-                  if (result.success) {
-                      location.reload();
-                  } else {
-                      alert("เกิดข้อผิดพลาด: " + result.message);
-                      btn.disabled = false;
-                      btn.innerText = 'เพิ่มรางวัล';
-                  }
-              } catch (e) {
-                  alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
-                  btn.disabled = false;
-                  btn.innerText = 'เพิ่มรางวัล';
-              }
+              const res = await fetch('/admin/add-game-account-json', { method: 'POST', body: formData });
+              const result = await res.json();
+              if (result.success) location.reload();
+              else alert("เกิดข้อผิดพลาด: " + result.message);
           }
       </script>
     </body>
