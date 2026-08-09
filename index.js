@@ -758,7 +758,7 @@ app.get("/store", async (req, res) => {
                           if (data.pendingRows.length > 0) {
                               data.pendingRows.forEach(p => {
                                   const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
-                                  pHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)</li>\`;
+                                  pHtml += \`يodโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)\`;
                               });
                           } else {
                               pHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
@@ -1536,7 +1536,7 @@ app.post("/request-withdraw", async (req, res) => {
       status: 'pending',
       history_snapshot: JSON.stringify(fullDetailedList)
     }]),
-    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', false)
+    supabase.from('history').update({ is_withdrawn: true }).eq('username', username).eq('is_withdrawn', false)
   ]);
 
   res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ประวัติทางฝั่งผู้เล่นถูกเคลียร์เรียบร้อยและส่งไปให้แอดมินตรวจสอบคนเดียวแล้ว"); window.location.href="/lootbox?username=${username}";</script>`);
