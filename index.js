@@ -1,3 +1,29 @@
+
+// ===== PATCH: GUARANTEE SYSTEM (ADDED) =====
+// Global pity counter example (per user should be DB in real use)
+if (!global.pityMap) global.pityMap = {};
+
+function applyGuarantee(username, reward) {
+  if (!global.pityMap[username]) global.pityMap[username] = 0;
+
+  // if reward is NOT big reward → increase pity
+  if (reward < 100) {
+    global.pityMap[username]++;
+  } else {
+    // reset if got big reward
+    global.pityMap[username] = 0;
+  }
+
+  // trigger guarantee
+  if (global.pityMap[username] >= 10) {
+    global.pityMap[username] = 0;
+    return 100; // guaranteed reward
+  }
+
+  return reward;
+}
+
+
 require('dotenv').config();
 
 const express = require("express");
