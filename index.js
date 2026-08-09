@@ -337,6 +337,81 @@ app.get("/api/ticker", async (req, res) => {
   }
 });
 
+// ------------------- USER STATUS API (FOR REALTIME POLLING) -------------------
+
+app.get("/api/user-status", async (req, res) => {
+  const username = req.query.username;
+  if (!username) return res.json({ success: false });
+
+  try {
+    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes] = await Promise.all([
+      supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
+      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('game_accounts').select('*').order('id', { ascending: true })
+    ]);
+
+    const user = userRes.data;
+    const pendingRows = pendingRes.data;
+    const pendingWithdrawRows = pendingWithdrawRes.data;
+    const unwithdrawnHistory = historyRes.data;
+    const gameAccounts = gameAccRes.data;
+
+    const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
+
+    let hasClaimable = false;
+    if (unwithdrawnHistory) {
+      unwithdrawnHistory.forEach(h => {
+        if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
+          hasClaimable = true;
+        }
+      });
+    }
+
+    let availableCount = 0;
+    if (gameAccounts) {
+      gameAccounts.forEach(acc => {
+        if (acc.status !== 'out_of_stock') availableCount++;
+      });
+    }
+
+    let rawCounters = parsePityCounters(user ? user.pity_counters : {});
+    let cleanCounters = {};
+    if (gameAccounts) {
+        const isServerMode = gameAccounts.length > 0 && gameAccounts[0].pity_mode === 'server';
+        const globalServerCount = (gameAccounts.length > 0 && gameAccounts[0].global_pity_count !== undefined) ? gameAccounts[0].global_pity_count : 0;
+
+        gameAccounts.forEach(acc => {
+            const t = parseInt(acc.pity_target) || 0;
+            const isFreeTicketReward = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
+            if (t > 0 && !isFreeTicketReward) {
+                if (isServerMode) {
+                    cleanCounters[acc.id] = globalServerCount;
+                } else if (rawCounters[acc.id] !== undefined) {
+                    cleanCounters[acc.id] = rawCounters[acc.id];
+                }
+            }
+        });
+    }
+
+    res.json({
+      success: true,
+      points: user ? user.points : 0,
+      tickets: user ? (user.tickets || 0) : 0,
+      total_spent: user ? user.total_spent : 0,
+      pityCounters: cleanCounters,
+      pendingRows: pendingRows || [],
+      hasPendingWithdraw: hasPendingWithdraw,
+      hasClaimable: hasClaimable,
+      gameAccounts: gameAccounts || [],
+      hasAvailableStock: availableCount > 0
+    });
+  } catch (e) {
+    res.json({ success: false });
+  }
+});
+
 // ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", async (req, res) => {
@@ -633,79 +708,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/api/user-status", async (req, res) => {
-  const username = req.query.username;
-  if (!username) return res.json({ success: false });
-
-  try {
-    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes] = await Promise.all([
-      supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
-      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('game_accounts').select('*').order('id', { ascending: true })
-    ]);
-
-    const user = userRes.data;
-    const pendingRows = pendingRes.data;
-    const pendingWithdrawRows = pendingWithdrawRes.data;
-    const unwithdrawnHistory = historyRes.data;
-    const gameAccounts = gameAccRes.data;
-
-    const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
-
-    let hasClaimable = false;
-    if (unwithdrawnHistory) {
-      unwithdrawnHistory.forEach(h => {
-        if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
-          hasClaimable = true;
-        }
-      });
-    }
-
-    let availableCount = 0;
-    if (gameAccounts) {
-      gameAccounts.forEach(acc => {
-        if (acc.status !== 'out_of_stock') availableCount++;
-      });
-    }
-
-    let rawCounters = parsePityCounters(user ? user.pity_counters : {});
-    let cleanCounters = {};
-    if (gameAccounts) {
-        const isServerMode = gameAccounts.length > 0 && gameAccounts[0].pity_mode === 'server';
-        const globalServerCount = (gameAccounts.length > 0 && gameAccounts[0].global_pity_count !== undefined) ? gameAccounts[0].global_pity_count : 0;
-
-        gameAccounts.forEach(acc => {
-            const t = parseInt(acc.pity_target) || 0;
-            const isFreeTicketReward = acc.title && (acc.title.includes("สิทธิ์สุ่มฟรี") || acc.title.includes("[ฟรีสิทธิ์]"));
-            if (t > 0 && !isFreeTicketReward) {
-                if (isServerMode) {
-                    cleanCounters[acc.id] = globalServerCount;
-                } else if (rawCounters[acc.id] !== undefined) {
-                    cleanCounters[acc.id] = rawCounters[acc.id];
-                }
-            }
-        });
-    }
-
-    res.json({
-      success: true,
-      points: user ? user.points : 0,
-      tickets: user ? (user.tickets || 0) : 0,
-      total_spent: user ? user.total_spent : 0,
-      pityCounters: cleanCounters,
-      pendingRows: pendingRows || [],
-      hasPendingWithdraw: hasPendingWithdraw,
-      hasClaimable: hasClaimable,
-      gameAccounts: gameAccounts || [],
-      hasAvailableStock: availableCount > 0
-    });
-  } catch (e) {
-    res.json({ success: false });
-  }
-});
-
 // ------------------- 1. CAPSULE STORE ROUTE -------------------
 
 app.get("/store", async (req, res) => {
@@ -864,7 +866,7 @@ app.get("/store", async (req, res) => {
 
               <div style="text-align:left; margin-top:12px; background:#1b1e2e; padding:8px; border-radius:6px; font-size:11px;">
                   <b style="color:#ffd700;">📌 สถานะการเติมเงิน:</b>
-                  <ul style="padding-left:15px; margin:3px 0;">${pendingHtml}</ul>
+                  <ul style="padding-left:15px; margin:3px 0;" id="pending-topup-list">${pendingHtml}</ul>
               </div>
 
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
@@ -872,7 +874,27 @@ app.get("/store", async (req, res) => {
 
           <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
           <script>
+              // Real-time polling for points and topup status update in store
               setInterval(() => {
+                  fetch('/api/user-status?username=${username}')
+                  .then(res => res.json())
+                  .then(data => {
+                      if (!data.success) return;
+                      document.getElementById('points').innerText = data.points;
+                      document.getElementById('tickets').innerText = data.tickets;
+
+                      let pendingHtml = "";
+                      if (data.pendingRows && data.pendingRows.length > 0) {
+                          data.pendingRows.forEach(p => {
+                              const typeBadge = p.topup_type === 'truemoney' ? '[Wallet]' : '[พร้อมเพย์]';
+                              pendingHtml += \`<li style="color:#ffa502;">ยอดโอน <b>\${p.exact_amount} บาท</b> \${typeBadge} (รอแอดมินตรวจสอบสลิป)</li>\`;
+                          });
+                      } else {
+                          pendingHtml = \`<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>\`;
+                      }
+                      document.getElementById('pending-topup-list').innerHTML = pendingHtml;
+                  }).catch(e=>{});
+
                   fetch('/api/ticker').then(r => r.json()).then(d => {
                       if (d.success && d.tickerHtml) {
                           const el = document.getElementById('ticker-content');
@@ -1096,18 +1118,15 @@ app.get("/lootbox", async (req, res) => {
     if (hasPendingWithdraw) {
       claimButtonHtml = `
         <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
+            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบกลับทาง Facebook ภายใน 24 ชั่วโมง</div>
             <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
         </div>
       `;
     } else if (hasClaimable) {
       claimButtonHtml = `
-        <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
-            <input type="hidden" name="username" value="${username}">
-            <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
-                🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)
-            </button>
-        </form>
+        <button type="button" id="withdraw-btn" onclick="requestWithdraw()" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4); margin-top:10px;">
+            🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)
+        </button>
       `;
     }
 
@@ -1315,12 +1334,44 @@ app.get("/lootbox", async (req, res) => {
 
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-              function handleWithdrawSubmit(form) {
+              function requestWithdraw() {
                   const btn = document.getElementById('withdraw-btn');
-                  if(btn.disabled) return false;
-                  btn.disabled = true;
-                  btn.innerText = '⏳ กำลังส่งคำขอรับรางวัล...';
-                  return true;
+                  if (btn) {
+                      btn.disabled = true;
+                      btn.innerText = '⏳ กำลังส่งคำขอรับรางวัล...';
+                  }
+
+                  fetch('/request-withdraw', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ username: '${username}' })
+                  })
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data.success) {
+                          alert("ส่งคำขอรับรางวัลสำเร็จ! รายการถูกส่งไปหาแอดมินเรียบร้อย ระหว่างนี้คุณยังสามารถสุ่มสะสมรางวัลอื่นเพิ่มได้เรื่อยๆ");
+                          // ล้างปุ่มและแสดงสถานะรอแอดมินทันทีโดยไม่ต้องรีเฟรช
+                          document.getElementById("claim-btn-container").innerHTML = \`
+                            <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
+                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบกลับทาง Facebook ภายใน 24 ชั่วโมง</div>
+                                <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
+                            </div>
+                          \`;
+                      } else {
+                          alert(data.message || "เกิดข้อผิดพลาด");
+                          if(btn) {
+                              btn.disabled = false;
+                              btn.innerText = '🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)';
+                          }
+                      }
+                  })
+                  .catch(err => {
+                      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+                      if(btn) {
+                          btn.disabled = false;
+                          btn.innerText = '🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)';
+                      }
+                  });
               }
 
               function playTierSound(highestRarity) {
@@ -1389,35 +1440,46 @@ app.get("/lootbox", async (req, res) => {
                   document.getElementById("imageModal").style.display = "none";
               }
 
+              // Real-time polling to check points, tickets, and claim button status automatically without refresh
               setInterval(() => {
                   fetch('/api/user-status?username=${username}')
                   .then(res => res.json())
                   .then(data => {
                       if (!data.success) return;
 
+                      // Update points and tickets in real-time
+                      if (data.points !== undefined) {
+                          document.getElementById("points").innerText = data.points;
+                      }
+
                       if (data.tickets !== undefined && userTickets !== data.tickets) {
                           userTickets = data.tickets;
                           document.getElementById("tickets").innerText = userTickets;
                       }
 
+                      // Update claim button dynamically based on server state
+                      const claimContainer = document.getElementById("claim-btn-container");
                       if (data.hasPendingWithdraw) {
-                          document.getElementById("claim-btn-container").innerHTML = \`
-                            <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
-                                <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
-                            </div>
-                          \`;
+                          if (!claimContainer.innerHTML.includes("รอแอดมินตอบกลับ")) {
+                              claimContainer.innerHTML = \`
+                                <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
+                                    <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบกลับทาง Facebook ภายใน 24 ชั่วโมง</div>
+                                    <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
+                                </div>
+                              \`;
+                          }
                       } else if (data.hasClaimable) {
-                          document.getElementById("claim-btn-container").innerHTML = \`
-                            <form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;">
-                                <input type="hidden" name="username" value="${username}">
-                                <button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">
+                          if (!claimContainer.innerHTML.includes("withdraw-btn")) {
+                              claimContainer.innerHTML = \`
+                                <button type="button" id="withdraw-btn" onclick="requestWithdraw()" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4); margin-top:10px;">
                                     🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)
                                 </button>
-                            </form>
-                          \`;
+                              \`;
+                          }
                       } else {
-                          document.getElementById("claim-btn-container").innerHTML = "";
+                          if (!data.hasPendingWithdraw && claimContainer.innerHTML.includes("withdraw-btn")) {
+                              claimContainer.innerHTML = "";
+                          }
                       }
 
                       hasAvailableStock = data.hasAvailableStock;
@@ -1613,16 +1675,6 @@ app.get("/lootbox", async (req, res) => {
                       }
 
                       document.getElementById("resultModal").style.display = "block";
-                      
-                      fetch('/api/user-status?username=${username}').then(r => r.json()).then(d => {
-                          if(d.success) {
-                              if (d.hasPendingWithdraw) {
-                                  document.getElementById("claim-btn-container").innerHTML = \`<div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;"><div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div></div>\`;
-                              } else if (d.hasClaimable) {
-                                  document.getElementById("claim-btn-container").innerHTML = \`<form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;"><input type="hidden" name="username" value="${username}"><button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)</button></form>\`;
-                              }
-                          }
-                      });
                   })
                   .catch(err => {
                       openBtn.disabled = false;
@@ -1705,12 +1757,12 @@ app.post("/request-withdraw", async (req, res) => {
   ]);
 
   if (existingPendingRes.data && existingPendingRes.data.length > 0) {
-    return res.send(`<script>alert("คุณมีคำขอรับรางวัลที่กำลังรอแอดมินตรวจสอบอยู่แล้ว กรุณารอสักครู่!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.json({ success: false, message: "คุณมีคำขอรับรางวัลที่กำลังรอแอดมินตรวจสอบอยู่แล้ว กรุณารอสักครู่!" });
   }
 
   const userHistory = userHistoryRes.data;
   if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("คุณไม่มีประวัติการสุ่มที่จะแลกรับรางวัล!"); window.location.href="/lootbox?username=${username}";</script>`);
+    return res.json({ success: false, message: "คุณไม่มีประวัติการสุ่มที่จะแลกรับรางวัล!" });
   }
 
   const userData = userDataRes.data;
@@ -1727,7 +1779,7 @@ app.post("/request-withdraw", async (req, res) => {
   });
 
   if (idsToUpdate.length === 0) {
-      return res.send(`<script>alert("ไม่มีรางวัลไอดีเกมที่จะขอรับ มีเพียงสิทธิ์สุ่มฟรีหรือเกลือ"); window.location.href="/lootbox?username=${username}";</script>`);
+      return res.json({ success: false, message: "ไม่มีรางวัลไอดีเกมที่จะขอรับ มีเพียงสิทธิ์สุ่มฟรีหรือเกลือ" });
   }
 
   let fullDetailedList = userHistory.map(h => h.reward);
@@ -1744,7 +1796,7 @@ app.post("/request-withdraw", async (req, res) => {
     supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate)
   ]);
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! รายการถูกส่งไปหาแอดมินเรียบร้อย ระหว่างนี้คุณยังสามารถสุ่มสะสมรางวัลอื่นเพิ่มได้เรื่อยๆ"); window.location.href="/lootbox?username=${username}";</script>`);
+  return res.json({ success: true });
 });
 
 app.post("/create-topup", (req, res) => {
@@ -2117,7 +2169,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
