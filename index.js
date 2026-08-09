@@ -169,12 +169,17 @@ const exactSciFiCSS = `
         .space-chars-left, .space-chars-right { display: none; }
     }
     
+    /* กรอบข้างจอสำหรับโชว์รายชื่อผู้โชคดี (แสดงทั้งคอมและมือถือ) */
     .live-winner-sidebar {
-        position: fixed; right: 15px; top: 100px; width: 240px; background: rgba(13, 15, 30, 0.9);
-        border: 2px solid #ffd700; border-radius: 14px; padding: 12px; z-index: 99; backdrop-filter: blur(8px);
+        position: fixed; right: 10px; top: 80px; width: 220px; background: rgba(13, 15, 30, 0.92);
+        border: 2px solid #ffd700; border-radius: 12px; padding: 10px; z-index: 99; backdrop-filter: blur(8px);
         box-shadow: 0 0 20px rgba(255,215,0,0.4); text-align: left;
     }
-    @media(max-width: 1400px) { .live-winner-sidebar { display: none; } }
+    @media(max-width: 768px) {
+        .live-winner-sidebar {
+            position: relative; right: auto; top: auto; width: 92%; max-width: 440px; margin: 10px auto;
+        }
+    }
 
     .top-lang-bar {
         position: absolute;
@@ -528,7 +533,7 @@ app.get("/api/user-status", async (req, res) => {
       supabase.from('users').select('points, tickets, total_spent, pity_counters').eq('username', username).single(),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false).order('id', { ascending: false }),
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('history').select('username, reward, time').not('reward', 'ilike', '%เกลือ%').not('reward', 'ilike', '%สิทธิ์สุ่มฟรี%').order('id', { ascending: false }).limit(5),
       supabase.from('captions').select('*').order('price', { ascending: true })
@@ -537,14 +542,14 @@ app.get("/api/user-status", async (req, res) => {
     const user = userRes.data;
     const pendingRows = pendingRes.data;
     const pendingWithdrawRows = pendingWithdrawRes.data;
-    const unwithdrawnHistory = historyRes.data;
+    const unwithdrawnHistory = historyRes.data || [];
     const gameAccounts = gameAccRes.data;
     const captions = captionsRes.data || [];
 
     const hasPendingWithdraw = pendingWithdrawRows && pendingWithdrawRows.length > 0;
 
     let hasClaimable = false;
-    if (unwithdrawnHistory && !hasPendingWithdraw) {
+    if (unwithdrawnHistory.length > 0 && !hasPendingWithdraw) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
           hasClaimable = true;
@@ -587,14 +592,15 @@ app.get("/api/user-status", async (req, res) => {
       gameAccounts: gameAccounts || [],
       captions: captions,
       hasAvailableStock: availableCount > 0,
-      recentWinners: recentWinnersRes.data || []
+      recentWinners: recentWinnersRes.data || [],
+      myHistory: unwithdrawnHistory
     });
   } catch (e) {
     res.json({ success: false });
   }
 });
 
-// ------------------- 1. CAPSULE STORE ROUTE (MARKETING LAW COMPLIANT) -------------------
+// ------------------- 1. CAPSULE STORE ROUTE -------------------
 
 app.get("/store", async (req, res) => {
   const username = req.query.username;
@@ -911,7 +917,7 @@ app.get("/lootbox", async (req, res) => {
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false).order('id', { ascending: false }),
       supabase.from('history').select('username, reward, time').not('reward', 'ilike', '%เกลือ%').not('reward', 'ilike', '%สิทธิ์สุ่มฟรี%').order('id', { ascending: false }).limit(5)
     ]);
 
@@ -955,9 +961,9 @@ app.get("/lootbox", async (req, res) => {
       pendingHtml = `<span style="color:#aaa; font-size:12px;">ไม่มีรายการรอดำเนินการ</span>`;
     }
 
-    const unwithdrawnHistory = historyRes.data;
+    const unwithdrawnHistory = historyRes.data || [];
     let hasClaimable = false;
-    if (unwithdrawnHistory && !hasPendingWithdraw) {
+    if (unwithdrawnHistory.length > 0 && !hasPendingWithdraw) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
           hasClaimable = true;
@@ -1047,6 +1053,15 @@ app.get("/lootbox", async (req, res) => {
         </div>`;
     });
 
+    let historyRowsHtml = "";
+    if (unwithdrawnHistory.length > 0) {
+        unwithdrawnHistory.forEach((h, idx) => {
+            historyRowsHtml += `<tr><td style="padding:6px;">${idx + 1}</td><td style="padding:6px; color:#ffd700;"><b>${h.reward}</b></td><td style="padding:6px; font-size:11px; color:#a4b0be;">${h.time || '-'}</td></tr>`;
+        });
+    } else {
+        historyRowsHtml = `<tr><td colspan="3" style="padding:10px; color:#aaa; font-size:11px;">ยังไม่มีประวัติการสุ่ม (รายการจะหายไปเมื่อกดขอรับรางวัล)</td></tr>`;
+    }
+
     const isAllOut = availableCount === 0;
 
     res.send(`
@@ -1086,15 +1101,9 @@ app.get("/lootbox", async (req, res) => {
               .modal-content { background: linear-gradient(135deg, #13151f, #1b1e2e); border: 2px solid #00d2d3; margin: 15% auto; padding: 25px; border-radius: 16px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,210,211,0.5); animation: popup 0.3s ease-out; }
               @keyframes popup { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-              @keyframes shake {
-                  0% { transform: translate(1px, 1px) rotate(0deg); }
-                  20% { transform: translate(-3px, 0px) rotate(-1deg); }
-                  40% { transform: translate(1px, -1px) rotate(1deg); }
-                  60% { transform: translate(-3px, 1px) rotate(0deg); }
-                  80% { transform: translate(1px, -1px) rotate(1deg); }
-                  100% { transform: translate(0px, 0px) rotate(0deg); }
-              }
-              .screen-shake { animation: shake 0.5s; }
+              .history-box { background: #181b2a; border: 1px solid #282c44; border-radius: 12px; padding: 10px; margin-top: 15px; text-align: left; }
+              .history-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #13151f; border-color: #333; }
+              .history-table th { background: #252a42; color: #ffd700; padding: 6px; }
           </style>
       </head>
       <body>
@@ -1129,7 +1138,6 @@ app.get("/lootbox", async (req, res) => {
                   </div>
                   <div style="display:flex; gap:5px;">
                       <a href="/store?username=${username}" class="btn-nav" style="background:#2ed573; color:#000;">🛒 ร้านค้าแคปชั่น</a>
-                      <a href="/my-history?username=${username}" class="btn-history" style="background:#70a1ff; color:#000; padding:5px 10px; border-radius:6px; text-decoration:none; font-size:11px; font-weight:bold;">📜 ประวัติ</a>
                   </div>
               </div>
 
@@ -1164,6 +1172,18 @@ app.get("/lootbox", async (req, res) => {
               </button>
               
               <div id="result-box">🎁 กดเปิดกล่องเพื่อลุ้นรับรางวัล!</div>
+
+              <div class="history-box">
+                  <div style="font-size: 12px; color: #ffd700; font-weight: bold; margin-bottom: 6px;">📜 ประวัติการสุ่มของคุณ (เฉพาะไอดีคุณ)</div>
+                  <table border="1" class="history-table">
+                      <thead>
+                          <tr><th>#</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
+                      </thead>
+                      <tbody id="my-history-tbody">
+                          ${historyRowsHtml}
+                      </tbody>
+                  </table>
+              </div>
 
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
@@ -1288,6 +1308,18 @@ app.get("/lootbox", async (req, res) => {
                               </div>\`;
                           });
                           document.getElementById("sidebar-winners-container").innerHTML = sidebarHtml || '<div style="font-size:10px; color:#aaa;">ยังไม่มีผู้โชคดี</div>';
+                      }
+
+                      if (data.myHistory) {
+                          let hHtml = "";
+                          if (data.myHistory.length > 0) {
+                              data.myHistory.forEach((h, idx) => {
+                                  hHtml += \`<tr><td style="padding:6px;">\${idx + 1}</td><td style="padding:6px; color:#ffd700;"><b>\${h.reward}</b></td><td style="padding:6px; font-size:11px; color:#a4b0be;">\${h.time || '-'}</td></tr>\`;
+                              });
+                          } else {
+                              hHtml = \`<tr><td colspan="3" style="padding:10px; color:#aaa; font-size:11px;">ยังไม่มีประวัติการสุ่ม (รายการจะหายไปเมื่อกดขอรับรางวัล)</td></tr>\`;
+                          }
+                          document.getElementById("my-history-tbody").innerHTML = hHtml;
                       }
 
                       if (data.hasPendingWithdraw) {
@@ -1509,59 +1541,6 @@ app.get("/lootbox", async (req, res) => {
   }
 });
 
-app.get("/my-history", async (req, res) => {
-  const username = req.query.username;
-  if (!username) return res.redirect("/login");
-
-  const { data: rows } = await supabase
-    .from('history')
-    .select('*')
-    .eq('username', username)
-    .eq('is_withdrawn', false)
-    .order('id', { ascending: false });
-
-  let historyList = "";
-  if (rows && rows.length > 0) {
-    rows.forEach((r, index) => {
-      historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.time || '-'}</td></tr>`;
-    });
-  } else {
-    historyList = `<tr><td colspan="3" style="padding:15px; color:#aaa;">คุณยังไม่มีประวัติการสุ่มที่ยังไม่ขอรับรางวัล</td></tr>`;
-  }
-
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-        <meta charset="UTF-8">
-        <title>ประวัติการสุ่มของฉัน</title>
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-        <style>
-            ${exactSciFiCSS}
-            .container { background: rgba(43, 43, 64, 0.95); padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #00d2d3; margin-top:30px; position:relative; z-index:4; }
-            table { width: 100%; border-collapse: collapse; background: #1e1e2f; border-color: #444; margin-bottom: 20px; font-size: 14px; }
-            th { padding: 10px; background: #3d3d5c; color: #ffd700; }
-            a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
-        <div class="space-chars-right"><div class="char-badge-right">⚔️ โคนี่ฮีโร่</div></div>
-        
-        <div class="container">
-            <h2 style="color:#ffd700;">📜 ประวัติการสุ่มของ: ${username}</h2>
-            <table border="1">
-                <tr><th>ลำดับ</th><th>รางวัลที่ได้</th><th>เวลา</th></tr>
-                ${historyList}
-            </table>
-            <a href="/lootbox?username=${username}">⬅️ กลับหน้าสุ่มกล่อง</a>
-        </div>
-        <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
-    </body>
-    </html>
-  `);
-});
-
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
 
@@ -1611,7 +1590,7 @@ app.post("/request-withdraw", async (req, res) => {
     supabase.from('history').update({ is_withdrawn: true }).in('id', idsToUpdate)
   ]);
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ระบบกำลังรอดำเนินการ แอดมินจะจัดส่งรางวัลให้ภายใน 24 ชม."); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! ประวัติการสุ่มถูกเคลียร์เรียบร้อย รอแอดมินจัดส่งรางวัลภายใน 24 ชม."); window.location.href="/lootbox?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -1718,7 +1697,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- 2. LIGHTNING FAST BULK OPEN LOOTBOX ALGORITHM -------------------
+// ------------------- 2. LIGHTNING FAST BULK OPEN LOOTBOX ALGORITHM (STRICT STOCK CONTROL) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -1782,7 +1761,6 @@ app.post("/open-lootbox", async (req, res) => {
     let successfulWonAccIds = [];
     let freeTicketsWon = 0;
 
-    // รันการคำนวณทั้งหมดใน Memory แบบรวดเร็วไร้ดีเลย์
     for (let i = 0; i < selectedCount; i++) {
         let currentAvailable = targetAccList.filter(a => (a.status === 'available' || !a.status) && !successfulWonAccIds.includes(a.id));
 
@@ -1933,7 +1911,6 @@ app.post("/open-lootbox", async (req, res) => {
 
     const newTickets = (user.tickets || 0) - actualConsumedTickets + freeTicketsWon;
 
-    // บันทึกลงฐานข้อมูลแบบรวดเร็วในคำสั่งเดียว (Parallel Batch Execution)
     let globalPityUpdates = targetAccList.filter(a => a.pity_mode === 'global').map(a => 
         supabase.from('game_accounts').update({ global_pity_count: a.global_pity_count }).eq('id', a.id)
     );
@@ -1945,7 +1922,7 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
             step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
