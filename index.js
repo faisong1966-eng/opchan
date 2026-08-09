@@ -94,6 +94,7 @@ function parsePityCounters(val) {
     }
 }
 
+// ------------------- EXACT MATCH SCI-FI THEME WITH EMBEDDED CHARACTERS -------------------
 const exactSciFiCSS = `
     * { box-sizing: border-box; }
     body { 
@@ -314,6 +315,8 @@ const exactSciFiCSS = `
     }
 `;
 
+// ------------------- TICKER API ENDPOINT -------------------
+
 app.get("/api/ticker", async (req, res) => {
   try {
       const { data: recentWins } = await supabase
@@ -333,6 +336,8 @@ app.get("/api/ticker", async (req, res) => {
       res.json({ success: false });
   }
 });
+
+// ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -652,7 +657,6 @@ app.get("/api/user-status", async (req, res) => {
     let hasClaimable = false;
     if (unwithdrawnHistory) {
       unwithdrawnHistory.forEach(h => {
-        // แก้ไขเงื่อนไขตรงนี้ให้รองรับข้อความรางวัลไอดีเกมของคุณทุกรูปแบบ
         if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
           hasClaimable = true;
         }
@@ -701,6 +705,8 @@ app.get("/api/user-status", async (req, res) => {
     res.json({ success: false });
   }
 });
+
+// ------------------- 1. CAPSULE STORE ROUTE -------------------
 
 app.get("/store", async (req, res) => {
   const username = req.query.username;
@@ -998,6 +1004,8 @@ app.post("/buy-caption", async (req, res) => {
   }
 });
 
+// ------------------- MAIN LOOTBOX PAGE -------------------
+
 app.get("/lootbox", async (req, res) => {
   const username = req.query.username;
   const countParam = parseInt(req.query.count) || 1;
@@ -1078,8 +1086,7 @@ app.get("/lootbox", async (req, res) => {
     
     if (unwithdrawnHistory.length > 0) {
       unwithdrawnHistory.forEach(h => {
-        // เงื่อนไขสากลสำหรับเช็กรางวัลที่จะให้กดรับ (ข้ามเกลือและสิทธิ์สุ่มฟรี)
-        if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี") && !h.reward.includes("0 Robux")) {
+        if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
           hasClaimable = true;
         }
       });
@@ -1089,7 +1096,7 @@ app.get("/lootbox", async (req, res) => {
     if (hasPendingWithdraw) {
       claimButtonHtml = `
         <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบแชทในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
+            <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
             <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
         </div>
       `;
@@ -1396,7 +1403,7 @@ app.get("/lootbox", async (req, res) => {
                       if (data.hasPendingWithdraw) {
                           document.getElementById("claim-btn-container").innerHTML = \`
                             <div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;">
-                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอแอดมินตอบแชทในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
+                                <div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div>
                                 <div style="color: #a4b0be; font-size: 11px; margin-top: 3px;">คุณสามารถกดสุ่มสะสมรางวัลชิ้นอื่นเพิ่มได้เรื่อยๆ ระหว่างรออนุมัติ</div>
                             </div>
                           \`;
@@ -1469,6 +1476,7 @@ app.get("/lootbox", async (req, res) => {
 
                   }).catch(e => {});
 
+                  // Ticker fetch live update
                   fetch('/api/ticker').then(r => r.json()).then(d => {
                       if (d.success && d.tickerHtml) {
                           const el = document.getElementById('ticker-content');
@@ -1605,6 +1613,16 @@ app.get("/lootbox", async (req, res) => {
                       }
 
                       document.getElementById("resultModal").style.display = "block";
+                      
+                      fetch('/api/user-status?username=${username}').then(r => r.json()).then(d => {
+                          if(d.success) {
+                              if (d.hasPendingWithdraw) {
+                                  document.getElementById("claim-btn-container").innerHTML = \`<div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: center;"><div style="color: #ffa502; font-weight: bold; font-size: 13px;">⏳ รอ รอตอบแชทแอดมินในเฟซส่วนตัว ภายใน 24 ชั่วโมง</div></div>\`;
+                              } else if (d.hasClaimable) {
+                                  document.getElementById("claim-btn-container").innerHTML = \`<form action="/request-withdraw" method="POST" onsubmit="handleWithdrawSubmit(this)" style="margin-top:10px;"><input type="hidden" name="username" value="${username}"><button type="submit" id="withdraw-btn" style="width:100%; background:#00b900; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; font-family:'Kanit'; box-shadow:0 0 10px rgba(0,185,0,0.4);">🎁 กดขอรับรางวัลทั้งหมดที่คุณสุ่มได้! (ส่งให้แอดมิน)</button></form>\`;
+                              }
+                          }
+                      });
                   })
                   .catch(err => {
                       openBtn.disabled = false;
@@ -1702,7 +1720,7 @@ app.post("/request-withdraw", async (req, res) => {
   let idsToUpdate = [];
 
   userHistory.forEach(h => {
-    if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี") && !h.reward.includes("0 Robux")) {
+    if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
       rewardsSummaryList.push(h.reward);
       idsToUpdate.push(h.id);
     }
@@ -1832,6 +1850,8 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
     res.send(`<script>alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์"); window.location.href="/store?username=${username}";</script>`);
   }
 });
+
+// ------------------- 2. UPDATED BULK OPEN LOOTBOX ALGORITHM (DUAL PITY) -------------------
 
 app.post("/open-lootbox", async (req, res) => {
   const { username, count } = req.body;
@@ -2097,8 +2117,8 @@ app.post("/open-lootbox", async (req, res) => {
             pity_counters: JSON.stringify(pityCounters),
             step1_salt: parseInt(steps[0].salt) || 0, step1_reward: steps[0].reward || 'normal',
             step2_salt: parseInt(steps[1].salt) || 0, step2_reward: steps[1].reward || 'normal',
-            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[3].reward || 'normal',
-            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[4].reward || 'normal',
+            step3_salt: parseInt(steps[2].salt) || 0, step3_reward: steps[2].reward || 'normal',
+            step4_salt: parseInt(steps[3].salt) || 0, step4_reward: steps[3].reward || 'normal',
             step5_salt: parseInt(steps[4].salt) || 0, step5_reward: steps[4].reward || 'normal'
         }).eq('username', username),
         historyBatch.length > 0 ? supabase.from('history').insert(historyBatch) : Promise.resolve(),
@@ -2117,6 +2137,8 @@ app.post("/open-lootbox", async (req, res) => {
     return res.json({ success: false, message: "เกิดข้อผิดพลาดในการประมวลผลคำขอสุ่ม" });
   }
 });
+
+// ------------------- ADMIN DASHBOARD -------------------
 
 app.get("/admin", async (req, res) => {
   if (req.session.isAdmin) return renderAdminDashboard(req, res);
@@ -2773,12 +2795,12 @@ async function renderAdminDashboard(req, res) {
                   } else {
                       alert("เกิดข้อผิดพลาด: " + result.message);
                       btn.disabled = false;
-                      btn.innerText = 'เพิ่มรางวัลใหญ่';
+                      btn.innerText = 'เพิ่มรางวัล';
                   }
               } catch (e) {
                   alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
                   btn.disabled = false;
-                  btn.innerText = 'เพิ่มรางวัลใหญ่';
+                  btn.innerText = 'เพิ่มรางวัล';
               }
           }
       </script>
