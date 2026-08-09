@@ -315,6 +315,28 @@ const exactSciFiCSS = `
     }
 `;
 
+// ------------------- TICKER API ENDPOINT -------------------
+
+app.get("/api/ticker", async (req, res) => {
+  try {
+      const { data: recentWins } = await supabase
+          .from('history')
+          .select('username, reward')
+          .not('reward', 'ilike', '%เกลือ%')
+          .order('id', { ascending: false })
+          .limit(8);
+
+      let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
+      if (recentWins && recentWins.length > 0) {
+          let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> สุ่มได้ <span style="color:#ffd700;">${w.reward}</span>`);
+          tickerHtml = parts.join(" &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ");
+      }
+      res.json({ success: true, tickerHtml });
+  } catch (e) {
+      res.json({ success: false });
+  }
+});
+
 // ------------------- FRONTEND ROUTES -------------------
 
 app.get("/", async (req, res) => {
@@ -423,19 +445,24 @@ app.get("/", async (req, res) => {
         </div>
 
         <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
+        <script>
+            setInterval(() => {
+                fetch('/api/ticker').then(r => r.json()).then(d => {
+                    if (d.success && d.tickerHtml) {
+                        const el = document.getElementById('ticker-content');
+                        if (el && el.innerHTML !== d.tickerHtml) {
+                            el.innerHTML = d.tickerHtml;
+                        }
+                    }
+                }).catch(e=>{});
+            }, 3000);
+        </script>
     </body>
     </html>
   `);
 });
 
 app.get("/register", async (req, res) => {
-  const { data: recentWins } = await supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5);
-  let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
-  if (recentWins && recentWins.length > 0) {
-      let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> สุ่มได้ <span style="color:#ffd700;">${w.reward}</span>`);
-      tickerHtml = parts.join(" &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ");
-  }
-
   res.send(`
     <!DOCTYPE html>
     <html lang="th">
@@ -455,7 +482,7 @@ app.get("/register", async (req, res) => {
     </head>
     <body>
         <div class="winner-ticker-banner">
-            <div class="winner-ticker-text">${tickerHtml}</div>
+            <div class="winner-ticker-text" id="ticker-content">✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨</div>
         </div>
 
         <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
@@ -477,6 +504,18 @@ app.get("/register", async (req, res) => {
             <a href="/">กลับหน้าแรก</a>
         </div>
         <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
+        <script>
+            setInterval(() => {
+                fetch('/api/ticker').then(r => r.json()).then(d => {
+                    if (d.success && d.tickerHtml) {
+                        const el = document.getElementById('ticker-content');
+                        if (el && el.innerHTML !== d.tickerHtml) {
+                            el.innerHTML = d.tickerHtml;
+                        }
+                    }
+                }).catch(e=>{});
+            }, 3000);
+        </script>
     </body>
     </html>
   `);
@@ -514,13 +553,6 @@ app.post("/register", async (req, res) => {
 });
 
 app.get("/login", async (req, res) => {
-  const { data: recentWins } = await supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5);
-  let tickerHtml = "✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨";
-  if (recentWins && recentWins.length > 0) {
-      let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> สุ่มได้ <span style="color:#ffd700;">${w.reward}</span>`);
-      tickerHtml = parts.join(" &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ");
-  }
-
   res.send(`
     <!DOCTYPE html>
     <html lang="th">
@@ -540,7 +572,7 @@ app.get("/login", async (req, res) => {
     </head>
     <body>
         <div class="winner-ticker-banner">
-            <div class="winner-ticker-text">${tickerHtml}</div>
+            <div class="winner-ticker-text" id="ticker-content">✨ ยินดีต้อนรับสู่ LINE RANGERS BOX สุ่มลุ้นรับไอดีพรีเมียมระดับเทพมังกรและ SSR ได้แล้ววันนี้! ✨</div>
         </div>
 
         <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์อวกาศ</div></div>
@@ -558,6 +590,18 @@ app.get("/login", async (req, res) => {
             <a href="/">กลับหน้าแรก</a>
         </div>
         <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
+        <script>
+            setInterval(() => {
+                fetch('/api/ticker').then(r => r.json()).then(d => {
+                    if (d.success && d.tickerHtml) {
+                        const el = document.getElementById('ticker-content');
+                        if (el && el.innerHTML !== d.tickerHtml) {
+                            el.innerHTML = d.tickerHtml;
+                        }
+                    }
+                }).catch(e=>{});
+            }, 3000);
+        </script>
     </body>
     </html>
   `);
@@ -756,7 +800,7 @@ app.get("/store", async (req, res) => {
       </head>
       <body>
           <div class="winner-ticker-banner">
-              <div class="winner-ticker-text">${tickerHtml}</div>
+              <div class="winner-ticker-text" id="ticker-content">${tickerHtml}</div>
           </div>
 
           <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์ & แซลลี่ อวกาศ</div></div>
@@ -827,6 +871,18 @@ app.get("/store", async (req, res) => {
           </div>
 
           <div class="footer-copy">© LINE RANGERS BOX ALL RIGHTS RESERVED.</div>
+          <script>
+              setInterval(() => {
+                  fetch('/api/ticker').then(r => r.json()).then(d => {
+                      if (d.success && d.tickerHtml) {
+                          const el = document.getElementById('ticker-content');
+                          if (el && el.innerHTML !== d.tickerHtml) {
+                              el.innerHTML = d.tickerHtml;
+                          }
+                      }
+                  }).catch(e=>{});
+              }, 3000);
+          </script>
       </body>
       </html>
     `);
@@ -1028,7 +1084,7 @@ app.get("/lootbox", async (req, res) => {
     const unwithdrawnHistory = historyRes.data || [];
     let hasClaimable = false;
     
-    if (unwithdrawnHistory.length > 0 && !hasPendingWithdraw) {
+    if (unwithdrawnHistory.length > 0) {
       unwithdrawnHistory.forEach(h => {
         if (h.reward && !h.reward.includes("เกลือ") && !h.reward.includes("สิทธิ์สุ่มฟรี")) {
           hasClaimable = true;
@@ -1162,7 +1218,7 @@ app.get("/lootbox", async (req, res) => {
       </head>
       <body>
           <div class="winner-ticker-banner">
-              <div class="winner-ticker-text">${tickerHtml}</div>
+              <div class="winner-ticker-text" id="ticker-content">${tickerHtml}</div>
           </div>
 
           <div class="space-chars-left"><div class="char-badge-left">🛡️ บราวน์ & แซลลี่ อวกาศ</div></div>
@@ -1191,7 +1247,7 @@ app.get("/lootbox", async (req, res) => {
                   </div>
                   <div style="display:flex; gap:5px;">
                       <a href="/store?username=${username}" class="btn-nav" style="background:#2ed573; color:#000;">🛒 ร้านค้าแคปชั่น</a>
-                      <a href="/my-history?username=${username}" class="btn-history">📜 ประวัติ</a>
+                      <a href="/my-history?username=${username}" class="btn-history" style="background:#70a1ff; color:#000; padding:5px 10px; border-radius:6px; text-decoration:none; font-size:11px; font-weight:bold;">📜 ประวัติ</a>
                   </div>
               </div>
 
@@ -1419,7 +1475,17 @@ app.get("/lootbox", async (req, res) => {
                       }
 
                   }).catch(e => {});
-              }, 2000);
+
+                  // Ticker fetch live update
+                  fetch('/api/ticker').then(r => r.json()).then(d => {
+                      if (d.success && d.tickerHtml) {
+                          const el = document.getElementById('ticker-content');
+                          if (el && el.innerHTML !== d.tickerHtml) {
+                              el.innerHTML = d.tickerHtml;
+                          }
+                      }
+                  }).catch(e=>{});
+              }, 3000);
 
               function setCount(count, btn) {
                   selectedCount = count;
@@ -2241,7 +2307,6 @@ app.post("/admin/delete-caption", async (req, res) => {
   res.send(`<script>alert("ลบแคปชั่นออกจากร้านค้าสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// เพิ่ม Caption รอง (แก้ไขให้ redirect กลับมาหน้า admin อย่างถูกต้อง)
 app.post("/admin/add-sub-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { caption_id, content } = req.body;
@@ -2254,7 +2319,6 @@ app.post("/admin/add-sub-caption", async (req, res) => {
   res.send(`<script>alert("เพิ่ม Caption รองสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
-// ลบ Caption รอง
 app.post("/admin/delete-sub-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
   const { sub_id } = req.body;
@@ -2591,7 +2655,6 @@ async function renderAdminDashboard(req, res) {
       <h2>🛠️ ระบบจัดการหลังบ้านแอดมิน (Line Rangers Box)</h2>
       <a href="/admin/logout" style="color:#ff4757; font-weight:bold; text-decoration:none;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff; text-decoration:none;">🏠 กลับหน้าแรก</a>
 
-      <!-- ฟอร์มตั้งค่าระบบการันตี (เพิ่มปุ่มเลือกรีเซ็ตแต้มการันตี Server) -->
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#ffd700; margin-top:0;">⚙️ ตั้งค่าระบบการันตี (ควบคุมการแสดงผลและโหมด)</h3>
           <form action="/admin/update-all-game-accounts" method="POST" style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
@@ -2625,7 +2688,6 @@ async function renderAdminDashboard(req, res) {
         ${withdrawHtml}
       </table>
 
-      <!-- จัดการแพ็กเกจแคปชั่นในร้านค้า พร้อมแสดง Caption รอง -->
       <div style="background:#2b2b40; padding:20px; border-radius:10px; border:1px solid #444; width:980px; margin:20px auto; text-align:left;">
           <h3 style="color:#00d2d3; margin-top:0;">🛒 จัดการแพ็กเกจแคปชั่นในร้านค้า (Capsule Store)</h3>
           <form action="/admin/add-caption" method="POST" style="display:flex; gap:8px; align-items:center; margin-bottom:15px;">
