@@ -1,5 +1,6 @@
+require('dotenv').config();
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -9,6 +10,9 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// Setup Supabase Client
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // Setup Uploads Folder
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -25,62 +29,6 @@ const upload = multer({ storage });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Database Setup
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) console.error('Database opening error: ', err.message);
-    else console.log('Connected to SQLite database.');
-});
-
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password TEXT,
-        facebook_link TEXT,
-        points REAL DEFAULT 0,
-        fertilizer INTEGER DEFAULT 0,
-        tree_progress REAL DEFAULT 0,
-        reward_claimed INTEGER DEFAULT 0,
-        claim_status TEXT DEFAULT 'none',
-        ban_count INTEGER DEFAULT 0,
-        ban_until TEXT,
-        ban_reason TEXT,
-        is_admin INTEGER DEFAULT 0
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS topup_slips (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        username TEXT,
-        amount REAL,
-        channel TEXT,
-        slip_image TEXT,
-        status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS rewards (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        rarity TEXT,
-        image_url TEXT,
-        stock INTEGER
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS broadcasts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Default Admin Account (admin / 1234)
-    db.get(`SELECT * FROM users WHERE username = 'admin'`, (err, row) => {
-        if (!row) {
-            db.run(`INSERT INTO users (username, password, facebook_link, points, is_admin) VALUES ('admin', '1234', 'https://facebook.com/admin', 99999, 1)`);
-        }
-    });
-});
 
 // HTML Frontend Template with Anti-Cheat (F12 / Right-click block)
 app.get('/', (req, res) => {
@@ -596,213 +544,201 @@ app.get('/', (req, res) => {
     `);
 });
 
-// APIs
-app.get('/api/user/refresh', (req, res) => {
-    db.get(`SELECT * FROM users WHERE id = ?`, [req.query.id], (err, user) => {
-        if(!user) return res.json({success: false});
+// APIs (Supabase Conversion)
+app.get('/api/user/refresh', async (req, res) => {
+    try {
+        const { data: user, error } = await supabase.from('users').select('*').eq('id', req.query.id).single();
+        if (error || !user) return res.json({success: false});
         res.json({success: true, user});
-    });
+    } catch (err) {
+        res.json({success: false});
+    }
 });
 
-app.get('/api/rewards', (req, res) => {
-    db.all(`SELECT * FROM rewards`, (err, rows) => {
-        res.json(rows);
-    });
+app.get('/api/rewards', async (req, res) => {
+    const { data: rows } = await supabase.from('rewards').select('*');
+    res.json(rows || []);
 });
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { username, password, facebook_link } = req.body;
-    db.run(`INSERT INTO users (username, password, facebook_link) VALUES (?, ?, ?)`, [username, password, facebook_link], function(err) {
-        if (err) return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
-        res.json({ success: true });
-    });
+    const { error } = await supabase.from('users').insert([{ username, password, facebook_link }]);
+    if (error) return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
+    res.json({ success: true });
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [username, password], (err, user) => {
-        if (!user) return res.json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
-        res.json({ success: true, user });
-    });
+    const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
+    if (error || !user) return res.json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    res.json({ success: true, user });
 });
 
-app.post('/api/plant', (req, res) => {
+app.post('/api/plant', async (req, res) => {
     const { userId } = req.body;
-    db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, user) => {
-        if (user.ban_until && new Date() < new Date(user.ban_until)) {
-            return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
-        }
-        if (user.fertilizer <= 0) return res.json({ success: false, message: 'ปุ๋ยของคุณหมด! กรุณาซื้อปุ๋ยเพิ่ม' });
-        
-        const newProgress = Math.min(user.tree_progress + 10, 1000);
-        const newFerti = user.fertilizer - 1;
-        
-        db.run(`UPDATE users SET tree_progress = ?, fertilizer = ? WHERE id = ?`, [newProgress, newFerti, userId], () => {
-            db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-                io.emit('user_data_updated', updatedUser);
-                res.json({ success: true, user: updatedUser });
-            });
-        });
-    });
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
+
+    if (user.ban_until && new Date() < new Date(user.ban_until)) {
+        return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
+    }
+    if (user.fertilizer <= 0) return res.json({ success: false, message: 'ปุ๋ยของคุณหมด! กรุณาซื้อปุ๋ยเพิ่ม' });
+    
+    const newProgress = Math.min(user.tree_progress + 10, 1000);
+    const newFerti = user.fertilizer - 1;
+    
+    await supabase.from('users').update({ tree_progress: newProgress, fertilizer: newFerti }).eq('id', userId);
+    
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    io.emit('user_data_updated', updatedUser);
+    res.json({ success: true, user: updatedUser });
 });
 
-app.post('/api/buy-fertilizer', (req, res) => {
+app.post('/api/buy-fertilizer', async (req, res) => {
     const { userId } = req.body;
-    db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, user) => {
-        if (user.ban_until && new Date() < new Date(user.ban_until)) {
-            return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
-        }
-        if (user.points < 1) return res.json({ success: false, message: 'แต้มของคุณไม่พอ (1 แต้ม = 1 ปุ๋ย)' });
-        
-        const newPoints = user.points - 1;
-        const newFerti = user.fertilizer + 1;
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
-        db.run(`UPDATE users SET points = ?, fertilizer = ? WHERE id = ?`, [newPoints, newFerti, userId], () => {
-            db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-                io.emit('user_data_updated', updatedUser);
-                res.json({ success: true, user: updatedUser });
-            });
-        });
-    });
+    if (user.ban_until && new Date() < new Date(user.ban_until)) {
+        return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
+    }
+    if (user.points < 1) return res.json({ success: false, message: 'แต้มของคุณไม่พอ (1 แต้ม = 1 ปุ๋ย)' });
+    
+    const newPoints = user.points - 1;
+    const newFerti = user.fertilizer + 1;
+
+    await supabase.from('users').update({ points: newPoints, fertilizer: newFerti }).eq('id', userId);
+    
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    io.emit('user_data_updated', updatedUser);
+    res.json({ success: true, user: updatedUser });
 });
 
-app.post('/api/topup', upload.single('slip'), (req, res) => {
+app.post('/api/topup', upload.single('slip'), async (req, res) => {
     const { userId, amount, channel } = req.body;
     const slip_image = '/uploads/' + req.file.filename;
-    db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, user) => {
-        db.run(`INSERT INTO topup_slips (user_id, username, amount, channel, slip_image) VALUES (?, ?, ?, ?, ?)`, [userId, user.username, amount, channel, slip_image], () => {
-            io.emit('admin_refresh');
-            res.json({ success: true, message: 'ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบ' });
-        });
-    });
+    
+    const { data: user } = await supabase.from('users').select('username').eq('id', userId).single();
+    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
+
+    await supabase.from('topup_slips').insert([{ user_id: userId, username: user.username, amount: Number(amount), channel, slip_image, status: 'pending' }]);
+    
+    io.emit('admin_refresh');
+    res.json({ success: true, message: 'ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบ' });
 });
 
-app.post('/api/claim', (req, res) => {
+app.post('/api/claim', async (req, res) => {
     const { userId } = req.body;
-    db.run(`UPDATE users SET claim_status = 'pending' WHERE id = ?`, [userId], () => {
-        db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-            io.emit('user_data_updated', updatedUser);
-            io.emit('admin_refresh');
-            res.json({ success: true, user: updatedUser });
-        });
-    });
+    await supabase.from('users').update({ claim_status: 'pending' }).eq('id', userId);
+    
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    io.emit('user_data_updated', updatedUser);
+    io.emit('admin_refresh');
+    res.json({ success: true, user: updatedUser });
 });
 
-app.get('/api/admin/data', (req, res) => {
-    db.all(`SELECT * FROM topup_slips WHERE status = 'pending'`, (err, slips) => {
-        db.all(`SELECT * FROM users`, (err2, users) => {
-            res.json({ slips, users });
-        });
-    });
+app.get('/api/admin/data', async (req, res) => {
+    const { data: slips } = await supabase.from('topup_slips').select('*').eq('status', 'pending');
+    const { data: users } = await supabase.from('users').select('*');
+    res.json({ slips: slips || [], users: users || [] });
 });
 
-app.post('/api/admin/slip', (req, res) => {
+app.post('/api/admin/slip', async (req, res) => {
     const { slipId, action } = req.body;
-    db.get(`SELECT * FROM topup_slips WHERE id = ?`, [slipId], (err, slip) => {
-        if (!slip) return res.json({ success: false, message: 'ไม่พบสลิปนี้' });
+    const { data: slip } = await supabase.from('topup_slips').select('*').eq('id', slipId).single();
+    if (!slip) return res.json({ success: false, message: 'ไม่พบสลิปนี้' });
 
-        if (action === 'approve') {
-            db.run(`UPDATE topup_slips SET status = 'approved' WHERE id = ?`, [slipId]);
-            db.get(`SELECT * FROM users WHERE id = ?`, [slip.user_id], (err, user) => {
-                const newPoints = user.points + Number(slip.amount);
-                let banUpdate = '';
-                if (Number(slip.amount) >= 50) {
-                    banUpdate = `, ban_until = NULL, ban_count = 0, ban_reason = NULL`;
-                }
-                db.run(`UPDATE users SET points = ? ${banUpdate} WHERE id = ?`, [newPoints, slip.user_id], () => {
-                    db.get(`SELECT * FROM users WHERE id = ?`, [slip.user_id], (err, updatedUser) => {
-                        io.emit('user_data_updated', updatedUser);
-                        io.emit('admin_refresh');
-                        res.json({ success: true, message: 'อนุมัติสลิปและเพิ่มแต้มเรียบร้อย' });
-                    });
-                });
-            });
-        } else if (action === 'warn') {
-            db.run(`DELETE FROM topup_slips WHERE id = ?`, [slipId]);
-            res.json({ success: true, message: 'ลบสลิปและเตือนผู้ใช้แล้ว' });
-        } else if (action === 'ban') {
-            db.run(`UPDATE topup_slips SET status = 'rejected' WHERE id = ?`, [slipId]);
-            db.get(`SELECT * FROM users WHERE id = ?`, [slip.user_id], (err, user) => {
-                const newBanCount = (user.ban_count || 0) + 1;
-                let banUntilQuery = '';
-                let reason = `ท่านโดนแบนโดยการส่งสลิปปลอมติดต่อกันหลายครั้ง (ครั้งที่ ${newBanCount})`;
-                
-                if (newBanCount >= 3) {
-                    const banTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                    banUntilQuery = `, ban_until = '${banTime}'`;
-                }
-
-                db.run(`UPDATE users SET ban_count = ?, ban_reason = ? ${banUntilQuery} WHERE id = ?`, [newBanCount, reason, slip.user_id], () => {
-                    db.get(`SELECT * FROM users WHERE id = ?`, [slip.user_id], (err, updatedUser) => {
-                        io.emit('user_data_updated', updatedUser);
-                        io.emit('admin_refresh');
-                        res.json({ success: true, message: `ดำเนินการแบนสะสมครั้งที่ ${newBanCount} สำเร็จ` });
-                    });
-                });
-            });
-        }
-    });
-});
-
-app.post('/api/admin/claim', (req, res) => {
-    const { userId } = req.body;
-    db.run(`UPDATE users SET claim_status = 'approved' WHERE id = ?`, [userId], () => {
-        db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
+    if (action === 'approve') {
+        await supabase.from('topup_slips').update({ status: 'approved' }).eq('id', slipId);
+        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+        if (user) {
+            const newPoints = user.points + Number(slip.amount);
+            let updateData = { points: newPoints };
+            if (Number(slip.amount) >= 50) {
+                updateData.ban_until = null;
+                updateData.ban_count = 0;
+                updateData.ban_reason = null;
+            }
+            await supabase.from('users').update(updateData).eq('id', slip.user_id);
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
             io.emit('user_data_updated', updatedUser);
             io.emit('admin_refresh');
-            io.emit('broadcast_update', `🎉 สิ้นสุดรอบต้นไม้โลก! ผู้เล่น ${updatedUser.username} พิชิตการปลูกต้นไม้และได้รับรางวัลใหญ่เรียบร้อยแล้ว!`);
-            res.json({ success: true, message: 'อนุมัติคำขอส่งของรางวัลสำเร็จ' });
-        });
-    });
+            return res.json({ success: true, message: 'อนุมัติสลิปและเพิ่มแต้มเรียบร้อย' });
+        }
+    } else if (action === 'warn') {
+        await supabase.from('topup_slips').delete().eq('id', slipId);
+        return res.json({ success: true, message: 'ลบสลิปและเตือนผู้ใช้แล้ว' });
+    } else if (action === 'ban') {
+        await supabase.from('topup_slips').update({ status: 'rejected' }).eq('id', slipId);
+        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+        if (user) {
+            const newBanCount = (user.ban_count || 0) + 1;
+            let updateData = { ban_count: newBanCount, ban_reason: `ท่านโดนแบนโดยการส่งสลิปปลอมติดต่อกันหลายครั้ง (ครั้งที่ ${newBanCount})` };
+            if (newBanCount >= 3) {
+                updateData.ban_until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            }
+            await supabase.from('users').update(updateData).eq('id', slip.user_id);
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+            io.emit('user_data_updated', updatedUser);
+            io.emit('admin_refresh');
+            return res.json({ success: true, message: `ดำเนินการแบนสะสมครั้งที่ ${newBanCount} สำเร็จ` });
+        }
+    }
 });
 
-app.post('/api/admin/adjust-points', (req, res) => {
+app.post('/api/admin/claim', async (req, res) => {
+    const { userId } = req.body;
+    await supabase.from('users').update({ claim_status: 'approved' }).eq('id', userId);
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (updatedUser) {
+        io.emit('user_data_updated', updatedUser);
+        io.emit('admin_refresh');
+        io.emit('broadcast_update', `🎉 สิ้นสุดรอบต้นไม้โลก! ผู้เล่น ${updatedUser.username} พิชิตการปลูกต้นไม้และได้รับรางวัลใหญ่เรียบร้อยแล้ว!`);
+        res.json({ success: true, message: 'อนุมัติคำขอส่งของรางวัลสำเร็จ' });
+    }
+});
+
+app.post('/api/admin/adjust-points', async (req, res) => {
     const { userId, amount } = req.body;
-    db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, user) => {
-        if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้นี้' });
-        const newPoints = Math.max(0, user.points + Number(amount));
-        db.run(`UPDATE users SET points = ? WHERE id = ?`, [newPoints, userId], () => {
-            db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-                io.emit('user_data_updated', updatedUser);
-                io.emit('admin_refresh');
-                res.json({ success: true });
-            });
-        });
-    });
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้นี้' });
+    
+    const newPoints = Math.max(0, user.points + Number(amount));
+    await supabase.from('users').update({ points: newPoints }).eq('id', userId);
+    
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    io.emit('user_data_updated', updatedUser);
+    io.emit('admin_refresh');
+    res.json({ success: true });
 });
 
-app.post('/api/admin/user-action', (req, res) => {
+app.post('/api/admin/user-action', async (req, res) => {
     const { userId, action } = req.body;
     if (action === 'ban') {
         const banTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         const reason = 'ท่านโดนแบนโดยผู้ดูแลระบบ';
-        db.run(`UPDATE users SET ban_until = ?, ban_reason = ? WHERE id = ?`, [banTime, reason, userId], () => {
-            db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-                io.emit('user_data_updated', updatedUser);
-                io.emit('admin_refresh');
-                res.json({ success: true, message: 'แบนผู้ใช้สำเร็จ' });
-            });
-        });
+        await supabase.from('users').update({ ban_until: banTime, ban_reason: reason }).eq('id', userId);
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+        io.emit('user_data_updated', updatedUser);
+        io.emit('admin_refresh');
+        res.json({ success: true, message: 'แบนผู้ใช้สำเร็จ' });
     } else if (action === 'unban') {
-        db.run(`UPDATE users SET ban_until = NULL, ban_count = 0, ban_reason = NULL WHERE id = ?`, [userId], () => {
-            db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-                io.emit('user_data_updated', updatedUser);
-                io.emit('admin_refresh');
-                res.json({ success: true, message: 'ปลดแบนผู้ใช้สำเร็จ' });
-            });
-        });
+        await supabase.from('users').update({ ban_until: null, ban_count: 0, ban_reason: null }).eq('id', userId);
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+        io.emit('user_data_updated', updatedUser);
+        io.emit('admin_refresh');
+        res.json({ success: true, message: 'ปลดแบนผู้ใช้สำเร็จ' });
     }
 });
 
-app.post('/api/admin/reward', upload.single('reward_img'), (req, res) => {
+app.post('/api/admin/reward', upload.single('reward_img'), async (req, res) => {
     const { name, rarity, stock } = req.body;
     const image_url = '/uploads/' + req.file.filename;
-    db.run(`INSERT INTO rewards (name, rarity, image_url, stock) VALUES (?, ?, ?, ?)`, [name, rarity, image_url, stock], () => {
-        res.json({ success: true, message: 'เพิ่มของรางวัลสำเร็จ' });
-    });
+    await supabase.from('rewards').insert([{ name, rarity, image_url, stock: Number(stock) }]);
+    res.json({ success: true, message: 'เพิ่มของรางวัลสำเร็จ' });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log('Tree Garden Server running on port ' + PORT);
+    console.log('Tree Garden Server running on Supabase port ' + PORT);
 });
