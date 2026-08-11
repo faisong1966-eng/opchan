@@ -829,7 +829,7 @@ app.post('/api/admin/reward', upload.single('reward_img'), async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log('Tree Garden Server running on Supabase port ' + PORT);
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('Tree Garden Server running on port ' + PORT);
 });
