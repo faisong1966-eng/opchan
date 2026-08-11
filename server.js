@@ -12,7 +12,14 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // Setup Supabase Client
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('CRITICAL ERROR: SUPABASE_URL or SUPABASE_KEY is missing in environment variables!');
+}
+
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 // Setup Uploads Folder
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -85,11 +92,15 @@ app.get('/', (req, res) => {
 
             async function renderApp() {
                 if (currentUser) {
-                    const res = await fetch('/api/user/refresh?id=' + currentUser.id);
-                    const data = await res.json();
-                    if(data.success) {
-                        currentUser = data.user;
-                        localStorage.setItem('tree_user', JSON.stringify(currentUser));
+                    try {
+                        const res = await fetch('/api/user/refresh?id=' + currentUser.id);
+                        const data = await res.json();
+                        if(data.success) {
+                            currentUser = data.user;
+                            localStorage.setItem('tree_user', JSON.stringify(currentUser));
+                        }
+                    } catch (e) {
+                        console.error('Refresh error', e);
                     }
                 }
 
@@ -142,34 +153,38 @@ app.get('/', (req, res) => {
                     return;
                 }
 
-                if(isRegisterMode) {
-                    const facebook_link = document.getElementById('facebook_link').value;
-                    const res = await fetch('/api/register', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({username, password, facebook_link})
-                    });
-                    const data = await res.json();
-                    if(data.success) {
-                        alert('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ');
-                        toggleRegister();
+                try {
+                    if(isRegisterMode) {
+                        const facebook_link = document.getElementById('facebook_link').value;
+                        const res = await fetch('/api/register', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({username, password, facebook_link})
+                        });
+                        const data = await res.json();
+                        if(data.success) {
+                            alert('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ');
+                            toggleRegister();
+                        } else {
+                            document.getElementById('auth-error').innerText = data.message;
+                        }
                     } else {
-                        document.getElementById('auth-error').innerText = data.message;
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({username, password})
+                        });
+                        const data = await res.json();
+                        if(data.success) {
+                            currentUser = data.user;
+                            localStorage.setItem('tree_user', JSON.stringify(currentUser));
+                            renderApp();
+                        } else {
+                            document.getElementById('auth-error').innerText = data.message;
+                        }
                     }
-                } else {
-                    const res = await fetch('/api/login', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({username, password})
-                    });
-                    const data = await res.json();
-                    if(data.success) {
-                        currentUser = data.user;
-                        localStorage.setItem('tree_user', JSON.stringify(currentUser));
-                        renderApp();
-                    } else {
-                        document.getElementById('auth-error').innerText = data.message;
-                    }
+                } catch(err) {
+                    document.getElementById('auth-error').innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์';
                 }
             }
 
@@ -180,8 +195,11 @@ app.get('/', (req, res) => {
             }
 
             async function renderUserDashboard(app) {
-                const resRewards = await fetch('/api/rewards');
-                const rewards = await resRewards.json();
+                let rewards = [];
+                try {
+                    const resRewards = await fetch('/api/rewards');
+                    rewards = await resRewards.json();
+                } catch(e) {}
 
                 let banNotice = '';
                 if(currentUser.ban_until && new Date() < new Date(currentUser.ban_until)) {
@@ -209,15 +227,15 @@ app.get('/', (req, res) => {
                                 <h2 class="text-2xl font-bold mb-4 text-emerald-300">🌳 ต้นไม้โลกของคุณ</h2>
                                 <div class="my-6">
                                     <div class="text-7xl mb-2 animate-bounce">🌱</div>
-                                    <p class="text-sm text-emerald-300 mb-2">ความเจริญเติบโต: <span class="font-bold">\${currentUser.tree_progress.toFixed(2)}</span>% / 1000%</p>
+                                    <p class="text-sm text-emerald-300 mb-2">ความเจริญเติบโต: <span class="font-bold">\${Number(currentUser.tree_progress || 0).toFixed(2)}</span>% / 1000%</p>
                                     <div class="w-full bg-emerald-950 rounded-full h-4 border border-emerald-700 overflow-hidden">
-                                        <div class="bg-yellow-400 h-full transition-all duration-300" style="width: \${Math.min(currentUser.tree_progress / 10, 100)}%"></div>
+                                        <div class="bg-yellow-400 h-full transition-all duration-300" style="width: \${Math.min((currentUser.tree_progress || 0) / 10, 100)}%"></div>
                                     </div>
                                 </div>
                             </div>
                             <div class="space-y-3">
                                 <button onclick="plantTree()" class="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded font-bold shadow transition">ปลูก / เร่งโตด้วยปุ๋ย (ใช้ 1 ปุ๋ย)</button>
-                                \${currentUser.tree_progress >= 1000 && !currentUser.reward_claimed ? \`
+                                \${(currentUser.tree_progress || 0) >= 1000 && !currentUser.reward_claimed ? \`
                                     <button onclick="claimReward()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-emerald-950 py-3 rounded font-bold shadow animate-bounce">กดขอรับรางวัล</button>
                                 \` : ''}
                                 \${currentUser.claim_status === 'pending' ? \`
@@ -269,7 +287,7 @@ app.get('/', (req, res) => {
                     <div class="bg-emerald-900 p-6 rounded-xl border border-emerald-700 shadow-xl">
                         <h2 class="text-xl font-bold mb-4 text-emerald-300">🏆 ของรางวัลต้นไม้โลกทั้งหมด</h2>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            \` + (rewards.length === 0 ? '<p class="text-sm text-emerald-400 col-span-full">ยังไม่มีของรางวัลในระบบ</p>' : rewards.map(r => \`
+                            \` + (!Array.isArray(rewards) || rewards.length === 0 ? '<p class="text-sm text-emerald-400 col-span-full">ยังไม่มีของรางวัลในระบบ</p>' : rewards.map(r => \`
                                 <div class="bg-emerald-950 p-4 rounded-xl border border-emerald-800 text-center flex flex-col items-center">
                                     <img src="\${r.image_url}" class="w-24 h-24 object-cover rounded-lg mb-2 border border-emerald-700">
                                     <h3 class="font-bold text-sm">\${r.name}</h3>
@@ -411,66 +429,68 @@ app.get('/', (req, res) => {
             }
 
             async function loadAdminData() {
-                const res = await fetch('/api/admin/data');
-                const data = await res.json();
-                
-                // Slips
-                const slipsDiv = document.getElementById('admin-slips');
-                if (data.slips.length === 0) {
-                    slipsDiv.innerHTML = '<p class="text-sm text-emerald-400">ไม่มีสลิปรอตรวจสอบ</p>';
-                } else {
-                    slipsDiv.innerHTML = data.slips.map(s => \`
-                        <div class="bg-emerald-950 p-4 rounded-xl flex flex-col md:flex-row justify-between items-center border border-emerald-800 gap-4">
-                            <div>
-                                <p class="font-bold text-emerald-300">\${s.username} - เติมเงิน: \${s.amount} บาท</p>
-                                <p class="text-xs text-yellow-300">ช่องทาง: \${s.channel}</p>
-                                <a href="\${s.slip_image}" target="_blank" class="text-blue-400 underline text-xs mt-1 inline-block">🔍 ดูรูปสลิปเต็ม</a>
+                try {
+                    const res = await fetch('/api/admin/data');
+                    const data = await res.json();
+                    
+                    // Slips
+                    const slipsDiv = document.getElementById('admin-slips');
+                    if (!data.slips || data.slips.length === 0) {
+                        slipsDiv.innerHTML = '<p class="text-sm text-emerald-400">ไม่มีสลิปรอตรวจสอบ</p>';
+                    } else {
+                        slipsDiv.innerHTML = data.slips.map(s => \`
+                            <div class="bg-emerald-950 p-4 rounded-xl flex flex-col md:flex-row justify-between items-center border border-emerald-800 gap-4">
+                                <div>
+                                    <p class="font-bold text-emerald-350">\${s.username} - เติมเงิน: \${s.amount} บาท</p>
+                                    <p class="text-xs text-yellow-300">ช่องทาง: \${s.channel}</p>
+                                    <a href="\${s.slip_image}" target="_blank" class="text-blue-400 underline text-xs mt-1 inline-block">🔍 ดูรูปสลิปเต็ม</a>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="handleSlip(\${s.id}, 'approve')" class="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded text-xs font-bold shadow">อนุมัติ</button>
+                                    <button onclick="handleSlip(\${s.id}, 'warn')" class="bg-yellow-600 hover:bg-yellow-500 px-3 py-1.5 rounded text-xs font-bold shadow">เตือน (ลบสลิป)</button>
+                                    <button onclick="handleSlip(\${s.id}, 'ban')" class="bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded text-xs font-bold shadow">แบนผู้ใช้</button>
+                                </div>
                             </div>
-                            <div class="flex gap-2">
-                                <button onclick="handleSlip(\${s.id}, 'approve')" class="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded text-xs font-bold shadow">อนุมัติ</button>
-                                <button onclick="handleSlip(\${s.id}, 'warn')" class="bg-yellow-600 hover:bg-yellow-500 px-3 py-1.5 rounded text-xs font-bold shadow">เตือน (ลบสลิป)</button>
-                                <button onclick="handleSlip(\${s.id}, 'ban')" class="bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded text-xs font-bold shadow">แบนผู้ใช้</button>
+                        \`).join('');
+                    }
+
+                    // Claims
+                    const claimsDiv = document.getElementById('admin-claims');
+                    const pendingClaims = (data.users || []).filter(u => u.claim_status === 'pending');
+                    if (pendingClaims.length === 0) {
+                        claimsDiv.innerHTML = '<p class="text-sm text-emerald-400">ไม่มีคำขอรับรางวัล</p>';
+                    } else {
+                        claimsDiv.innerHTML = pendingClaims.map(u => \`
+                            <div class="bg-emerald-950 p-4 rounded-xl flex justify-between items-center border border-emerald-800">
+                                <div>
+                                    <p class="font-bold text-emerald-300">\${u.username}</p>
+                                    <a href="\${u.facebook_link}" target="_blank" class="text-blue-400 underline text-xs">ดูโปรไฟล์ Facebook ส่วนตัว</a>
+                                </div>
+                                <button onclick="approveClaim(\${u.id})" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded text-xs font-bold shadow">อนุมัติส่งของรางวัล</button>
+                            </div>
+                        \`).join('');
+                    }
+
+                    // Users Management Table
+                    document.getElementById('user-count').innerText = (data.users || []).length;
+                    const usersDiv = document.getElementById('admin-users');
+                    usersDiv.innerHTML = (data.users || []).map(u => \`
+                        <div class="bg-emerald-950 p-3 rounded-xl flex flex-col md:flex-row justify-between items-center border border-emerald-800 gap-3 text-sm">
+                            <div>
+                                <span class="font-bold text-emerald-300">\${u.username}</span> 
+                                <span class="text-yellow-300 text-xs ml-2">(\${u.points} แต้ม / ปุ๋ย \${u.fertilizer})</span>
+                                \${u.ban_until && new Date() < new Date(u.ban_until) ? '<span class="bg-red-600 text-white px-2 py-0.5 rounded text-xs ml-2">ติดแบน</span>' : ''}
+                            </div>
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <a href="\${u.facebook_link}" target="_blank" class="bg-blue-600 hover:bg-blue-500 px-2.5 py-1 rounded text-xs font-bold">ดูโปรไฟล์ FB</a>
+                                <button onclick="adjustPoints(\${u.id}, 10)" class="bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-xs font-bold">+10 แต้ม</button>
+                                <button onclick="adjustPoints(\${u.id}, -10)" class="bg-orange-700 hover:bg-orange-600 px-2 py-1 rounded text-xs font-bold">-10 แต้ม</button>
+                                <button onclick="userAction(\${u.id}, 'ban')" class="bg-red-600 hover:bg-red-500 px-2.5 py-1 rounded text-xs font-bold">แบน</button>
+                                <button onclick="userAction(\${u.id}, 'unban')" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs font-bold">ปลดแบน</button>
                             </div>
                         </div>
                     \`).join('');
-                }
-
-                // Claims
-                const claimsDiv = document.getElementById('admin-claims');
-                const pendingClaims = data.users.filter(u => u.claim_status === 'pending');
-                if (pendingClaims.length === 0) {
-                    claimsDiv.innerHTML = '<p class="text-sm text-emerald-400">ไม่มีคำขอรับรางวัล</p>';
-                } else {
-                    claimsDiv.innerHTML = pendingClaims.map(u => \`
-                        <div class="bg-emerald-950 p-4 rounded-xl flex justify-between items-center border border-emerald-800">
-                            <div>
-                                <p class="font-bold text-emerald-300">\${u.username}</p>
-                                <a href="\${u.facebook_link}" target="_blank" class="text-blue-400 underline text-xs">ดูโปรไฟล์ Facebook ส่วนตัว</a>
-                            </div>
-                            <button onclick="approveClaim(\${u.id})" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded text-xs font-bold shadow">อนุมัติส่งของรางวัล</button>
-                        </div>
-                    \`).join('');
-                }
-
-                // Users Management Table
-                document.getElementById('user-count').innerText = data.users.length;
-                const usersDiv = document.getElementById('admin-users');
-                usersDiv.innerHTML = data.users.map(u => \`
-                    <div class="bg-emerald-950 p-3 rounded-xl flex flex-col md:flex-row justify-between items-center border border-emerald-800 gap-3 text-sm">
-                        <div>
-                            <span class="font-bold text-emerald-300">\${u.username}</span> 
-                            <span class="text-yellow-300 text-xs ml-2">(\${u.points} แต้ม / ปุ๋ย \${u.fertilizer})</span>
-                            \${u.ban_until && new Date() < new Date(u.ban_until) ? '<span class="bg-red-600 text-white px-2 py-0.5 rounded text-xs ml-2">ติดแบน</span>' : ''}
-                        </div>
-                        <div class="flex flex-wrap gap-2 items-center">
-                            <a href="\${u.facebook_link}" target="_blank" class="bg-blue-600 hover:bg-blue-500 px-2.5 py-1 rounded text-xs font-bold">ดูโปรไฟล์ FB</a>
-                            <button onclick="adjustPoints(\${u.id}, 10)" class="bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-xs font-bold">+10 แต้ม</button>
-                            <button onclick="adjustPoints(\${u.id}, -10)" class="bg-orange-700 hover:bg-orange-600 px-2 py-1 rounded text-xs font-bold">-10 แต้ม</button>
-                            <button onclick="userAction(\${u.id}, 'ban')" class="bg-red-600 hover:bg-red-500 px-2.5 py-1 rounded text-xs font-bold">แบน</button>
-                            <button onclick="userAction(\${u.id}, 'unban')" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs font-bold">ปลดแบน</button>
-                        </div>
-                    </div>
-                \`).join('');
+                } catch(e) {}
             }
 
             async function handleSlip(slipId, action) {
@@ -561,198 +581,252 @@ app.get('/api/user/refresh', async (req, res) => {
 });
 
 app.get('/api/rewards', async (req, res) => {
-    const { data: rows } = await supabase.from('rewards').select('*');
-    res.json(rows || []);
+    try {
+        const { data: rows } = await supabase.from('rewards').select('*');
+        res.json(rows || []);
+    } catch (err) {
+        res.json([]);
+    }
 });
 
 app.post('/api/register', async (req, res) => {
-    const { username, password, facebook_link } = req.body;
-    
-    const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).maybeSingle();
-    if (existingUser) {
-        return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
-    }
+    try {
+        const { username, password, facebook_link } = req.body;
+        
+        const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).maybeSingle();
+        if (existingUser) {
+            return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
+        }
 
-    const { error } = await supabase.from('users').insert([{ username, password, facebook_link, points: 0, fertilizer: 0, tree_progress: 0 }]);
-    if (error) {
-        return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message });
+        const { error } = await supabase.from('users').insert([{ username, password, facebook_link, points: 0, fertilizer: 0, tree_progress: 0 }]);
+        if (error) {
+            return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message });
+        }
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาดทางเซิร์ฟเวอร์' });
     }
-    res.json({ success: true });
 });
 
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    
-    const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).maybeSingle();
-    
-    if (error || !user) {
-        return res.json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    try {
+        const { username, password } = req.body;
+        
+        const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).maybeSingle();
+        
+        if (error || !user) {
+            return res.json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+        }
+        res.json({ success: true, user });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาดทางเซิร์ฟเวอร์' });
     }
-    res.json({ success: true, user });
 });
 
 app.post('/api/plant', async (req, res) => {
-    const { userId } = req.body;
-    const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
+    try {
+        const { userId } = req.body;
+        const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
-    if (user.ban_until && new Date() < new Date(user.ban_until)) {
-        return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
+        if (user.ban_until && new Date() < new Date(user.ban_until)) {
+            return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
+        }
+        if (user.fertilizer <= 0) return res.json({ success: false, message: 'ปุ๋ยของคุณหมด! กรุณาซื้อปุ๋ยเพิ่ม' });
+        
+        const newProgress = Math.min(Number(user.tree_progress || 0) + 10, 1000);
+        const newFerti = user.fertilizer - 1;
+        
+        await supabase.from('users').update({ tree_progress: newProgress, fertilizer: newFerti }).eq('id', userId);
+        
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        io.emit('user_data_updated', updatedUser);
+        res.json({ success: true, user: updatedUser });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
     }
-    if (user.fertilizer <= 0) return res.json({ success: false, message: 'ปุ๋ยของคุณหมด! กรุณาซื้อปุ๋ยเพิ่ม' });
-    
-    const newProgress = Math.min(user.tree_progress + 10, 1000);
-    const newFerti = user.fertilizer - 1;
-    
-    await supabase.from('users').update({ tree_progress: newProgress, fertilizer: newFerti }).eq('id', userId);
-    
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    io.emit('user_data_updated', updatedUser);
-    res.json({ success: true, user: updatedUser });
 });
 
 app.post('/api/buy-fertilizer', async (req, res) => {
-    const { userId } = req.body;
-    const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
+    try {
+        const { userId } = req.body;
+        const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
-    if (user.ban_until && new Date() < new Date(user.ban_until)) {
-        return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
+        if (user.ban_until && new Date() < new Date(user.ban_until)) {
+            return res.json({ success: false, message: 'บัญชีถูกแบน! กรุณาเติมเงินขั้นต่ำ 50 บาทเพื่อปลดแบน' });
+        }
+        if (user.points < 1) return res.json({ success: false, message: 'แต้มของคุณไม่พอ (1 แต้ม = 1 ปุ๋ย)' });
+        
+        const newPoints = user.points - 1;
+        const newFerti = user.fertilizer + 1;
+
+        await supabase.from('users').update({ points: newPoints, fertilizer: newFerti }).eq('id', userId);
+        
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        io.emit('user_data_updated', updatedUser);
+        res.json({ success: true, user: updatedUser });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
     }
-    if (user.points < 1) return res.json({ success: false, message: 'แต้มของคุณไม่พอ (1 แต้ม = 1 ปุ๋ย)' });
-    
-    const newPoints = user.points - 1;
-    const newFerti = user.fertilizer + 1;
-
-    await supabase.from('users').update({ points: newPoints, fertilizer: newFerti }).eq('id', userId);
-    
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    io.emit('user_data_updated', updatedUser);
-    res.json({ success: true, user: updatedUser });
 });
 
 app.post('/api/topup', upload.single('slip'), async (req, res) => {
-    const { userId, amount, channel } = req.body;
-    const slip_image = '/uploads/' + req.file.filename;
-    
-    const { data: user } = await supabase.from('users').select('username').eq('id', userId).maybeSingle();
-    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
+    try {
+        const { userId, amount, channel } = req.body;
+        if (!req.file) return res.json({ success: false, message: 'ไม่พบไฟล์สลิป' });
+        const slip_image = '/uploads/' + req.file.filename;
+        
+        const { data: user } = await supabase.from('users').select('username').eq('id', userId).maybeSingle();
+        if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
-    await supabase.from('topup_slips').insert([{ user_id: userId, username: user.username, amount: Number(amount), channel, slip_image, status: 'pending' }]);
-    
-    io.emit('admin_refresh');
-    res.json({ success: true, message: 'ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบ' });
+        await supabase.from('topup_slips').insert([{ user_id: userId, username: user.username, amount: Number(amount), channel, slip_image, status: 'pending' }]);
+        
+        io.emit('admin_refresh');
+        res.json({ success: true, message: 'ส่งสลิปสำเร็จ! กรุณารอแอดมินตรวจสอบ' });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาดในการอัปโหลดสลิป' });
+    }
 });
 
 app.post('/api/claim', async (req, res) => {
-    const { userId } = req.body;
-    await supabase.from('users').update({ claim_status: 'pending' }).eq('id', userId);
-    
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    io.emit('user_data_updated', updatedUser);
-    io.emit('admin_refresh');
-    res.json({ success: true, user: updatedUser });
+    try {
+        const { userId } = req.body;
+        await supabase.from('users').update({ claim_status: 'pending' }).eq('id', userId);
+        
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        io.emit('user_data_updated', updatedUser);
+        io.emit('admin_refresh');
+        res.json({ success: true, user: updatedUser });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
+    }
 });
 
 app.get('/api/admin/data', async (req, res) => {
-    const { data: slips } = await supabase.from('topup_slips').select('*').eq('status', 'pending');
-    const { data: users } = await supabase.from('users').select('*');
-    res.json({ slips: slips || [], users: users || [] });
+    try {
+        const { data: slips } = await supabase.from('topup_slips').select('*').eq('status', 'pending');
+        const { data: users } = await supabase.from('users').select('*');
+        res.json({ slips: slips || [], users: users || [] });
+    } catch (err) {
+        res.json({ slips: [], users: [] });
+    }
 });
 
 app.post('/api/admin/slip', async (req, res) => {
-    const { slipId, action } = req.body;
-    const { data: slip } = await supabase.from('topup_slips').select('*').eq('id', slipId).maybeSingle();
-    if (!slip) return res.json({ success: false, message: 'ไม่พบสลิปนี้' });
+    try {
+        const { slipId, action } = req.body;
+        const { data: slip } = await supabase.from('topup_slips').select('*').eq('id', slipId).maybeSingle();
+        if (!slip) return res.json({ success: false, message: 'ไม่พบสลิปนี้' });
 
-    if (action === 'approve') {
-        await supabase.from('topup_slips').update({ status: 'approved' }).eq('id', slipId);
-        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
-        if (user) {
-            const newPoints = user.points + Number(slip.amount);
-            let updateData = { points: newPoints };
-            if (Number(slip.amount) >= 50) {
-                updateData.ban_until = null;
-                updateData.ban_count = 0;
-                updateData.ban_reason = null;
+        if (action === 'approve') {
+            await supabase.from('topup_slips').update({ status: 'approved' }).eq('id', slipId);
+            const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
+            if (user) {
+                const newPoints = user.points + Number(slip.amount);
+                let updateData = { points: newPoints };
+                if (Number(slip.amount) >= 50) {
+                    updateData.ban_until = null;
+                    updateData.ban_count = 0;
+                    updateData.ban_reason = null;
+                }
+                await supabase.from('users').update(updateData).eq('id', slip.user_id);
+                const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
+                io.emit('user_data_updated', updatedUser);
+                io.emit('admin_refresh');
+                return res.json({ success: true, message: 'อนุมัติสลิปและเพิ่มแต้มเรียบร้อย' });
             }
-            await supabase.from('users').update(updateData).eq('id', slip.user_id);
-            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
-            io.emit('user_data_updated', updatedUser);
-            io.emit('admin_refresh');
-            return res.json({ success: true, message: 'อนุมัติสลิปและเพิ่มแต้มเรียบร้อย' });
-        }
-    } else if (action === 'warn') {
-        await supabase.from('topup_slips').delete().eq('id', slipId);
-        return res.json({ success: true, message: 'ลบสลิปและเตือนผู้ใช้แล้ว' });
-    } else if (action === 'ban') {
-        await supabase.from('topup_slips').update({ status: 'rejected' }).eq('id', slipId);
-        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
-        if (user) {
-            const newBanCount = (user.ban_count || 0) + 1;
-            let updateData = { ban_count: newBanCount, ban_reason: `ท่านโดนแบนโดยการส่งสลิปปลอมติดต่อกันหลายครั้ง (ครั้งที่ ${newBanCount})` };
-            if (newBanCount >= 3) {
-                updateData.ban_until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        } else if (action === 'warn') {
+            await supabase.from('topup_slips').delete().eq('id', slipId);
+            return res.json({ success: true, message: 'ลบสลิปและเตือนผู้ใช้แล้ว' });
+        } else if (action === 'ban') {
+            await supabase.from('topup_slips').update({ status: 'rejected' }).eq('id', slipId);
+            const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
+            if (user) {
+                const newBanCount = (user.ban_count || 0) + 1;
+                let updateData = { ban_count: newBanCount, ban_reason: `ท่านโดนแบนโดยการส่งสลิปปลอมติดต่อกันหลายครั้ง (ครั้งที่ ${newBanCount})` };
+                if (newBanCount >= 3) {
+                    updateData.ban_until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                }
+                await supabase.from('users').update(updateData).eq('id', slip.user_id);
+                const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
+                io.emit('user_data_updated', updatedUser);
+                io.emit('admin_refresh');
+                return res.json({ success: true, message: `ดำเนินการแบนสะสมครั้งที่ ${newBanCount} สำเร็จ` });
             }
-            await supabase.from('users').update(updateData).eq('id', slip.user_id);
-            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
-            io.emit('user_data_updated', updatedUser);
-            io.emit('admin_refresh');
-            return res.json({ success: true, message: `ดำเนินการแบนสะสมครั้งที่ ${newBanCount} สำเร็จ` });
         }
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
     }
 });
 
 app.post('/api/admin/claim', async (req, res) => {
-    const { userId } = req.body;
-    await supabase.from('users').update({ claim_status: 'approved' }).eq('id', userId);
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    if (updatedUser) {
-        io.emit('user_data_updated', updatedUser);
-        io.emit('admin_refresh');
-        io.emit('broadcast_update', `🎉 สิ้นสุดรอบต้นไม้โลก! ผู้เล่น ${updatedUser.username} พิชิตการปลูกต้นไม้และได้รับรางวัลใหญ่เรียบร้อยแล้ว!`);
-        res.json({ success: true, message: 'อนุมัติคำขอส่งของรางวัลสำเร็จ' });
+    try {
+        const { userId } = req.body;
+        await supabase.from('users').update({ claim_status: 'approved' }).eq('id', userId);
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (updatedUser) {
+            io.emit('user_data_updated', updatedUser);
+            io.emit('admin_refresh');
+            io.emit('broadcast_update', `🎉 สิ้นสุดรอบต้นไม้โลก! ผู้เล่น ${updatedUser.username} พิชิตการปลูกต้นไม้และได้รับรางวัลใหญ่เรียบร้อยแล้ว!`);
+            res.json({ success: true, message: 'อนุมัติคำขอส่งของรางวัลสำเร็จ' });
+        }
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
     }
 });
 
 app.post('/api/admin/adjust-points', async (req, res) => {
-    const { userId, amount } = req.body;
-    const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้นี้' });
-    
-    const newPoints = Math.max(0, user.points + Number(amount));
-    await supabase.from('users').update({ points: newPoints }).eq('id', userId);
-    
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-    io.emit('user_data_updated', updatedUser);
-    io.emit('admin_refresh');
-    res.json({ success: true });
+    try {
+        const { userId, amount } = req.body;
+        const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้นี้' });
+        
+        const newPoints = Math.max(0, user.points + Number(amount));
+        await supabase.from('users').update({ points: newPoints }).eq('id', userId);
+        
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        io.emit('user_data_updated', updatedUser);
+        io.emit('admin_refresh');
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
+    }
 });
 
 app.post('/api/admin/user-action', async (req, res) => {
-    const { userId, action } = req.body;
-    if (action === 'ban') {
-        const banTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        const reason = 'ท่านโดนแบนโดยผู้ดูแลระบบ';
-        await supabase.from('users').update({ ban_until: banTime, ban_reason: reason }).eq('id', userId);
-        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-        io.emit('user_data_updated', updatedUser);
-        io.emit('admin_refresh');
-        res.json({ success: true, message: 'แบนผู้ใช้สำเร็จ' });
-    } else if (action === 'unban') {
-        await supabase.from('users').update({ ban_until: null, ban_count: 0, ban_reason: null }).eq('id', userId);
-        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-        io.emit('user_data_updated', updatedUser);
-        io.emit('admin_refresh');
-        res.json({ success: true, message: 'ปลดแบนผู้ใช้สำเร็จ' });
+    try {
+        const { userId, action } = req.body;
+        if (action === 'ban') {
+            const banTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            const reason = 'ท่านโดนแบนโดยผู้ดูแลระบบ';
+            await supabase.from('users').update({ ban_until: banTime, ban_reason: reason }).eq('id', userId);
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+            io.emit('user_data_updated', updatedUser);
+            io.emit('admin_refresh');
+            res.json({ success: true, message: 'แบนผู้ใช้สำเร็จ' });
+        } else if (action === 'unban') {
+            await supabase.from('users').update({ ban_until: null, ban_count: 0, ban_reason: null }).eq('id', userId);
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+            io.emit('user_data_updated', updatedUser);
+            io.emit('admin_refresh');
+            res.json({ success: true, message: 'ปลดแบนผู้ใช้สำเร็จ' });
+        }
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาด' });
     }
 });
 
 app.post('/api/admin/reward', upload.single('reward_img'), async (req, res) => {
-    const { name, rarity, stock } = req.body;
-    const image_url = '/uploads/' + req.file.filename;
-    await supabase.from('rewards').insert([{ name, rarity, image_url, stock: Number(stock) }]);
-    res.json({ success: true, message: 'เพิ่มของรางวัลสำเร็จ' });
+    try {
+        const { name, rarity, stock } = req.body;
+        if (!req.file) return res.json({ success: false, message: 'ไม่พบรูปภาพรางวัล' });
+        const image_url = '/uploads/' + req.file.filename;
+        await supabase.from('rewards').insert([{ name, rarity, image_url, stock: Number(stock) }]);
+        res.json({ success: true, message: 'เพิ่มของรางวัลสำเร็จ' });
+    } catch (err) {
+        res.json({ success: false, message: 'เกิดข้อผิดพลาดในการเพิ่มรางวัล' });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
