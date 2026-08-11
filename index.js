@@ -73,7 +73,6 @@ async function checkUserExpiration(username) {
             if (now - createdTime > thirtyDaysMs) {
                 await Promise.all([
                     supabase.from('users').delete().eq('username', username),
-                    supabase.from('history').delete().eq('username', username),
                     supabase.from('pending_topup').delete().eq('username', username),
                     supabase.from('pending_withdraw').delete().eq('username', username)
                 ]);
@@ -84,18 +83,7 @@ async function checkUserExpiration(username) {
     return false; 
 }
 
-function parsePityCounters(val) {
-    if (!val) return {};
-    if (typeof val === 'object') return val;
-    try {
-        return JSON.parse(val);
-    } catch (e) {
-        return {};
-    }
-}
-
-// ------------------- EXACT THEME CSS (TREE & GARDEN) -------------------
-const exactSciFiCSS = `
+const treeThemeCSS = `
     * { box-sizing: border-box; }
     body { 
         background: radial-gradient(circle at 50% 30%, #113a2b 0%, #071f16 50%, #030c08 100%);
@@ -121,7 +109,6 @@ const exactSciFiCSS = `
     }
     .winner-ticker-banner {
         background: linear-gradient(90deg, #2ed573, #ffa502, #2ed573);
-        background-size: 300% 300%;
         color: #000;
         font-weight: 800;
         font-size: 13px;
@@ -129,76 +116,13 @@ const exactSciFiCSS = `
         position: relative;
         z-index: 10;
         box-shadow: 0 2px 15px rgba(0,0,0,0.5);
-        overflow: hidden;
-        white-space: nowrap;
-    }
-    .winner-ticker-text {
-        display: inline-block;
-        padding-left: 100%;
-        animation: tickerScroll 20s linear infinite;
-    }
-    @keyframes tickerScroll {
-        0% { transform: translate(0, 0); }
-        100% { transform: translate(-100%, 0); }
-    }
-    .top-lang-bar {
-        position: absolute;
-        top: 45px; right: 20px;
-        display: flex; gap: 10px; align-items: center;
-        z-index: 10;
-        font-size: 13px;
-    }
-    .lang-badge, .audio-btn {
-        background: rgba(0,0,0,0.6);
-        border: 1px solid rgba(255,255,255,0.2);
-        padding: 4px 12px;
-        border-radius: 20px;
-        display: flex; align-items: center; gap: 6px;
-        backdrop-filter: blur(5px);
-        color: #fff;
-        cursor: pointer;
-    }
-    .main-title-container {
-        position: relative;
-        padding-top: 25px;
-        z-index: 4;
-    }
-    .game-logo-badge {
-        background: linear-gradient(90deg, #2ed573, #ffd700);
-        color: #000;
-        font-size: 11px;
-        font-weight: 800;
-        padding: 3px 15px;
-        border-radius: 12px;
-        display: inline-block;
-        margin-bottom: 5px;
-        box-shadow: 0 0 15px rgba(46,213,115,0.6);
-        letter-spacing: 1px;
-    }
-    h1.main-title {
-        font-size: 38px;
-        font-weight: 900;
-        line-height: 1.1;
-        margin: 0;
-        background: linear-gradient(180deg, #ffffff 30%, #2ed573 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0 0 30px rgba(46, 255, 115, 0.4);
-        letter-spacing: 2px;
-    }
-    .sub-title-box {
-        font-size: 13px;
-        color: #2ed573;
-        margin-top: 8px;
-        font-weight: 600;
-        text-shadow: 0 0 10px rgba(46,213,115,0.4);
     }
     .scifi-box {
         background: rgba(10, 26, 19, 0.94);
         backdrop-filter: blur(25px);
         border: 2px solid #2ed573;
         border-radius: 24px;
-        box-shadow: 0 0 50px rgba(46, 213, 115, 0.3), inset 0 0 25px rgba(46, 213, 115, 0.1);
+        box-shadow: 0 0 50px rgba(46, 213, 115, 0.3);
         position: relative;
         z-index: 4;
         margin: 20px auto;
@@ -212,30 +136,8 @@ const exactSciFiCSS = `
         margin: 20px 0 15px 0;
         z-index: 4;
         position: relative;
-        letter-spacing: 0.5px;
     }
 `;
-
-// ------------------- TICKER API -------------------
-app.get("/api/ticker", async (req, res) => {
-  try {
-      const { data: recentWins } = await supabase
-          .from('history')
-          .select('username, reward')
-          .not('reward', 'ilike', '%เกลือ%')
-          .order('id', { ascending: false })
-          .limit(8);
-
-      let tickerHtml = "🌱 ยินดีต้อนรับสู่ TREE GARDEN สวนต้นไม้ดิจิทัล ใส่ปุ๋ยเร่งโตรับรางวัลใหญ่ได้แล้ววันนี้! 🌱";
-      if (recentWins && recentWins.length > 0) {
-          let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> ต้นไม้โตจนได้รับรางวัล <span style="color:#ffd700;">${w.reward}</span>`);
-          tickerHtml = parts.join(" &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ");
-      }
-      res.json({ success: true, tickerHtml });
-  } catch (e) {
-      res.json({ success: false });
-  }
-});
 
 // ------------------- FRONTEND ROUTES -------------------
 
@@ -247,20 +149,19 @@ app.get("/", async (req, res) => {
     <head>
         <meta charset="UTF-8">
         <title>🌳 TREE GARDEN - หน้าแรก</title>
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
         <style>
-            ${exactSciFiCSS}
+            ${treeThemeCSS}
             .btn-scifi { display: block; width: 100%; padding: 14px; margin: 15px 0; border-radius: 12px; font-size: 16px; font-weight: 800; text-decoration: none; font-family: 'Kanit'; cursor: pointer; }
-            .btn-login { background: linear-gradient(135deg, #2ed573, #17b978); color: #000; box-shadow: 0 4px 20px rgba(46, 213, 115, 0.5); border: 1px solid #7efff5; }
-            .btn-reg { background: linear-gradient(135deg, #1e90ff, #3742fa); color: #fff; box-shadow: 0 4px 20px rgba(30, 144, 255, 0.5); border: 1px solid #70a1ff; }
+            .btn-login { background: linear-gradient(135deg, #2ed573, #17b978); color: #000; }
+            .btn-reg { background: linear-gradient(135deg, #1e90ff, #3742fa); color: #fff; }
         </style>
     </head>
     <body>
-        <div class="winner-ticker-banner"><div class="winner-ticker-text">🌱 ยินดีต้อนรับสู่ TREE GARDEN สวนต้นไม้ดิจิทัล ใส่ปุ๋ยเร่งโตรับรางวัลใหญ่ได้แล้ววันนี้! 🌱</div></div>
-        <div class="main-title-container">
-            <div class="game-logo-badge">TREE GARDEN</div>
-            <h1 class="main-title">TREE<br>GARDEN<br><span style="font-size: 20px; letter-spacing: 6px; color: #2ed573;">--- V 1.0 ---</span></h1>
-            <div class="sub-title-box">✨ ระบบปลูกต้นไม้ ซื้อปุ๋ยเร่งโต และรับรางวัลอัตโนมัติตามระยะเวลา ✨</div>
+        <div class="winner-ticker-banner">🌱 ยินดีต้อนรับสู่สวนต้นไม้ดิจิทัล ใส่ปุ๋ยเร่งโตเพื่อรับรางวัล! 🌱</div>
+        <div style="margin-top: 30px;">
+            <h1 style="color: #2ed573;">TREE GARDEN SYSTEM</h1>
+            <p style="color: #a4b0be; font-size: 13px;">ปลูกต้นไม้ประจำตัว ซื้อปุ๋ยมาใส่เร่งโตตามเปอร์เซ็นต์เพื่อรับรางวัลพิเศษ!</p>
         </div>
         <div class="scifi-box">
             <a href="/login" class="btn-scifi btn-login">🔑 เข้าสู่สวนต้นไม้</a>
@@ -277,19 +178,18 @@ app.get("/register", (req, res) => {
     <!DOCTYPE html>
     <html lang="th">
     <head><meta charset="UTF-8"><title>สมัครสมาชิก</title><link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>${exactSciFiCSS}
-    .container { background: rgba(10, 26, 19, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #2ed573; margin-top:20px; }</style>
+    <style>${treeThemeCSS}
+    .container { background: rgba(10, 26, 19, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #2ed573; margin-top:20px; position:relative; z-index:4; }</style>
     </head>
     <body>
-        <div class="container" style="display:inline-block; position:relative; z-index:4;">
+        <div class="container">
             <h2 style="color:#2ed573; text-align:center;">📝 สมัครสมาชิก</h2>
-            <p style="font-size:11px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วัน</p>
             <form action="/register" method="POST">
-                <label>Username:</label>
+                <label style="font-size:13px;">Username:</label>
                 <input type="text" name="username" required style="width:100%; padding:10px; margin:5px 0 10px 0; background:#071f16; color:#fff; border:1px solid #2ed573; border-radius:6px; box-sizing:border-box; font-family:'Kanit';">
-                <label>Password:</label>
+                <label style="font-size:13px;">Password:</label>
                 <input type="password" name="password" required style="width:100%; padding:10px; margin:5px 0 10px 0; background:#071f16; color:#fff; border:1px solid #2ed573; border-radius:6px; box-sizing:border-box; font-family:'Kanit';">
-                <label>ลิงก์ Facebook ส่วนตัว:</label>
+                <label style="font-size:13px;">ลิงก์ Facebook ส่วนตัว:</label>
                 <input type="url" name="facebook_url" placeholder="https://www.facebook.com/..." required style="width:100%; padding:10px; margin:5px 0 15px 0; background:#071f16; color:#fff; border:1px solid #2ed573; border-radius:6px; box-sizing:border-box; font-family:'Kanit';">
                 <button type="submit" style="width:100%; background:#2ed573; color:#000; padding:12px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">ยืนยันการสมัคร</button>
             </form>
@@ -308,10 +208,8 @@ app.post("/register", async (req, res) => {
         password, 
         facebook_url: facebook_url || '',
         points: 0, 
-        tickets: 0, // เก็บไว้ใช้เป็นแต้มปุ๋ยหรือสิทธิ์เร่งโต
         total_spent: 0,
         tree_exp: 0,
-        tree_level: 1,
         planted_at: new Date()
     }]);
 
@@ -329,16 +227,16 @@ app.get("/login", (req, res) => {
     <!DOCTYPE html>
     <html lang="th">
     <head><meta charset="UTF-8"><title>เข้าสู่ระบบ</title><link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>${exactSciFiCSS}
-    .container { background: rgba(10, 26, 19, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #2ed573; margin-top:30px; }</style>
+    <style>${treeThemeCSS}
+    .container { background: rgba(10, 26, 19, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #2ed573; margin-top:30px; position:relative; z-index:4; }</style>
     </head>
     <body>
-        <div class="container" style="display:inline-block; position:relative; z-index:4;">
+        <div class="container">
             <h2 style="color:#ffd700; text-align:center;">🔑 เข้าสู่ระบบ</h2>
             <form action="/login" method="POST">
-                <label>Username:</label>
+                <label style="font-size:13px;">Username:</label>
                 <input type="text" name="username" required style="width:100%; padding:10px; margin:5px 0 10px 0; background:#071f16; color:#fff; border:1px solid #2ed573; border-radius:6px; box-sizing:border-box; font-family:'Kanit';">
-                <label>Password:</label>
+                <label style="font-size:13px;">Password:</label>
                 <input type="password" name="password" required style="width:100%; padding:10px; margin:5px 0 15px 0; background:#071f16; color:#fff; border:1px solid #2ed573; border-radius:6px; box-sizing:border-box; font-family:'Kanit';">
                 <button type="submit" style="width:100%; background:#ffd700; color:#000; padding:12px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">เข้าสู่ระบบ</button>
             </form>
@@ -358,42 +256,12 @@ app.post("/login", async (req, res) => {
   try {
     const { data: row } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
     if (row) {
-      res.redirect(`/lootbox?username=${row.username}`);
+      res.redirect(`/garden?username=${row.username}`);
     } else {
       res.send(`<script>alert("รหัสผ่านหรือชื่อผู้ใช้ไม่ถูกต้อง!"); window.location.href="/login";</script>`);
     }
   } catch (err) {
     res.send(`<script>alert("รหัสผ่านหรือชื่อผู้ใช้ไม่ถูกต้อง!"); window.location.href="/login";</script>`);
-  }
-});
-
-// API สถานะผู้ใช้สำหรับหน้าเว็บต้นไม้
-app.get("/api/user-status", async (req, res) => {
-  const username = req.query.username;
-  if (!username) return res.json({ success: false });
-
-  try {
-    const [userRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes] = await Promise.all([
-      supabase.from('users').select('*').eq('username', username).single(),
-      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('game_accounts').select('*').order('id', { ascending: true })
-    ]);
-
-    const user = userRes.data;
-    res.json({
-      success: true,
-      points: user ? user.points : 0,
-      tickets: user ? (user.tickets || 0) : 0,
-      tree_exp: user ? (user.tree_exp || 0) : 0,
-      tree_level: user ? (user.tree_level || 1) : 1,
-      pendingRows: pendingRes.data || [],
-      hasPendingWithdraw: pendingWithdrawRes.data && pendingWithdrawRes.data.length > 0,
-      gameAccounts: gameAccRes.data || []
-    });
-  } catch (e) {
-    res.json({ success: false });
   }
 });
 
@@ -425,17 +293,16 @@ app.get("/store", async (req, res) => {
           <div style="background:#071f16; border:1px solid #2ed573; border-radius:12px; padding:15px; text-align:left; display:flex; flex-direction:column; justify-content:space-between; margin-bottom:10px;">
               <div>
                   <div style="color:#ffd700; font-weight:bold; font-size:15px; margin-bottom:4px;">🧪 ${cap.title}</div>
-                  <div style="font-size:12px; color:#a4b0be; margin-bottom:10px;">เพิ่มแต้ม/สิทธิ์ใส่ปุ๋ยให้ต้นไม้ของคุณเติบโตไวขึ้น</div>
+                  <div style="font-size:12px; color:#a4b0be; margin-bottom:10px;">ซื้อปุ๋ยเพื่อใส่เร่งการเจริญเติบโตของต้นไม้</div>
               </div>
               <div>
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13px;">
                       <span style="color:#2ed573; font-weight:bold;">💵 ราคา: ${cap.price} แต้ม</span>
-                      <span style="color:#00ff87; font-weight:bold;">🎁 แถมสิทธิ์ปุ๋ย ${cap.tickets_bonus} ครั้ง</span>
                   </div>
                   <form action="/buy-caption" method="POST">
                       <input type="hidden" name="username" value="${username}">
                       <input type="hidden" name="caption_id" value="${cap.id}">
-                      <button type="submit" style="width:100%; background:linear-gradient(135deg, #2ed573, #17b978); color:#000; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">🛒 ซื้อปุ๋ยเร่งโต</button>
+                      <button type="submit" style="width:100%; background:linear-gradient(135deg, #2ed573, #17b978); color:#000; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Kanit';">🛒 ซื้อปุ๋ยนี้</button>
                   </form>
               </div>
           </div>
@@ -456,17 +323,17 @@ app.get("/store", async (req, res) => {
       <head>
           <meta charset="UTF-8"><title>ร้านค้าปุ๋ยเร่งโต</title>
           <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
-          <style>${exactSciFiCSS}</style>
+          <style>${treeThemeCSS}</style>
       </head>
       <body>
-          <div class="winner-ticker-banner"><div class="winner-ticker-text">🌱 ร้านค้าจำหน่ายปุ๋ยสูตรพิเศษสำหรับเร่งโตต้นไม้ของคุณ 🌱</div></div>
+          <div class="winner-ticker-banner">🌱 ร้านค้าจำหน่ายปุ๋ยสูตรพิเศษสำหรับเร่งโตต้นไม้ของคุณ 🌱</div>
           <div class="scifi-box" style="max-width: 500px;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:#071f16; padding:10px; border-radius:8px;">
                   <span>ผู้ใช้งาน: <b>${username}</b></span>
-                  <a href="/lootbox?username=${username}" style="background:#2ed573; color:#000; padding:5px 10px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:11px;">🌳 กลับหน้าสวนต้นไม้</a>
+                  <a href="/garden?username=${username}" style="background:#2ed573; color:#000; padding:5px 10px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:11px;">🌳 กลับหน้าสวนต้นไม้</a>
               </div>
               <div style="background:#071f16; border:1px solid #ffd700; padding:10px; border-radius:8px; margin-bottom:15px; color:#ffd700; font-weight:bold;">
-                  💰 แต้ม: ${user.points || 0} ฿ | 🎟️ สิทธิ์ปุ๋ย: ${user.tickets || 0} ครั้ง
+                  💰 แต้มคงเหลือ: ${user.points || 0} ฿
               </div>
               <div>${captionsCardsHtml}</div>
               
@@ -510,21 +377,25 @@ app.post("/buy-caption", async (req, res) => {
           return res.send(`<script>alert("แต้มไม่พอหรือข้อมูลไม่ถูกต้อง"); window.location.href="/store?username=${username}";</script>`);
       }
 
+      // ซื้อปุ๋ยสำเร็จ เพิ่ม EXP เติบโตให้ต้นไม้ทันที (+10 วัน ต่อการซื้อ 1 ครั้ง)
+      const addedExp = 10;
+      const newExp = (user.tree_exp || 0) + addedExp;
+
       await supabase.from('users').update({
           points: user.points - caption.price,
-          tickets: (user.tickets || 0) + (caption.tickets_bonus || 0),
-          total_spent: (user.total_spent || 0) + caption.price
+          total_spent: (user.total_spent || 0) + caption.price,
+          tree_exp: newExp
       }).eq('username', username);
 
-      res.send(`<script>alert("ซื้อปุ๋ยสำเร็จ! ได้รับสิทธิ์เพิ่ม +${caption.tickets_bonus} ครั้ง"); window.location.href="/lootbox?username=${username}";</script>`);
+      res.send(`<script>alert("ใส่ปุ๋ยเร่งโตสำเร็จ! ต้นไม้เติบโตขึ้น"); window.location.href="/garden?username=${username}";</script>`);
   } catch (e) {
       res.send(`<script>alert("เกิดข้อผิดพลาด"); window.location.href="/store?username=${username}";</script>`);
   }
 });
 
-// ------------------- MAIN GARDEN & TREE PLANTING PAGE (REPLACING LOOTBOX) -------------------
+// ------------------- GARDEN & TREE PLANTING PAGE -------------------
 
-app.get("/lootbox", async (req, res) => {
+app.get("/garden", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
 
@@ -534,59 +405,52 @@ app.get("/lootbox", async (req, res) => {
   }
 
   try {
-    const [userRes, gameAccRes, pendingRes, pendingWithdrawRes, historyRes, recentWinsRes] = await Promise.all([
+    const [userRes, gameAccRes, pendingWithdrawRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('game_accounts').select('*').order('id', { ascending: true }),
-      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
-      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-      supabase.from('history').select('username, reward').not('reward', 'ilike', '%เกลือ%').order('id', { ascending: false }).limit(5)
+      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending')
     ]);
 
     const row = userRes.data;
     if (!row) return res.redirect("/login");
 
-    const currentTickets = row.tickets || 0;
-    const createdAt = row.created_at;
     const gameAccounts = gameAccRes.data || [];
-    const recentWins = recentWinsRes.data || [];
 
-    // คำนวณความเติบโตของต้นไม้ตามเวลา (365 วันเต็ม) + ปุ๋ยที่สะสม (tree_exp)
-    const plantedTime = new Date(row.planted_at || createdAt).getTime();
+    // คำนวณความเติบโต (365 วันเต็ม หรือคิดจาก tree_exp สะสม)
+    const plantedTime = new Date(row.planted_at || row.created_at).getTime();
     const nowTime = new Date().getTime();
     const daysPassed = Math.floor((nowTime - plantedTime) / (1000 * 60 * 60 * 24));
     let totalExp = (row.tree_exp || 0) + daysPassed;
     let maxExp = 365;
     let progressPercent = Math.min(100, Math.floor((totalExp / maxExp) * 100));
 
-    let tickerHtml = "🌱 ยินดีต้อนรับสู่ TREE GARDEN สวนต้นไม้ดิจิทัล ใส่ปุ๋ยเร่งโตรับรางวัลใหญ่ได้แล้ววันนี้! 🌱";
-    if (recentWins.length > 0) {
-        let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> ได้รับรางวัลต้นไม้โต <span style="color:#ffd700;">${w.reward}</span>`);
-        tickerHtml = parts.join(" &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ");
-    }
-
-    let showcaseCardsHtml = "";
-    gameAccounts.forEach(acc => {
-        showcaseCardsHtml += `
-          <div style="background:#071f16; border:1px solid #2ed573; border-radius:8px; padding:6px; text-align:center;">
-              <div style="font-size:12px; color:#ffd700; font-weight:bold;">🌳 ${acc.title}</div>
-              <div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity || 'รางวัล'}</div>
+    let milestonesHtml = "";
+    gameAccounts.forEach((acc) => {
+        let isOutOfStock = acc.status === 'out_of_stock';
+        milestonesHtml += `
+          <div style="background:#071f16; border:1px solid ${isOutOfStock ? '#ff4757' : '#2ed573'}; border-radius:8px; padding:8px; text-align:left; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                  <div style="font-size:12px; color:#ffd700; font-weight:bold;">🌳 รางวัล: ${acc.title}</div>
+                  <div style="font-size:10px; color:#aaa;">ระดับ: ${acc.rarity || 'รางวัล'}</div>
+              </div>
+              <div>
+                  ${isOutOfStock ? '<span style="color:#ff4757; font-weight:bold; font-size:11px;">❌ หมดแล้ว</span>' : '<span style="color:#2ed573; font-weight:bold; font-size:11px;">🟢 มีอยู่</span>'}
+              </div>
           </div>
         `;
     });
 
     let claimButtonHtml = "";
     const hasPendingWithdraw = pendingWithdrawRes.data && pendingWithdrawRes.data.length > 0;
-    let hasClaimable = (historyRes.data || []).some(h => h.reward && !h.reward.includes("เกลือ"));
 
     if (hasPendingWithdraw) {
       claimButtonHtml = `<div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 10px; border-radius: 8px; margin-top: 10px; font-size:12px; color:#ffa502;">⏳ รอแอดมินตรวจสอบการจัดส่งรางวัล</div>`;
-    } else if (hasClaimable) {
+    } else if (progressPercent >= 100) {
       claimButtonHtml = `
         <form action="/request-withdraw" method="POST" style="margin-top:10px;">
             <input type="hidden" name="username" value="${username}">
             <button type="submit" style="width:100%; background:#2ed573; color:#000; padding:10px; border:none; border-radius:6px; font-weight:bold; font-size:13px; cursor:pointer; font-family:'Kanit';">
-                🎁 กดขอรับรางวัลต้นไม้โตทั้งหมด!
+                🎁 ต้นไม้โตเต็มที่แล้ว! กดขอรับรางวัล
             </button>
         </form>
       `;
@@ -600,22 +464,19 @@ app.get("/lootbox", async (req, res) => {
           <title>🌳 TREE GARDEN - สวนต้นไม้ของฉัน</title>
           <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
           <style>
-              ${exactSciFiCSS}
+              ${treeThemeCSS}
               .user-bar { background: #071f16; border: 1px solid #2ed573; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
               .btn-nav { background: #2ed573; color: #000; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
               .tree-display { background: rgba(0,0,0,0.4); border: 2px dashed #2ed573; border-radius: 16px; padding: 15px; margin: 15px 0; }
               .progress-bar { background: #030c08; border-radius: 10px; overflow: hidden; height: 18px; border: 1px solid #2ed573; margin: 8px 0; }
               .progress-fill { background: linear-gradient(90deg, #2ed573, #ffd700); height: 100%; width: ${progressPercent}%; transition: width 0.4s; }
-              .box-btn { background: linear-gradient(135deg, #2ed573, #17b978); color: #000; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; font-family:'Kanit'; margin-top:10px; }
           </style>
       </head>
       <body>
-          <div class="winner-ticker-banner"><div class="winner-ticker-text" id="ticker-content">${tickerHtml}</div></div>
+          <div class="winner-ticker-banner">🌳 สวนต้นไม้ดิจิทัลส่วนตัวของคุณ (${username}) 🌳</div>
 
-          <div class="main-title-container">
-              <div class="game-logo-badge">TREE GARDEN SYSTEM</div>
-              <h1 class="main-title" style="font-size: 30px;">สวนต้นไม้ดิจิทัล</h1>
-              <div class="sub-title-box">✦ ใส่ปุ๋ยเร่งโตเพื่อรับรางวัลใหญ่เมื่อต้นไม้โตเต็มที่ 365 วัน ✦</div>
+          <div style="position:relative; z-index:4; padding-top:15px;">
+              <h1 style="font-size:24px; color:#2ed573; margin:0;">สวนต้นไม้ดิจิทัล</h1>
           </div>
 
           <div class="scifi-box">
@@ -626,73 +487,32 @@ app.get("/lootbox", async (req, res) => {
                   </div>
                   <div style="display:flex; gap:5px;">
                       <a href="/store?username=${username}" class="btn-nav">🛒 ร้านค้าปุ๋ย</a>
-                      <a href="/my-history?username=${username}" class="btn-nav" style="background:#70a1ff; color:#000;">📜 ประวัติ</a>
                   </div>
               </div>
 
-              <div style="font-size:12px; color:#ffd700; margin-bottom:10px;" id="countdown-box">⏳ ID นี้ใช้งานได้อีก 30 วัน</div>
+              <div style="font-size:12px; color:#ffd700; margin-bottom:10px;">⏳ ID นี้ใช้งานได้อีก 30 วัน</div>
               
               <div class="tree-display">
-                  <div style="font-size: 50px;" id="tree-icon">${progressPercent > 80 ? '🌳' : progressPercent > 40 ? '🌿' : '🌱'}</div>
-                  <div style="font-size: 15px; color: #2ed573; font-weight: bold;">ต้นไม้เลเวล ${row.tree_level || 1}</div>
+                  <div style="font-size: 50px;">${progressPercent > 80 ? '🌳' : progressPercent > 40 ? '🌿' : '🌱'}</div>
+                  <div style="font-size: 15px; color: #2ed573; font-weight: bold;">สถานะต้นไม้</div>
                   <div style="font-size: 11px; color: #a4b0be;">เติบโตแล้ว ${totalExp} / ${maxExp} วัน</div>
                   <div class="progress-bar"><div class="progress-fill"></div></div>
-                  <div style="font-size: 11px; color: #ffd700;">ความคืบหน้า: ${progressPercent}%</div>
+                  <div style="font-size: 11px; color: #ffd700;">เปอร์เซ็นต์ความโต: ${progressPercent}%</div>
               </div>
 
               <div style="background:#071f16; border:1px solid #2ed573; border-radius:10px; padding:10px; margin-bottom:10px; font-weight:bold; color:#ffd700;">
-                  🎟️ สิทธิ์ใส่ปุ๋ยเร่งโต: <span id="tickets" style="color:#2ed573;">${currentTickets}</span> ครั้ง
+                  💰 แต้มคงเหลือ: <span style="color:#2ed573;">${row.points || 0}</span> ฿
               </div>
-
-              <button class="box-btn" onclick="useFertilizer()" ${currentTickets <= 0 ? 'disabled style="background:#555; cursor:not-allowed;"' : ''} id="fertilize-btn">
-                  🧪 ใช้สิทธิ์ใส่ปุ๋ยเร่งโต (+10 วัน)
-              </button>
 
               <div id="claim-btn-container">${claimButtonHtml}</div>
 
               <div style="margin-top:15px; text-align:left;">
-                  <div style="font-size: 11px; color: #a4b0be; margin-bottom: 5px; font-weight: bold;">🏆 รางวัลที่จะได้รับเมื่อต้นไม้โต:</div>
-                  <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px;">${showcaseCardsHtml}</div>
+                  <div style="font-size: 11px; color: #a4b0be; margin-bottom: 5px; font-weight: bold;">🏆 แถบรางวัลตามระดับการเติบโต:</div>
+                  <div>${milestonesHtml || '<div style="color:#aaa; font-size:11px;">ยังไม่มีรางวัลตั้งค่าไว้ในระบบ</div>'}</div>
               </div>
 
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
-
-          <script>
-              let userTickets = ${currentTickets};
-              let treeExp = ${totalExp};
-
-              function useFertilizer() {
-                  if (userTickets <= 0) {
-                      alert("สิทธิ์ใส่ปุ๋ยหมด! กรุณาไปซื้อปุ๋ยเพิ่มที่ร้านค้า");
-                      window.location.href = "/store?username=${username}";
-                      return;
-                  }
-
-                  fetch('/open-lootbox', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ username: '${username}', count: 1 })
-                  })
-                  .then(res => res.json())
-                  .then(data => {
-                      if (!data.success) {
-                          alert(data.message || "เกิดข้อผิดพลาด");
-                          return;
-                      }
-                      userTickets = data.newTickets;
-                      document.getElementById("tickets").innerText = userTickets;
-                      if(userTickets <= 0) {
-                          const btn = document.getElementById("fertilize-btn");
-                          btn.disabled = true;
-                          btn.style.background = "#555";
-                          btn.style.cursor = "not-allowed";
-                      }
-                      alert("ใส่ปุ๋ยเร่งโตต้นไม้สำเร็จ! ต้นไม้เติบโตพุ่งขึ้น");
-                      location.reload();
-                  }).catch(e => alert("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว"));
-              }
-          </script>
       </body>
       </html>
     `);
@@ -701,112 +521,30 @@ app.get("/lootbox", async (req, res) => {
   }
 });
 
-// ฟังก์ชันจำลองการเร่งโตเมื่อกดใช้ปุ๋ย (ใช้ Endpoint เดิม /open-lootbox เพื่อคงระบบสุ่มแจกรางวัลตามระบบการันตีเดิมของคุณ)
-app.post("/open-lootbox", async (req, res) => {
-  const { username, count } = req.body;
-  const selectedCount = parseInt(count) || 1;
-
-  try {
-    const [userRes, allTargetAccountsRes] = await Promise.all([
-      supabase.from('users').select('*').eq('username', username).single(),
-      supabase.from('game_accounts').select('*')
-    ]);
-
-    const user = userRes.data;
-    if (!user) return res.json({ success: false, message: "ไม่พบผู้ใช้งาน" });
-
-    const targetAccList = allTargetAccountsRes.data || [];
-    let availableAccounts = targetAccList.filter(a => a.status === 'available' || !a.status);
-
-    const currentTickets = user.tickets || 0;
-    if (currentTickets < selectedCount) {
-        return res.json({ success: false, message: "สิทธิ์ปุ๋ยของคุณไม่พอ!" });
-    }
-
-    let reward = "เติบโตเร่งด่วน";
-    let wonAcc = null;
-    if (availableAccounts.length > 0) {
-        wonAcc = availableAccounts[Math.floor(Math.random() * availableAccounts.length)];
-        reward = `[${wonAcc.rarity || 'Normal'}] ${wonAcc.title}`;
-    }
-
-    const newTickets = currentTickets - selectedCount;
-    const newExp = (user.tree_exp || 0) + (selectedCount * 10); // ใส่ปุ๋ยครั้งละ +10 วัน
-
-    await Promise.all([
-        supabase.from('users').update({ 
-            tickets: newTickets, 
-            tree_exp: newExp 
-        }).eq('username', username),
-        supabase.from('history').insert([{
-            username: username,
-            facebook_url: user.facebook_url || '',
-            reward: reward,
-            is_withdrawn: false
-        }])
-    ]);
-
-    return res.json({ success: true, newTickets: newTickets });
-  } catch (err) {
-    return res.json({ success: false, message: "เกิดข้อผิดพลาดในการใส่ปุ๋ย" });
-  }
-});
-
-// ------------------- HISTORY & WITHDRAW -------------------
-app.get("/my-history", async (req, res) => {
-  const username = req.query.username;
-  if (!username) return res.redirect("/login");
-
-  const { data: rows } = await supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false).order('id', { ascending: false });
-
-  let historyList = "";
-  (rows || []).forEach((r, index) => {
-    historyList += `<tr><td style="padding:8px;">${index + 1}</td><td style="padding:8px; color:#ffd700;"><b>${r.reward}</b></td><td style="padding:8px;">${r.created_at || '-'}</td></tr>`;
-  });
-
-  res.send(`
-    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ประวัติรางวัลต้นไม้</title>
-    <style>${exactSciFiCSS} .container { background: rgba(10, 26, 19, 0.95); padding: 30px; display: inline-block; border-radius: 10px; width: 500px; border: 1px solid #2ed573; margin-top:30px; position:relative; z-index:4; }</style>
-    </head>
-    <body>
-        <div class="container">
-            <h2 style="color:#ffd700;">📜 ประวัติรางวัลของ: ${username}</h2>
-            <table border="1" style="width:100%; border-collapse:collapse; background:#071f16; border-color:#444; margin-bottom:20px; font-size:13px;">
-                <tr style="background:#113a2b; color:#ffd700;"><th>ลำดับ</th><th>รางวัลต้นไม้</th><th>เวลา</th></tr>
-                ${historyList || '<tr><td colspan="3" style="padding:15px; color:#aaa;">ยังไม่มีประวัติ</td></tr>'}
-            </table>
-            <a href="/lootbox?username=${username}" style="background:#2ed573; color:#000; padding:10px 20px; border-radius:5px; text-decoration:none; font-weight:bold;">⬅️ กลับหน้าสวนต้นไม้</a>
-        </div>
-    </body></html>
-  `);
-});
-
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
-  const [userHistoryRes, userDataRes] = await Promise.all([
-    supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
-    supabase.from('users').select('facebook_url').eq('username', username).single()
-  ]);
+  const userDataRes = await supabase.from('users').select('facebook_url').eq('username', username).single();
+  const gameAccRes = await supabase.from('game_accounts').select('*').eq('status', 'available').limit(1);
 
-  const userHistory = userHistoryRes.data;
-  if (!userHistory || userHistory.length === 0) {
-    return res.send(`<script>alert("ไม่มีรางวัลที่จะขอรับ!"); window.location.href="/lootbox?username=${username}";</script>`);
+  if (!gameAccRes.data || gameAccRes.data.length === 0) {
+      return res.send(`<script>alert("ขออภัย รางวัลในระบบหมดเกลี้ยงแล้ว!"); window.location.href="/garden?username=${username}";</script>`);
   }
 
-  let fullDetailedList = userHistory.map(h => h.reward);
+  const rewardItem = gameAccRes.data[0];
+
   await Promise.all([
     supabase.from('pending_withdraw').insert([{
       username: username,
       facebook_url: userDataRes.data ? userDataRes.data.facebook_url : "",
-      total_opens: userHistory.length,
-      total_robux: userHistory.length,
+      total_opens: 1,
+      total_robux: 1,
       status: 'pending',
-      history_snapshot: JSON.stringify(fullDetailedList)
+      history_snapshot: JSON.stringify([rewardItem.title])
     }]),
-    supabase.from('history').update({ is_withdrawn: true }).in('id', userHistory.map(h => h.id))
+    supabase.from('game_accounts').update({ status: 'out_of_stock' }).eq('id', rewardItem.id)
   ]);
 
-  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! แอดมินจะตรวจสอบและติดต่อกลับทางเฟซบุ๊ก"); window.location.href="/lootbox?username=${username}";</script>`);
+  res.send(`<script>alert("ส่งคำขอรับรางวัลสำเร็จ! แอดมินจะตรวจสอบและจัดส่งรางวัลให้"); window.location.href="/garden?username=${username}";</script>`);
 });
 
 app.post("/create-topup", (req, res) => {
@@ -818,7 +556,7 @@ app.post("/create-topup", (req, res) => {
 
   res.send(`
     <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>เติมเงิน</title>
-    <style>${exactSciFiCSS} .box { background: rgba(10, 26, 19, 0.95); padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #2ed573; margin-top:30px; position:relative; z-index:4; }</style>
+    <style>${treeThemeCSS} .box { background: rgba(10, 26, 19, 0.95); padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #2ed573; margin-top:30px; position:relative; z-index:4; }</style>
     </head>
     <body>
         <div class="box">
@@ -849,7 +587,7 @@ app.post("/upload-slip", upload.single('slip_img'), async (req, res) => {
   }
 });
 
-// ------------------- ADMIN DASHBOARD (ORIGINAL PRESERVED) -------------------
+// ------------------- ADMIN DASHBOARD -------------------
 
 app.get("/admin", async (req, res) => {
   if (req.session.isAdmin) return renderAdminDashboard(req, res);
@@ -900,20 +638,17 @@ app.post("/admin/delete-topup", async (req, res) => {
 
 app.post("/admin/approve-withdraw", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { withdraw_id, username } = req.body;
-  await Promise.all([
-    supabase.from('pending_withdraw').update({ status: 'completed' }).eq('id', withdraw_id),
-    supabase.from('history').delete().eq('username', username).eq('is_withdrawn', true)
-  ]);
+  const { withdraw_id } = req.body;
+  await supabase.from('pending_withdraw').update({ status: 'completed' }).eq('id', withdraw_id);
   res.send(`<script>alert("อนุมัติส่งมอบรางวัลเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/add-game-account-json", upload.single('image_file'), async (req, res) => {
   if (!req.session.isAdmin) return res.status(403).json({ success: false });
-  const { title, rarity, rate, pity_target } = req.body;
+  const { title, rarity } = req.body;
   let imageUrl = await uploadToSupabaseStorage(req.file);
   const { data, error } = await supabase.from('game_accounts').insert([{
-      title, rarity: rarity || 'Normal', rate: parseFloat(rate) || 1.0, pity_target: parseInt(pity_target) || 0, image_url: imageUrl, status: 'available'
+      title, rarity: rarity || 'Normal', image_url: imageUrl, status: 'available'
   }]).select();
   if (error) return res.json({ success: false, message: error.message });
   res.json({ success: true, newAccount: data[0] });
@@ -931,38 +666,10 @@ app.post("/admin/clear-all-game-accounts", async (req, res) => {
   res.send(`<script>alert("ลบรางวัลทั้งหมดเกลี้ยงแล้ว!"); window.location.href="/admin";</script>`);
 });
 
-app.post("/admin/update-all-game-accounts", upload.any(), async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const { ids, rates, pity_targets, old_image_urls, statuses, show_pity, pity_mode } = req.body;
-  if (ids) {
-      const idArray = Array.isArray(ids) ? ids : [ids];
-      const rateArray = Array.isArray(rates) ? rates : [rates];
-      const pityArray = Array.isArray(pity_targets) ? pity_targets : [pity_targets];
-      const imageArray = Array.isArray(old_image_urls) ? old_image_urls : [old_image_urls];
-      const statusArray = Array.isArray(statuses) ? statuses : [statuses];
-
-      await Promise.all(idArray.map(async (accId, i) => {
-          let finalImageUrl = imageArray[i] || '';
-          const uploadedFile = req.files ? req.files.find(f => f.fieldname === `image_file_${accId}`) : null;
-          if (uploadedFile) {
-              const newUrl = await uploadToSupabaseStorage(uploadedFile);
-              if (newUrl) finalImageUrl = newUrl;
-          }
-          return supabase.from('game_accounts').update({
-              rate: parseFloat(rateArray[i]) || 0,
-              pity_target: parseInt(pityArray[i]) || 0,
-              image_url: finalImageUrl,
-              status: statusArray[i] || 'available'
-          }).eq('id', accId);
-      }));
-  }
-  res.send(`<script>alert("บันทึกการตั้งค่าสำเร็จ!"); window.location.href="/admin";</script>`);
-});
-
 app.post("/admin/add-caption", async (req, res) => {
   if (!req.session.isAdmin) return res.redirect("/admin");
-  const { title, content, price, tickets_bonus } = req.body;
-  await supabase.from('captions').insert([{ title, content: content || 'ปุ๋ยเร่งโต', price: parseFloat(price) || 0, tickets_bonus: parseInt(tickets_bonus) || 0 }]);
+  const { title, price } = req.body;
+  await supabase.from('captions').insert([{ title, content: 'ปุ๋ยเร่งโต', price: parseFloat(price) || 0, tickets_bonus: 0 }]);
   res.send(`<script>alert("เพิ่มแพ็กเกจปุ๋ยสำเร็จ!"); window.location.href="/admin";</script>`);
 });
 
@@ -982,18 +689,6 @@ app.post("/admin/adjust-user-points", async (req, res) => {
       await supabase.from('users').update({ points: newPoints }).eq('username', username);
   }
   res.send(`<script>alert("ปรับแต้มเรียบร้อย!"); window.location.href="/admin";</script>`);
-});
-
-app.post("/admin/adjust-user-tickets", async (req, res) => {
-  if (!req.session.isAdmin) return res.redirect("/admin");
-  const { username, action_type, ticket_amount } = req.body;
-  const val = parseInt(ticket_amount) || 0;
-  const { data: user } = await supabase.from('users').select('tickets').eq('username', username).single();
-  if (user) {
-      let newTickets = action_type === 'add' ? (user.tickets || 0) + val : Math.max(0, (user.tickets || 0) - val);
-      await supabase.from('users').update({ tickets: newTickets }).eq('username', username);
-  }
-  res.send(`<script>alert("ปรับสิทธิ์ปุ๋ยเรียบร้อย!"); window.location.href="/admin";</script>`);
 });
 
 app.post("/admin/delete-user", async (req, res) => {
@@ -1018,22 +713,22 @@ async function renderAdminDashboard(req, res) {
 
   let withdrawHtml = "";
   (pendingWithdrawRes.data || []).forEach((w, idx) => {
-    withdrawHtml += `<tr><td>${idx+1}</td><td><b>${w.username}</b></td><td><a href="${w.facebook_url}" target="_blank">Facebook</a></td><td><form action="/admin/approve-withdraw" method="POST"><input type="hidden" name="withdraw_id" value="${w.id}"><input type="hidden" name="username" value="${w.username}"><button type="submit" style="background:#2ed573;">อนุมัติส่งมอบ</button></form></td></tr>`;
+    withdrawHtml += `<tr><td>${idx+1}</td><td><b>${w.username}</b></td><td><a href="${w.facebook_url}" target="_blank">Facebook</a></td><td><form action="/admin/approve-withdraw" method="POST"><input type="hidden" name="withdraw_id" value="${w.id}"><button type="submit" style="background:#2ed573;">อนุมัติส่งมอบ</button></form></td></tr>`;
   });
 
   let gameAccHtml = "";
   (gameAccRes.data || []).forEach((acc, i) => {
-    gameAccHtml += `<tr><td>${i+1}</td><td><b>${acc.title}</b></td><td>${acc.rarity}</td><td><input type="hidden" name="ids" value="${acc.id}"><input type="number" step="0.0001" name="rates" value="${acc.rate}" style="width:50px;"></td><td><input type="number" name="pity_targets" value="${acc.pity_target}" style="width:40px;"></td><td><input type="file" name="image_file_${acc.id}" accept="image/*"></td><td><form action="/admin/delete-game-account" method="POST"><input type="hidden" name="acc_id" value="${acc.id}"><button type="submit" style="background:#ff4757;">ลบ</button></form></td></tr>`;
+    gameAccHtml += `<tr><td>${i+1}</td><td><b>${acc.title}</b></td><td>${acc.rarity}</td><td><form action="/admin/delete-game-account" method="POST"><input type="hidden" name="acc_id" value="${acc.id}"><button type="submit" style="background:#ff4757;">ลบ</button></form></td></tr>`;
   });
 
   let captionsHtml = "";
   (captionsRes.data || []).forEach((c, idx) => {
-    captionsHtml += `<tr><td>${idx+1}</td><td>${c.title}</td><td>${c.price} ฿</td><td>+${c.tickets_bonus} สิทธิ์</td><td><form action="/admin/delete-caption" method="POST"><input type="hidden" name="caption_id" value="${c.id}"><button type="submit" style="background:#ff4757;">ลบ</button></form></td></tr>`;
+    captionsHtml += `<tr><td>${idx+1}</td><td>${c.title}</td><td>${c.price} ฿</td><td><form action="/admin/delete-caption" method="POST"><input type="hidden" name="caption_id" value="${c.id}"><button type="submit" style="background:#ff4757;">ลบ</button></form></td></tr>`;
   });
 
   let userHtml = "";
   (usersRes.data || []).forEach((u, idx) => {
-    userHtml += `<tr><td>${idx+1}</td><td><b>${u.username}</b></td><td>${u.points} แต้ม / ${u.tickets} สิทธิ์</td><td><form action="/admin/adjust-user-points" method="POST"><input type="hidden" name="username" value="${u.username}"><select name="action_type"><option value="add">เพิ่ม</option><option value="subtract">ลด</option></select><input type="number" name="point_amount" value="10" style="width:50px;"><button type="submit">ปรับแต้ม</button></form></td></tr>`;
+    userHtml += `<tr><td>${idx+1}</td><td><b>${u.username}</b></td><td>${u.points} แต้ม</td><td><form action="/admin/adjust-user-points" method="POST"><input type="hidden" name="username" value="${u.username}"><select name="action_type"><option value="add">เพิ่ม</option><option value="subtract">ลด</option></select><input type="number" name="point_amount" value="10" style="width:50px;"><button type="submit">ปรับแต้ม</button></form></td></tr>`;
   });
 
   res.send(`
@@ -1042,24 +737,26 @@ async function renderAdminDashboard(req, res) {
       <a href="/admin/logout" style="color:#ff4757;">🔒 ออกจากระบบ</a> | <a href="/" style="color:#70a1ff;">🏠 หน้าแรก</a>
       
       <h3>📦 จัดการรางวัลต้นไม้</h3>
-      <form action="/admin/update-all-game-accounts" method="POST" enctype="multipart/form-data">
-          <table border="1" style="margin:0 auto; background:#0a2a1d; border-color:#444;">
-             <tr><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>เรต (%)</th><th>การันตี</th><th>รูปภาพ</th><th>จัดการ</th></tr>
-             ${gameAccHtml || '<tr><td colspan="7">ไม่มีรางวัล</td></tr>'}
-          </table>
-          <button type="submit" style="margin-top:10px; background:#2ed573; padding:8px 15px; font-weight:bold;">บันทึกเรตทั้งหมด</button>
+      <form action="/admin/add-game-account-json" method="POST" enctype="multipart/form-data" style="margin-bottom:10px;">
+          <input type="text" name="title" placeholder="ชื่อรางวัล" required>
+          <input type="text" name="rarity" placeholder="ระดับรางวัล" required>
+          <input type="file" name="image_file" accept="image/*">
+          <button type="submit">เพิ่มรางวัล</button>
       </form>
+      <table border="1" style="margin:0 auto; background:#0a2a1d; border-color:#444;">
+         <tr><th>ลำดับ</th><th>ชื่อรางวัล</th><th>ระดับ</th><th>จัดการ</th></tr>
+         ${gameAccHtml || '<tr><td colspan="4">ไม่มีรางวัล</td></tr>'}
+      </table>
 
       <h3>🛒 แพ็กเกจร้านค้าปุ๋ย</h3>
       <form action="/admin/add-caption" method="POST" style="margin-bottom:10px;">
           <input type="text" name="title" placeholder="ชื่อแพ็กเกจปุ๋ย" required>
-          <input type="number" name="price" placeholder="ราคา" required>
-          <input type="number" name="tickets_bonus" placeholder="แถมสิทธิ์" required>
+          <input type="number" name="price" placeholder="ราคา (แต้ม)" required>
           <button type="submit">เพิ่มแพ็กเกจปุ๋ย</button>
       </form>
       <table border="1" style="margin:0 auto; background:#0a2a1d; border-color:#444;">
-          <tr><th>ลำดับ</th><th>ชื่อ</th><th>ราคา</th><th>แถมสิทธิ์</th><th>จัดการ</th></tr>
-          ${captionsHtml || '<tr><td colspan="5">ไม่มีข้อมูล</td></tr>'}
+          <tr><th>ลำดับ</th><th>ชื่อ</th><th>ราคา</th><th>จัดการ</th></tr>
+          ${captionsHtml || '<tr><td colspan="4">ไม่มีข้อมูล</td></tr>'}
       </table>
 
       <h3>📥 สลิปรอตรวจสอบ</h3>
