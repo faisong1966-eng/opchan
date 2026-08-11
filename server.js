@@ -549,7 +549,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// APIs (Supabase Fixed Queries)
+// APIs
 app.get('/api/user/refresh', async (req, res) => {
     try {
         const { data: user, error } = await supabase.from('users').select('*').eq('id', req.query.id).maybeSingle();
@@ -568,7 +568,6 @@ app.get('/api/rewards', async (req, res) => {
 app.post('/api/register', async (req, res) => {
     const { username, password, facebook_link } = req.body;
     
-    // เช็คว่ามี username นี้อยู่แล้วหรือยัง
     const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).maybeSingle();
     if (existingUser) {
         return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
