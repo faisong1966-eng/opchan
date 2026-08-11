@@ -135,8 +135,13 @@ app.get('/', (req, res) => {
             }
 
             async function handleAuth() {
-                const username = document.getElementById('username').value;
-                const password = document.getElementById('password').value;
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                if(!username || !password) {
+                    document.getElementById('auth-error').innerText = 'กรุณากรอกข้อมูลให้ครบถ้วน';
+                    return;
+                }
+
                 if(isRegisterMode) {
                     const facebook_link = document.getElementById('facebook_link').value;
                     const res = await fetch('/api/register', {
@@ -544,10 +549,10 @@ app.get('/', (req, res) => {
     `);
 });
 
-// APIs (Supabase Conversion)
+// APIs (Supabase Fixed Queries)
 app.get('/api/user/refresh', async (req, res) => {
     try {
-        const { data: user, error } = await supabase.from('users').select('*').eq('id', req.query.id).single();
+        const { data: user, error } = await supabase.from('users').select('*').eq('id', req.query.id).maybeSingle();
         if (error || !user) return res.json({success: false});
         res.json({success: true, user});
     } catch (err) {
@@ -562,21 +567,33 @@ app.get('/api/rewards', async (req, res) => {
 
 app.post('/api/register', async (req, res) => {
     const { username, password, facebook_link } = req.body;
+    
+    // เช็คก่อนว่ามีชื่อผู้ใช้นี้อยู่แล้วหรือไม่
+    const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).maybeSingle();
+    if (existingUser) {
+        return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
+    }
+
     const { error } = await supabase.from('users').insert([{ username, password, facebook_link }]);
-    if (error) return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
+    if (error) return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการสมัครสมาชิก' });
     res.json({ success: true });
 });
 
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
-    if (error || !user) return res.json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    
+    // ใช้ maybeSingle เพื่อป้องกัน Error กรณีหาข้อมูลไม่เจอ
+    const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).maybeSingle();
+    
+    if (error || !user) {
+        return res.json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    }
     res.json({ success: true, user });
 });
 
 app.post('/api/plant', async (req, res) => {
     const { userId } = req.body;
-    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
     if (user.ban_until && new Date() < new Date(user.ban_until)) {
@@ -589,14 +606,14 @@ app.post('/api/plant', async (req, res) => {
     
     await supabase.from('users').update({ tree_progress: newProgress, fertilizer: newFerti }).eq('id', userId);
     
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     io.emit('user_data_updated', updatedUser);
     res.json({ success: true, user: updatedUser });
 });
 
 app.post('/api/buy-fertilizer', async (req, res) => {
     const { userId } = req.body;
-    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
     if (user.ban_until && new Date() < new Date(user.ban_until)) {
@@ -609,7 +626,7 @@ app.post('/api/buy-fertilizer', async (req, res) => {
 
     await supabase.from('users').update({ points: newPoints, fertilizer: newFerti }).eq('id', userId);
     
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     io.emit('user_data_updated', updatedUser);
     res.json({ success: true, user: updatedUser });
 });
@@ -618,7 +635,7 @@ app.post('/api/topup', upload.single('slip'), async (req, res) => {
     const { userId, amount, channel } = req.body;
     const slip_image = '/uploads/' + req.file.filename;
     
-    const { data: user } = await supabase.from('users').select('username').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('username').eq('id', userId).maybeSingle();
     if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้' });
 
     await supabase.from('topup_slips').insert([{ user_id: userId, username: user.username, amount: Number(amount), channel, slip_image, status: 'pending' }]);
@@ -631,7 +648,7 @@ app.post('/api/claim', async (req, res) => {
     const { userId } = req.body;
     await supabase.from('users').update({ claim_status: 'pending' }).eq('id', userId);
     
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     io.emit('user_data_updated', updatedUser);
     io.emit('admin_refresh');
     res.json({ success: true, user: updatedUser });
@@ -645,12 +662,12 @@ app.get('/api/admin/data', async (req, res) => {
 
 app.post('/api/admin/slip', async (req, res) => {
     const { slipId, action } = req.body;
-    const { data: slip } = await supabase.from('topup_slips').select('*').eq('id', slipId).single();
+    const { data: slip } = await supabase.from('topup_slips').select('*').eq('id', slipId).maybeSingle();
     if (!slip) return res.json({ success: false, message: 'ไม่พบสลิปนี้' });
 
     if (action === 'approve') {
         await supabase.from('topup_slips').update({ status: 'approved' }).eq('id', slipId);
-        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
         if (user) {
             const newPoints = user.points + Number(slip.amount);
             let updateData = { points: newPoints };
@@ -660,7 +677,7 @@ app.post('/api/admin/slip', async (req, res) => {
                 updateData.ban_reason = null;
             }
             await supabase.from('users').update(updateData).eq('id', slip.user_id);
-            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
             io.emit('user_data_updated', updatedUser);
             io.emit('admin_refresh');
             return res.json({ success: true, message: 'อนุมัติสลิปและเพิ่มแต้มเรียบร้อย' });
@@ -670,7 +687,7 @@ app.post('/api/admin/slip', async (req, res) => {
         return res.json({ success: true, message: 'ลบสลิปและเตือนผู้ใช้แล้ว' });
     } else if (action === 'ban') {
         await supabase.from('topup_slips').update({ status: 'rejected' }).eq('id', slipId);
-        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+        const { data: user } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
         if (user) {
             const newBanCount = (user.ban_count || 0) + 1;
             let updateData = { ban_count: newBanCount, ban_reason: `ท่านโดนแบนโดยการส่งสลิปปลอมติดต่อกันหลายครั้ง (ครั้งที่ ${newBanCount})` };
@@ -678,7 +695,7 @@ app.post('/api/admin/slip', async (req, res) => {
                 updateData.ban_until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
             }
             await supabase.from('users').update(updateData).eq('id', slip.user_id);
-            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).single();
+            const { data: updatedUser } = await supabase.from('users').select('*').eq('id', slip.user_id).maybeSingle();
             io.emit('user_data_updated', updatedUser);
             io.emit('admin_refresh');
             return res.json({ success: true, message: `ดำเนินการแบนสะสมครั้งที่ ${newBanCount} สำเร็จ` });
@@ -689,7 +706,7 @@ app.post('/api/admin/slip', async (req, res) => {
 app.post('/api/admin/claim', async (req, res) => {
     const { userId } = req.body;
     await supabase.from('users').update({ claim_status: 'approved' }).eq('id', userId);
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     if (updatedUser) {
         io.emit('user_data_updated', updatedUser);
         io.emit('admin_refresh');
@@ -700,13 +717,13 @@ app.post('/api/admin/claim', async (req, res) => {
 
 app.post('/api/admin/adjust-points', async (req, res) => {
     const { userId, amount } = req.body;
-    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     if (!user) return res.json({ success: false, message: 'ไม่พบผู้ใช้นี้' });
     
     const newPoints = Math.max(0, user.points + Number(amount));
     await supabase.from('users').update({ points: newPoints }).eq('id', userId);
     
-    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     io.emit('user_data_updated', updatedUser);
     io.emit('admin_refresh');
     res.json({ success: true });
@@ -718,13 +735,13 @@ app.post('/api/admin/user-action', async (req, res) => {
         const banTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         const reason = 'ท่านโดนแบนโดยผู้ดูแลระบบ';
         await supabase.from('users').update({ ban_until: banTime, ban_reason: reason }).eq('id', userId);
-        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
         io.emit('user_data_updated', updatedUser);
         io.emit('admin_refresh');
         res.json({ success: true, message: 'แบนผู้ใช้สำเร็จ' });
     } else if (action === 'unban') {
         await supabase.from('users').update({ ban_until: null, ban_count: 0, ban_reason: null }).eq('id', userId);
-        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).single();
+        const { data: updatedUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
         io.emit('user_data_updated', updatedUser);
         io.emit('admin_refresh');
         res.json({ success: true, message: 'ปลดแบนผู้ใช้สำเร็จ' });
