@@ -568,21 +568,22 @@ app.get('/api/rewards', async (req, res) => {
 app.post('/api/register', async (req, res) => {
     const { username, password, facebook_link } = req.body;
     
-    // เช็คก่อนว่ามีชื่อผู้ใช้นี้อยู่แล้วหรือไม่
+    // เช็คว่ามี username นี้อยู่แล้วหรือยัง
     const { data: existingUser } = await supabase.from('users').select('*').eq('username', username).maybeSingle();
     if (existingUser) {
         return res.json({ success: false, message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' });
     }
 
-    const { error } = await supabase.from('users').insert([{ username, password, facebook_link }]);
-    if (error) return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการสมัครสมาชิก' });
+    const { error } = await supabase.from('users').insert([{ username, password, facebook_link, points: 0, fertilizer: 0, tree_progress: 0 }]);
+    if (error) {
+        return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
+    }
     res.json({ success: true });
 });
 
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
-    // ใช้ maybeSingle เพื่อป้องกัน Error กรณีหาข้อมูลไม่เจอ
     const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).maybeSingle();
     
     if (error || !user) {
