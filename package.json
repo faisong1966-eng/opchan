@@ -1,23 +1,15 @@
 {
-  "name": "lootbox-web",
+  "name": "tree-garden-web",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Tree Planting and Reward System",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.0",
-    "axios": "^1.19.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "express-session": "^1.19.0",
+    "express": "^4.18.2",
     "multer": "^2.2.0",
-    "pg": "^8.22.0",
+    "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7"
   }
 }
