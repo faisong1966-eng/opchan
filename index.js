@@ -51,7 +51,7 @@ async function uploadToSupabaseStorage(file) {
 }
 
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'tree_planting_secret_2026',
+    secret: process.env.SESSION_SECRET || 'linerangers_tree_secret_2026',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 600000 }
@@ -75,8 +75,7 @@ async function checkUserExpiration(username) {
                     supabase.from('users').delete().eq('username', username),
                     supabase.from('history').delete().eq('username', username),
                     supabase.from('pending_topup').delete().eq('username', username),
-                    supabase.from('pending_withdraw').delete().eq('username', username),
-                    supabase.from('user_trees').delete().eq('username', username)
+                    supabase.from('pending_withdraw').delete().eq('username', username)
                 ]);
                 return true; 
             }
@@ -85,11 +84,10 @@ async function checkUserExpiration(username) {
     return false; 
 }
 
-// ------------------- SCI-FI / NATURE THEME CSS -------------------
 const exactSciFiCSS = `
     * { box-sizing: border-box; }
     body { 
-        background: radial-gradient(circle at 50% 30%, #132e1b 0%, #08140e 50%, #030805 100%);
+        background: radial-gradient(circle at 50% 30%, #173820 0%, #08160d 50%, #030805 100%);
         color: #ffffff; 
         text-align: center; 
         margin: 0;
@@ -103,10 +101,10 @@ const exactSciFiCSS = `
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
         background: 
-            radial-gradient(circle at 15% 25%, rgba(46, 213, 115, 0.2) 0%, transparent 45%),
-            radial-gradient(circle at 85% 30%, rgba(0, 210, 211, 0.2) 0%, transparent 45%),
-            radial-gradient(circle at 50% 85%, rgba(255, 165, 2, 0.15) 0%, transparent 55%),
-            linear-gradient(to bottom, rgba(3,8,5,0.8), rgba(8,20,14,0.95));
+            radial-gradient(circle at 15% 25%, rgba(46, 213, 115, 0.25) 0%, transparent 45%),
+            radial-gradient(circle at 85% 30%, rgba(0, 210, 211, 0.25) 0%, transparent 45%),
+            radial-gradient(circle at 50% 85%, rgba(255, 165, 2, 0.2) 0%, transparent 55%),
+            linear-gradient(to bottom, rgba(3,8,5,0.8), rgba(8,22,14,0.95));
         pointer-events: none;
         z-index: 0;
     }
@@ -138,89 +136,41 @@ const exactSciFiCSS = `
         0% { transform: translate(0, 0); }
         100% { transform: translate(-100%, 0); }
     }
-    .top-lang-bar {
-        position: absolute;
-        top: 45px; right: 20px;
-        display: flex; gap: 10px; align-items: center;
-        z-index: 10;
-        font-size: 13px;
+    .space-chars-left {
+        position: fixed; left: 0; bottom: 0; width: 280px; height: 100vh;
+        background: linear-gradient(90deg, rgba(23,56,32,0.8), transparent);
+        pointer-events: none; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: 20px;
     }
-    .lang-badge, .audio-btn {
-        background: rgba(0,0,0,0.6);
-        border: 1px solid rgba(255,255,255,0.2);
-        padding: 4px 12px;
-        border-radius: 20px;
-        color: #fff;
-        backdrop-filter: blur(5px);
+    .space-chars-right {
+        position: fixed; right: 0; bottom: 0; width: 280px; height: 100vh;
+        background: linear-gradient(-90deg, rgba(23,56,32,0.8), transparent);
+        pointer-events: none; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; padding: 20px;
     }
-    .main-title-container {
-        position: relative;
-        padding-top: 25px;
-        z-index: 4;
+    .char-badge-left, .char-badge-right {
+        background: rgba(46, 213, 115, 0.2); border: 2px solid #2ed573; color: #00ff87;
+        padding: 10px 15px; border-radius: 12px; font-weight: bold; font-size: 13px;
+        box-shadow: 0 0 20px rgba(46,213,115,0.5); margin-bottom: 40px; backdrop-filter: blur(5px);
     }
-    .game-logo-badge {
-        background: linear-gradient(90deg, #2ed573, #00d2d3);
-        color: #000;
-        font-size: 11px;
-        font-weight: 800;
-        padding: 3px 15px;
-        border-radius: 12px;
-        display: inline-block;
-        margin-bottom: 5px;
-        box-shadow: 0 0 15px rgba(46,213,115,0.6);
-        letter-spacing: 1px;
-    }
-    h1.main-title {
-        font-size: 38px;
-        font-weight: 900;
-        line-height: 1.1;
-        margin: 0;
-        background: linear-gradient(180deg, #ffffff 30%, #2ed573 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0 0 30px rgba(46, 255, 135, 0.5);
-        letter-spacing: 2px;
-    }
-    .sub-title-box {
-        font-size: 13px;
-        color: #00d2d3;
-        margin-top: 8px;
-        font-weight: 600;
-        text-shadow: 0 0 10px rgba(0,210,211,0.6);
-    }
+    .char-badge-right { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 20px rgba(255,215,0,0.5); }
+    @media(max-width: 1000px) { .space-chars-left, .space-chars-right { display: none; } }
+    .top-lang-bar { position: absolute; top: 45px; right: 20px; display: flex; gap: 10px; align-items: center; z-index: 10; font-size: 13px; }
+    .lang-badge, .audio-btn { background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; color: #fff; backdrop-filter: blur(5px); }
+    .main-title-container { position: relative; padding-top: 25px; z-index: 4; }
+    .game-logo-badge { background: linear-gradient(90deg, #2ed573, #00d2d3); color: #000; font-size: 11px; font-weight: 800; padding: 3px 15px; border-radius: 12px; display: inline-block; margin-bottom: 5px; box-shadow: 0 0 15px rgba(46,213,115,0.6); }
+    h1.main-title { font-size: 38px; font-weight: 900; line-height: 1.1; margin: 0; background: linear-gradient(180deg, #ffffff 30%, #2ed573 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(46, 255, 135, 0.5); letter-spacing: 2px; }
+    .sub-title-box { font-size: 13px; color: #00d2d3; margin-top: 8px; font-weight: 600; text-shadow: 0 0 10px rgba(0,210,211,0.6); }
     .scifi-box {
-        background: rgba(13, 30, 20, 0.94);
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
-        border: 2px solid #2ed573;
-        border-radius: 24px;
-        box-shadow: 0 0 50px rgba(46, 213, 115, 0.3), inset 0 0 25px rgba(46, 213, 115, 0.1);
-        position: relative;
-        z-index: 4;
-        margin: 20px auto;
-        padding: 25px;
-        width: 92%;
-        max-width: 460px;
+        background: rgba(13, 30, 20, 0.94); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+        border: 2px solid #2ed573; border-radius: 24px; box-shadow: 0 0 50px rgba(46, 213, 115, 0.4), inset 0 0 25px rgba(46, 213, 115, 0.15);
+        position: relative; z-index: 4; margin: 20px auto; padding: 25px; width: 92%; max-width: 440px;
     }
-    .footer-copy {
-        font-size: 10px;
-        color: #718093;
-        margin: 20px 0 15px 0;
-        z-index: 4;
-        position: relative;
-    }
+    .footer-copy { font-size: 10px; color: #718093; margin: 20px 0 15px 0; z-index: 4; position: relative; }
 `;
 
-// ------------------- TICKER API -------------------
 app.get("/api/ticker", async (req, res) => {
   try {
-      const { data: recentWins } = await supabase
-          .from('history')
-          .select('username, reward')
-          .order('id', { ascending: false })
-          .limit(8);
-
-      let tickerHtml = "🌱 ยินดีต้อนรับสู่กิจกรรมปลูกต้นไม้รับรางวัลใหญ่! ซื้อปุ๋ยรดน้ำต้นไม้ให้โตครบ 100% เพื่อรับรางวัลพรีเมียมก่อนใคร! 🌱";
+      const { data: recentWins } = await supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(8);
+      let tickerHtml = "🌱 ยินดีต้อนรับสู่กิจกรรมปลูกต้นไม้รดปุ๋ยรับรางวัลพรีเมียม! ซื้อปุ๋ยมาใส่ให้ต้นไม้โตครบเป้าหมายเพื่อรับรางวัลได้เลย! 🌱";
       if (recentWins && recentWins.length > 0) {
           let parts = recentWins.map(w => `🎉 คุณ <b>${w.username}</b> ได้รับ <span style="color:#ffd700;">${w.reward}</span>`);
           tickerHtml = parts.join(" &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; ");
@@ -231,15 +181,14 @@ app.get("/api/ticker", async (req, res) => {
   }
 });
 
-// ------------------- FRONTEND ROUTES: HOME / LOGIN / REGISTER -------------------
+// ------------------- FRONTEND ROUTES -------------------
 app.get("/", async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.send(`
     <!DOCTYPE html>
     <html lang="th">
     <head>
-        <meta charset="UTF-8">
-        <title>🌳 กิจกรรมปลูกต้นไม้รับรางวัล - หน้าแรก</title>
+        <meta charset="UTF-8"><title>🌳 หน้าแรก - กิจกรรมปลูกต้นไม้</title>
         <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
         <style>
             ${exactSciFiCSS}
@@ -249,19 +198,31 @@ app.get("/", async (req, res) => {
         </style>
     </head>
     <body>
-        <div class="winner-ticker-banner"><div class="winner-ticker-text">🌱 ยินดีต้อนรับสู่กิจกรรมปลูกต้นไม้รับรางวัลใหญ่! รดปุ๋ยเร่งโตรับไอดีเกมพรีเมียมฟรี! 🌱</div></div>
+        <div class="winner-ticker-banner"><div class="winner-ticker-text" id="ticker-content">🌱 ยินดีต้อนรับสู่กิจกรรมปลูกต้นไม้รดปุ๋ยรับรางวัล! 🌱</div></div>
+        <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์ & แซลลี่</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่ & ฮีโร่</div></div>
         <div class="main-title-container">
-            <div class="game-logo-badge">TREE PLANTING EVENT</div>
+            <div class="game-logo-badge">TREE PLANTING SYSTEM</div>
             <h1 class="main-title">กิจกรรมปลูกต้นไม้<br><span style="font-size: 20px; color: #2ed573;">--- GROWING TREE ---</span></h1>
-            <div class="sub-title-box">✨ ซื้อปุ๋ยมาใส่ให้ต้นไม้โตไว 100% รับรางวัลใหญ่ก่อนใคร! ✨</div>
+            <div class="sub-title-box">✨ ซื้อปุ๋ยรดน้ำต้นไม้สะสมเปอร์เซ็นต์รับรางวัลพรีเมียมทันที! ✨</div>
         </div>
         <div class="scifi-box">
-            <div style="color: #2ed573; font-weight: bold; font-size: 16px; margin-bottom: 5px;">🌳 ระบบปลูกต้นไม้สะสมรางวัล</div>
-            <div style="font-size: 12px; color: #00d2d3; margin-bottom: 20px;">✦ เข้าสู่ระบบเพื่อเริ่มปลูกและใส่ปุ๋ย ✦</div>
+            <div style="color: #2ed573; font-weight: bold; font-size: 15px; margin-bottom: 5px;">🌳 กิจกรรมปลูกต้นไม้</div>
+            <div style="font-size: 12px; color: #00d2d3; margin-bottom: 20px;">✦ เข้าสู่ระบบเพื่อเริ่มต้นปลูกต้นไม้ ✦</div>
             <a href="/login" class="btn-scifi btn-login">🔑 เข้าสู่ระบบ</a>
             <a href="/register" class="btn-scifi btn-reg">📝 สมัครสมาชิก</a>
         </div>
         <div class="footer-copy">© TREE PLANTING EVENT ALL RIGHTS RESERVED.</div>
+        <script>
+            setInterval(() => {
+                fetch('/api/ticker').then(r => r.json()).then(d => {
+                    if (d.success && d.tickerHtml) {
+                        const el = document.getElementById('ticker-content');
+                        if (el && el.innerHTML !== d.tickerHtml) el.innerHTML = d.tickerHtml;
+                    }
+                }).catch(e=>{});
+            }, 3000);
+        </script>
     </body>
     </html>
   `);
@@ -269,19 +230,20 @@ app.get("/", async (req, res) => {
 
 app.get("/register", async (req, res) => {
   res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head><meta charset="UTF-8"><title>สมัครสมาชิก</title>
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สมัครสมาชิก</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         ${exactSciFiCSS}
         .container { background: rgba(13, 30, 20, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 360px; text-align: left; border: 1px solid #2ed573; margin-top:20px; box-shadow:0 0 25px rgba(46,213,115,0.3); position:relative; z-index:4; }
         label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
-        input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b2e1e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#13251a; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
         button { width: 100%; background: linear-gradient(135deg, #2ed573, #17b978); color: #000; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: 800; cursor: pointer; font-family:'Kanit'; font-size:15px; }
         a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size: 13px; }
     </style></head>
     <body>
+        <div class="winner-ticker-banner"><div class="winner-ticker-text" id="ticker-content">🌱 สมัครสมาชิกกิจกรรมปลูกต้นไม้ 🌱</div></div>
+        <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่</div></div>
         <div class="container">
             <h2 style="color: #2ed573; text-align: center; margin-top:0;">📝 สมัครสมาชิก</h2>
             <p style="font-size:11px; color:#ffd700; text-align:center;">⚠️ บัญชีมีอายุใช้งาน 30 วันนับจากวันที่สมัคร</p>
@@ -303,9 +265,7 @@ app.get("/register", async (req, res) => {
 app.post("/register", async (req, res) => {
   const { username, password, facebook_url } = req.body;
   try {
-    const { error } = await supabase.from('users').insert([{ 
-        username, password, facebook_url: facebook_url || '', points: 0, fertilizers: 0, total_spent: 0 
-    }]);
+    const { error } = await supabase.from('users').insert([{ username, password, facebook_url: facebook_url || '', points: 0, fertilizers: 0, total_spent: 0 }]);
     if (error) return res.send(`<script>alert("ชื่อผู้ใช้นี้ซ้ำในระบบแล้ว!"); window.location.href="/register";</script>`);
     res.send(`<script>alert("สมัครสำเร็จ! บัญชีใช้งานได้ 30 วัน"); window.location.href="/login";</script>`);
   } catch (err) {
@@ -321,11 +281,14 @@ app.get("/login", async (req, res) => {
         ${exactSciFiCSS}
         .container { background: rgba(13, 30, 20, 0.94); padding: 25px; border-radius: 16px; display: inline-block; width: 350px; text-align: left; border: 1px solid #2ed573; margin-top:30px; box-shadow:0 0 25px rgba(46,213,115,0.3); position:relative; z-index:4; }
         label { display: block; margin-top: 10px; font-size: 13px; color:#dcdde1; }
-        input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#1b2e1e; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
-        button { width: 100%; background: linear-gradient(135deg, #2ed573, #17b978); color: #000; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: 800; cursor: pointer; font-family:'Kanit'; font-size:15px; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #25283c; background:#13251a; color:#fff; box-sizing: border-box; font-family:'Kanit'; }
+        button { width: 100%; background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; padding: 12px; border: none; border-radius: 6px; margin-top: 20px; font-weight: 800; cursor: pointer; font-family:'Kanit'; font-size:15px; }
         a { display: block; text-align: center; margin-top: 15px; color: #70a1ff; text-decoration: none; font-size:13px; }
     </style></head>
     <body>
+        <div class="winner-ticker-banner"><div class="winner-ticker-text" id="ticker-content">🌱 เข้าสู่ระบบกิจกรรมปลูกต้นไม้ 🌱</div></div>
+        <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่</div></div>
         <div class="container">
             <h2 style="color: #ffd700; text-align: center; margin-top:0;">🔑 เข้าสู่ระบบ</h2>
             <form action="/login" method="POST">
@@ -344,7 +307,7 @@ app.get("/login", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   if (await checkUserExpiration(username)) {
-      return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งาน 30 วันแล้ว!"); window.location.href="/login";</script>`);
+      return res.send(`<script>alert("บัญชีของคุณหมดอายุการใช้งานแล้ว!"); window.location.href="/login";</script>`);
   }
   try {
     const { data: row } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
@@ -355,6 +318,46 @@ app.post("/login", async (req, res) => {
     }
   } catch (err) {
     res.send(`<script>alert("เกิดข้อผิดพลาด"); window.location.href="/login";</script>`);
+  }
+});
+
+// ------------------- LIVE STATUS API (FOR REAL-TIME UPDATES WITHOUT REFRESH) -------------------
+app.get("/api/user-status", async (req, res) => {
+  const username = req.query.username;
+  if (!username) return res.json({ success: false });
+
+  try {
+    const [userRes, treeRes, pendingRes, pendingWithdrawRes, historyRes, gameAccRes] = await Promise.all([
+      supabase.from('users').select('points, fertilizers, total_spent').eq('username', username).single(),
+      supabase.from('user_trees').select('*').eq('username', username).single(),
+      supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
+      supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
+      supabase.from('game_accounts').select('*').order('id', { ascending: true })
+    ]);
+
+    const user = userRes.data;
+    let tree = treeRes.data;
+    if (!tree && user) {
+        const { data: newTree } = await supabase.from('user_trees').insert([{ username: username, growth_percent: 0, planted_at: new Date() }]).select().single();
+        tree = newTree;
+    }
+
+    const unwithdrawnHistory = historyRes.data || [];
+    let hasClaimable = unwithdrawnHistory.some(h => h.reward && !h.reward.includes("เกลือ"));
+
+    res.json({
+      success: true,
+      points: user ? user.points : 0,
+      fertilizers: user ? (user.fertilizers || 0) : 0,
+      growth_percent: tree ? (tree.growth_percent || 0) : 0,
+      hasPendingWithdraw: pendingWithdrawRes.data && pendingWithdrawRes.data.length > 0,
+      hasClaimable: hasClaimable,
+      pendingRows: pendingRes.data || [],
+      gameAccounts: gameAccRes.data || []
+    });
+  } catch (e) {
+    res.json({ success: false });
   }
 });
 
@@ -370,7 +373,7 @@ app.get("/store", async (req, res) => {
   try {
     const [userRes, packagesRes, pendingRes, recentWinsRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
-      supabase.from('captions').select('*').order('price', { ascending: true }), // ใช้ตารางเดิมเก็บแพ็กเกจปุ๋ย
+      supabase.from('captions').select('*').order('price', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('history').select('username, reward').order('id', { ascending: false }).limit(5)
     ]);
@@ -418,22 +421,23 @@ app.get("/store", async (req, res) => {
       <!DOCTYPE html>
       <html lang="th">
       <head>
-          <meta charset="UTF-8">
-          <title>🌱 ร้านค้าซื้อปุ๋ย - กิจกรรมปลูกต้นไม้</title>
+          <meta charset="UTF-8"><title>🌱 ร้านค้าซื้อปุ๋ย - กิจกรรมปลูกต้นไม้</title>
           <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
           <style>
               ${exactSciFiCSS}
-              .user-bar { background: #1b2e1e; border: 1px solid #2ed573; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+              .user-bar { background: #13251a; border: 1px solid #2ed573; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
               .btn-nav { background: #2ed573; color: #000; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
-              .wallet-box { background: #1b2e1e; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #ffd700; }
+              .wallet-box { background: #13251a; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #ffd700; }
               .topup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-              .topup-card { background: #1b2e1e; border: 1px solid #2a4533; border-radius: 10px; padding: 10px; text-align: left; }
-              input[type="number"] { width: 100%; padding: 6px; background: #13251a; border: 1px solid #33563e; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; font-family:'Kanit'; }
+              .topup-card { background: #13251a; border: 1px solid #2a4533; border-radius: 10px; padding: 10px; text-align: left; }
+              input[type="number"] { width: 100%; padding: 6px; background: #0b140e; border: 1px solid #33563e; color: #fff; border-radius: 4px; box-sizing: border-box; font-size: 12px; margin-bottom: 6px; font-family:'Kanit'; }
               .topup-sub-btn { width: 100%; padding: 6px; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; font-family:'Kanit'; }
           </style>
       </head>
       <body>
-          <div class="winner-ticker-banner"><div class="winner-ticker-text">${tickerHtml}</div></div>
+          <div class="winner-ticker-banner"><div class="winner-ticker-text" id="ticker-content">${tickerHtml}</div></div>
+          <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์อวกาศ</div></div>
+          <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่ฮีโร่</div></div>
           <div class="main-title-container">
               <div class="game-logo-badge">FERTILIZER STORE</div>
               <h1 class="main-title" style="font-size: 30px;">ร้านค้าซื้อปุ๋ยเร่งโต</h1>
@@ -448,7 +452,7 @@ app.get("/store", async (req, res) => {
               </div>
               <div class="wallet-box">
                   <div>💰 แต้ม: <span id="points">${user.points || 0}</span> ฿</div>
-                  <div>🧪 ปุ๋ยในตัว: <span id="fertilizers" style="color:#00ff87;">${user.fertilizers || 0}</span> ถุง (1%=1ถุง)</div>
+                  <div>🧪 ปุ๋ยในตัว: <span id="fertilizers" style="color:#00ff87;">${user.fertilizers || 0}</span> ถุง</div>
               </div>
               <div style="font-size:13px; color:#ffd700; text-align:left; margin-bottom:10px; font-weight:bold;">🛒 เลือกซื้อแพ็กเกจปุ๋ยเร่งโต:</div>
               ${packagesCardsHtml}
@@ -473,13 +477,22 @@ app.get("/store", async (req, res) => {
                       </form>
                   </div>
               </div>
-              <div style="text-align:left; margin-top:12px; background:#1b2e1e; padding:8px; border-radius:6px; font-size:11px;">
+              <div style="text-align:left; margin-top:12px; background:#13251a; padding:8px; border-radius:6px; font-size:11px;">
                   <b style="color:#ffd700;">📌 สถานะการเติมเงิน:</b>
-                  <ul style="padding-left:15px; margin:3px 0;">${pendingHtml}</ul>
+                  <ul style="padding-left:15px; margin:3px 0;" id="pending-list">${pendingHtml}</ul>
               </div>
               <a href="/" style="display:block; margin-top:20px; color:#ff4757; text-decoration:none; font-size:12px; font-weight:bold;">ออกจากระบบ</a>
           </div>
           <div class="footer-copy">© TREE PLANTING EVENT ALL RIGHTS RESERVED.</div>
+          <script>
+              setInterval(() => {
+                  fetch('/api/user-status?username=${username}').then(r => r.json()).then(data => {
+                      if (!data.success) return;
+                      document.getElementById('points').innerText = data.points;
+                      document.getElementById('fertilizers').innerText = data.fertilizers;
+                  }).catch(e=>{});
+              }, 3000);
+          </script>
       </body>
       </html>
     `);
@@ -531,7 +544,7 @@ app.get("/lootbox", async (req, res) => {
     const [userRes, treeRes, rewardsRes, pendingRes, pendingWithdrawRes, historyRes, recentWinsRes] = await Promise.all([
       supabase.from('users').select('*').eq('username', username).single(),
       supabase.from('user_trees').select('*').eq('username', username).single(),
-      supabase.from('game_accounts').select('*').order('id', { ascending: true }), // ใช้ตารางรางวัลเดิมแสดงของรางวัลตามเปอร์เซ็นต์
+      supabase.from('game_accounts').select('*').order('pity_target', { ascending: true }),
       supabase.from('pending_topup').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('pending_withdraw').select('*').eq('username', username).eq('status', 'pending'),
       supabase.from('history').select('*').eq('username', username).eq('is_withdrawn', false),
@@ -542,13 +555,8 @@ app.get("/lootbox", async (req, res) => {
     if (!user) return res.redirect("/login");
     
     let tree = treeRes.data;
-    // ถ้ายังไม่มีต้นไม้ ให้สร้างให้อัตโนมัติ (ปุ่มปลูกต้นไม้)
     if (!tree) {
-        const { data: newTree } = await supabase.from('user_trees').insert([{
-            username: username,
-            growth_percent: 0,
-            planted_at: new Date()
-        }]).select().single();
+        const { data: newTree } = await supabase.from('user_trees').insert([{ username: username, growth_percent: 0, planted_at: new Date() }]).select().single();
         tree = newTree;
     }
 
@@ -565,17 +573,16 @@ app.get("/lootbox", async (req, res) => {
       claimButtonHtml = `
         <form action="/request-withdraw" method="POST" style="margin-top:10px;">
             <input type="hidden" name="username" value="${username}">
-            <button type="submit" style="width:100%; background:#00b900; color:#fff; padding:10px; border:none; border-radius:6px; font-weight:bold; font-size:13px; cursor:pointer;">🎁 ขอรับรางวัลต้นไม้ที่ได้รับแล้ว (ส่งให้แอดมิน)</button>
+            <button type="submit" style="width:100%; background:#00b900; color:#fff; padding:10px; border:none; border-radius:6px; font-weight:bold; font-size:13px; cursor:pointer;">🎁 กดขอรับรางวัลต้นไม้ที่ได้รับแล้ว (ส่งให้แอดมิน)</button>
         </form>`;
     }
 
-    // แสดงรายการรางวัลที่ Admin กำหนดคู่กับเปอร์เซ็นต์การโต
     let rewardsSidebarHtml = "";
     rewards.forEach(rew => {
         rewardsSidebarHtml += `
           <div style="background:#13251a; border:1px solid #2ed573; border-radius:8px; padding:8px; margin-bottom:6px; text-align:left; font-size:11px;">
               <div style="color:#ffd700; font-weight:bold;">🏆 ${rew.title}</div>
-              <div style="color:#a4b0be;">เรต/เงื่อนไข: ระดับ ${rew.rarity || 'ทั่วไป'} | เติบโต: ${rew.pity_target || 100}%</div>
+              <div style="color:#a4b0be;">ระดับ: ${rew.rarity || 'ทั่วไป'} | โตถึง: ${rew.pity_target || 100}%</div>
           </div>`;
     });
 
@@ -588,22 +595,23 @@ app.get("/lootbox", async (req, res) => {
       <!DOCTYPE html>
       <html lang="th">
       <head>
-          <meta charset="UTF-8">
-          <title>🌳 หน้าปลูกต้นไม้ - กิจกรรมรดปุ๋ยรับรางวัล</title>
+          <meta charset="UTF-8"><title>🌳 หน้าปลูกต้นไม้ - กิจกรรมรดปุ๋ยรับรางวัล</title>
           <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
           <style>
               ${exactSciFiCSS}
-              .user-bar { background: #1b2e1e; border: 1px solid #2ed573; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+              .user-bar { background: #13251a; border: 1px solid #2ed573; border-radius: 10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
               .btn-nav { background: #2ed573; color: #000; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
-              .wallet-box { background: #1b2e1e; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 13.5px; margin-bottom: 10px; font-weight: bold; color: #ffd700; }
+              .wallet-box { background: #13251a; border: 1px solid #ffd700; border-radius: 10px; padding: 10px; display: flex; justify-content: space-around; font-size: 13.5px; margin-bottom: 10px; font-weight: bold; color: #ffd700; }
               .tree-display-box { background: rgba(0,0,0,0.4); border: 2px dashed #2ed573; border-radius: 15px; padding: 20px; margin: 15px 0; }
-              .progress-bar-bg { background: #112215; border-radius: 10px; height: 20px; width: 100%; border: 1px solid #2ed573; overflow: hidden; margin: 10px 0; position: relative; }
+              .progress-bar-bg { background: #0b140e; border-radius: 10px; height: 20px; width: 100%; border: 1px solid #2ed573; overflow: hidden; margin: 10px 0; position: relative; }
               .progress-bar-fill { background: linear-gradient(90deg, #2ed573, #00d2d3); height: 100%; width: ${tree.growth_percent || 0}%; transition: width 0.4s ease; }
               .btn-action { background: linear-gradient(135deg, #2ed573, #17b978); color: #000; padding: 12px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; width: 100%; font-family:'Kanit'; box-shadow: 0 4px 15px rgba(46,213,115,0.4); }
           </style>
       </head>
       <body>
-          <div class="winner-ticker-banner"><div class="winner-ticker-text">${tickerHtml}</div></div>
+          <div class="winner-ticker-banner"><div class="winner-ticker-text" id="ticker-content">${tickerHtml}</div></div>
+          <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์อวกาศ</div></div>
+          <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่ฮีโร่</div></div>
           <div class="main-title-container">
               <div class="game-logo-badge">TREE GROWING EVENT</div>
               <h1 class="main-title" style="font-size: 32px;">กิจกรรมปลูกต้นไม้</h1>
@@ -627,11 +635,11 @@ app.get("/lootbox", async (req, res) => {
 
               <div class="tree-display-box">
                   <div style="font-size: 55px;" id="tree-icon">🌳</div>
-                  <div style="font-size: 14px; color: #2ed573; font-weight: bold; margin-top: 5px;" id="tree-status-text">ต้นไม้ของคุณกำลังเจริญเติบโต</div>
+                  <div style="font-size: 14px; color: #2ed573; font-weight: bold; margin-top: 5px;">ต้นไม้ของคุณกำลังเจริญเติบโต</div>
                   <div class="progress-bar-bg">
-                      <div class="progress-bar-fill" id="progress-fill"></div>
+                      <div class="progress-bar-fill" id="progress-fill" style="width: ${tree.growth_percent || 0}%;"></div>
                   </div>
-                  <div style="font-size: 11px; color: #a4b0be;">ใส่ปุ๋ย 1 ถุง = โตขึ้น 1% (ครบ 100% รับรางวัลสูงสุดอัตโนมัติ)</div>
+                  <div style="font-size: 11px; color: #a4b0be;">ปุ๋ย 1 ถุง = โตขึ้น 1% (ครบเป้าหมายรับรางวัลอัตโนมัติ)</div>
               </div>
 
               <div style="margin-bottom: 12px;">
@@ -652,6 +660,32 @@ app.get("/lootbox", async (req, res) => {
           <div class="footer-copy">© TREE PLANTING EVENT ALL RIGHTS RESERVED.</div>
 
           <script>
+              // อัปเดตข้อมูลแบบเรียลไทม์ (Live Update) ทุกๆ 3 วินาที ไม่ต้องกดรีเฟรชหน้าจอเอง
+              setInterval(() => {
+                  fetch('/api/user-status?username=${username}').then(r => r.json()).then(data => {
+                      if (!data.success) return;
+                      document.getElementById('user-fertilizer').innerText = data.fertilizers;
+                      document.getElementById('tree-percent').innerText = data.growth_percent;
+                      document.getElementById('progress-fill').style.width = data.growth_percent + '%';
+
+                      const claimContainer = document.getElementById('claim-btn-container');
+                      if (data.hasPendingWithdraw) {
+                          claimContainer.innerHTML = '<div style="background: rgba(255, 165, 2, 0.15); border: 1px dashed #ffa502; padding: 10px; border-radius: 8px; margin-top: 10px; text-align: center; font-size:12px; color:#ffa502;">⏳ รอแอดมินตรวจสอบการรับรางวัลภายใน 24 ชม.</div>';
+                      } else if (data.hasClaimable) {
+                          claimContainer.innerHTML = '<form action="/request-withdraw" method="POST" style="margin-top:10px;"><input type="hidden" name="username" value="${username}"><button type="submit" style="width:100%; background:#00b900; color:#fff; padding:10px; border:none; border-radius:6px; font-weight:bold; font-size:13px; cursor:pointer;">🎁 กดขอรับรางวัลต้นไม้ที่ได้รับแล้ว (ส่งให้แอดมิน)</button></form>';
+                      } else {
+                          claimContainer.innerHTML = '';
+                      }
+                  }).catch(e=>{});
+
+                  fetch('/api/ticker').then(r => r.json()).then(d => {
+                      if (d.success && d.tickerHtml) {
+                          const el = document.getElementById('ticker-content');
+                          if (el && el.innerHTML !== d.tickerHtml) el.innerHTML = d.tickerHtml;
+                      }
+                  }).catch(e=>{});
+              }, 3000);
+
               function feedTree() {
                   fetch('/feed-tree', {
                       method: 'POST',
@@ -709,11 +743,9 @@ app.post("/feed-tree", async (req, res) => {
       let newGrowth = (tree.growth_percent || 0) + feedAmount;
       let wonRewardName = null;
 
-      // ตรวจสอบรางวัลเมื่อถึงเปอร์เซ็นต์ที่กำหนด
       const matchedReward = (rewardsRes.data || []).find(r => r.pity_target === newGrowth || (newGrowth >= 100 && r.pity_target >= 100));
       if (matchedReward) {
           wonRewardName = matchedReward.title;
-          // บันทึกลงประวัติ history
           await supabase.from('history').insert([{
               username: username,
               facebook_url: user.facebook_url || '',
@@ -722,9 +754,8 @@ app.post("/feed-tree", async (req, res) => {
           }]);
       }
 
-      // ถ้าโตครบ 100% ให้ Reset ต้นไม้และประวัติการใส่ปุ๋ยรอบนี้ตามโจทย์
       if (newGrowth >= 100) {
-          newGrowth = 0; // Reset ต้นไม้
+          newGrowth = 0; 
       }
 
       await Promise.all([
@@ -744,16 +775,12 @@ app.post("/feed-tree", async (req, res) => {
   }
 });
 
-// ------------------- HISTORY ROUTE (SHOWS FERTILIZER FEED HISTORY) -------------------
+// ------------------- HISTORY ROUTE -------------------
 app.get("/my-history", async (req, res) => {
   const username = req.query.username;
   if (!username) return res.redirect("/login");
 
-  const { data: rows } = await supabase
-    .from('fertilizer_history')
-    .select('*')
-    .eq('username', username)
-    .order('id', { ascending: false });
+  const { data: rows } = await supabase.from('fertilizer_history').select('*').eq('username', username).order('id', { ascending: false });
 
   let historyList = "";
   if (rows && rows.length > 0) {
@@ -765,18 +792,18 @@ app.get("/my-history", async (req, res) => {
   }
 
   res.send(`
-    <!DOCTYPE html>
-    <html lang="th">
-    <head><meta charset="UTF-8"><title>ประวัติการใส่ปุ๋ย</title>
+    <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ประวัติการใส่ปุ๋ย</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         ${exactSciFiCSS}
         .container { background: rgba(13, 30, 20, 0.95); padding: 30px; display: inline-block; border-radius: 10px; width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #2ed573; margin-top:30px; position:relative; z-index:4; }
-        table { width: 100%; border-collapse: collapse; background: #1b2e1e; border-color: #444; margin-bottom: 20px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; background: #13251a; border-color: #444; margin-bottom: 20px; font-size: 14px; }
         th { padding: 10px; background: #224029; color: #ffd700; }
         a { display: inline-block; background: #70a1ff; color: #fff; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; }
     </style></head>
     <body>
+        <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่</div></div>
         <div class="container">
             <h2 style="color:#ffd700;">📜 ประวัติการใส่ปุ๋ยของ: ${username}</h2>
             <table border="1">
@@ -789,7 +816,7 @@ app.get("/my-history", async (req, res) => {
   `);
 });
 
-// ------------------- REMAINDER SYSTEM: WITHDRAW, TOPUP, ADMIN (KEPT INTACT) -------------------
+// ------------------- WITHDRAW & TOPUP (KEPT INTACT) -------------------
 app.post("/request-withdraw", async (req, res) => {
   const { username } = req.body;
   const [userHistoryRes, userDataRes] = await Promise.all([
@@ -827,6 +854,8 @@ app.post("/create-topup", (req, res) => {
     <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>เติมเงิน</title>
     <style>${exactSciFiCSS} .box { background: rgba(13, 30, 20, 0.95); padding: 25px; display: inline-block; border-radius: 10px; width: 380px; text-align: left; border: 1px solid #2ed573; margin-top:30px; position:relative; z-index:4; }</style></head>
     <body>
+        <div class="space-chars-left"><div class="char-badge-left">🌱 บราวน์</div></div>
+        <div class="space-chars-right"><div class="char-badge-right">🌳 โคนี่</div></div>
         <div class="box">
             <h2 style="color:#2ed573; text-align:center;">📱 สแกนจ่ายพร้อมเพย์ / Wallet</h2>
             <p style="text-align:center;">โอนเข้าเบอร์: <b>${MY_PROMPTPAY_NUMBER}</b> (${MY_ACCOUNT_NAME})</p>
@@ -982,7 +1011,7 @@ async function renderAdminDashboard(req, res) {
       <h3 style="color:#ffd700;">🎁 รายการคำขอรับรางวัลจากผู้เล่น</h3>
       <table border="1" style="margin: 0 auto 30px auto; border-collapse: collapse; width: 900px; background:#1b2e1e; border-color:#444;">
         <tr style="background:#224029;"><th>Username</th><th>Facebook</th><th>รางวัล</th><th>จัดการ</th></tr>
-        ${(pendingWithdrawRows.data || pendingWithdrawRows || []).map(w => `<tr><td><b>${w.username}</b></td><td><a href="${w.facebook_url}" target="_blank" style="color:#70a1ff;">เฟซบุ๊ก</a></td><td>${w.history_snapshot}</td><td><form action="/admin/approve-withdraw" method="POST"><input type="hidden" name="withdraw_id" value="${w.id}"><input type="hidden" name="username" value="${w.username}"><button type="submit" style="background:#2ed573; color:#fff; border:none; padding:5px 10px; cursor:pointer;">อนุมัติ</button></form></td></tr>`).join('')}
+        ${(pendingWithdrawRes.data || []).map(w => `<tr><td><b>${w.username}</b></td><td><a href="${w.facebook_url}" target="_blank" style="color:#70a1ff;">เฟซบุ๊ก</a></td><td>${w.history_snapshot}</td><td><form action="/admin/approve-withdraw" method="POST"><input type="hidden" name="withdraw_id" value="${w.id}"><input type="hidden" name="username" value="${w.username}"><button type="submit" style="background:#2ed573; color:#fff; border:none; padding:5px 10px; cursor:pointer;">อนุมัติ</button></form></td></tr>`).join('')}
       </table>
 
       <script>
@@ -1004,5 +1033,5 @@ async function renderAdminDashboard(req, res) {
 }
 
 app.listen(PORT, () => {
-  console.log("Tree Planting Server running on port " + PORT);
+  console.log("Server running smoothly on port " + PORT);
 });
