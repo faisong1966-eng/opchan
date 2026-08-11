@@ -575,7 +575,7 @@ app.post('/api/register', async (req, res) => {
 
     const { error } = await supabase.from('users').insert([{ username, password, facebook_link, points: 0, fertilizer: 0, tree_progress: 0 }]);
     if (error) {
-        return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
+        return res.json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message });
     }
     res.json({ success: true });
 });
